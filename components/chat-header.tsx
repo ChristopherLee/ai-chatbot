@@ -12,10 +12,14 @@ import { VisibilitySelector, type VisibilityType } from "./visibility-selector";
 
 function PureChatHeader({
   chatId,
+  projectId,
+  projectTitle,
   selectedVisibilityType,
   isReadonly,
 }: {
   chatId: string;
+  projectId: string | null;
+  projectTitle: string | null;
   selectedVisibilityType: VisibilityType;
   isReadonly: boolean;
 }) {
@@ -23,22 +27,32 @@ function PureChatHeader({
   const { open } = useSidebar();
 
   const { width: windowWidth } = useWindowSize();
+  const newChatHref = projectId ? `/?projectId=${projectId}` : "/";
 
   return (
     <header className="sticky top-0 flex items-center gap-2 bg-background px-2 py-1.5 md:px-2">
       <SidebarToggle />
 
+      <div className="min-w-0 flex-1">
+        <div className="truncate font-medium text-sm">
+          {projectTitle ?? "New project"}
+        </div>
+        <div className="truncate text-muted-foreground text-xs">Project</div>
+      </div>
+
       {(!open || windowWidth < 768) && (
         <Button
-          className="order-2 ml-auto h-8 px-2 md:order-1 md:ml-0 md:h-fit md:px-2"
+          className="order-2 h-8 px-2 md:order-1 md:h-fit md:px-2"
           onClick={() => {
-            router.push("/");
+            router.push(newChatHref);
             router.refresh();
           }}
           variant="outline"
         >
           <PlusIcon />
-          <span className="md:sr-only">New Chat</span>
+          <span className="md:sr-only">
+            {projectId ? "New Chat in Project" : "New Project"}
+          </span>
         </Button>
       )}
 
@@ -70,6 +84,8 @@ function PureChatHeader({
 export const ChatHeader = memo(PureChatHeader, (prevProps, nextProps) => {
   return (
     prevProps.chatId === nextProps.chatId &&
+    prevProps.projectId === nextProps.projectId &&
+    prevProps.projectTitle === nextProps.projectTitle &&
     prevProps.selectedVisibilityType === nextProps.selectedVisibilityType &&
     prevProps.isReadonly === nextProps.isReadonly
   );

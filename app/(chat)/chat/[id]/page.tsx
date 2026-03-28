@@ -6,7 +6,12 @@ import { auth } from "@/app/(auth)/auth";
 import { Chat } from "@/components/chat";
 import { DataStreamHandler } from "@/components/data-stream-handler";
 import { DEFAULT_CHAT_MODEL } from "@/lib/ai/models";
-import { getChatById, getMessagesByChatId } from "@/lib/db/queries";
+import {
+  getChatById,
+  getMessagesByChatId,
+  getProjectById,
+} from "@/lib/db/queries";
+import { getFinanceSnapshot } from "@/lib/finance/snapshot";
 import { convertToUIMessages } from "@/lib/utils";
 
 export default function Page(props: { params: Promise<{ id: string }> }) {
@@ -44,6 +49,10 @@ async function ChatPage({ params }: { params: Promise<{ id: string }> }) {
   const messagesFromDb = await getMessagesByChatId({
     id,
   });
+  const project = await getProjectById({ id: chat.projectId });
+  const financeSnapshot = await getFinanceSnapshot({
+    projectId: chat.projectId,
+  });
 
   const uiMessages = convertToUIMessages(messagesFromDb);
 
@@ -57,9 +66,13 @@ async function ChatPage({ params }: { params: Promise<{ id: string }> }) {
           autoResume={true}
           id={chat.id}
           initialChatModel={DEFAULT_CHAT_MODEL}
+          initialFinanceSnapshot={financeSnapshot}
+          initialHasFinanceDataset={financeSnapshot.status !== "needs-upload"}
           initialMessages={uiMessages}
           initialVisibilityType={chat.visibility}
           isReadonly={session?.user?.id !== chat.userId}
+          projectId={chat.projectId}
+          projectTitle={project?.title ?? null}
         />
         <DataStreamHandler />
       </>
@@ -72,9 +85,13 @@ async function ChatPage({ params }: { params: Promise<{ id: string }> }) {
         autoResume={true}
         id={chat.id}
         initialChatModel={chatModelFromCookie.value}
+        initialFinanceSnapshot={financeSnapshot}
+        initialHasFinanceDataset={financeSnapshot.status !== "needs-upload"}
         initialMessages={uiMessages}
         initialVisibilityType={chat.visibility}
         isReadonly={session?.user?.id !== chat.userId}
+        projectId={chat.projectId}
+        projectTitle={project?.title ?? null}
       />
       <DataStreamHandler />
     </>

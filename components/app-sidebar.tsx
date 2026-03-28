@@ -46,15 +46,15 @@ export function AppSidebar({ user }: { user: User | undefined }) {
     });
 
     toast.promise(deletePromise, {
-      loading: "Deleting all chats...",
+      loading: "Deleting all projects...",
       success: () => {
         mutate(unstable_serialize(getChatHistoryPaginationKey));
         setShowDeleteAllDialog(false);
         router.replace("/");
         router.refresh();
-        return "All chats deleted successfully";
+        return "All projects deleted successfully";
       },
-      error: "Failed to delete all chats",
+      error: "Failed to delete all projects",
     });
   };
 
@@ -89,7 +89,7 @@ export function AppSidebar({ user }: { user: User | undefined }) {
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent align="end" className="hidden md:block">
-                      Delete All Chats
+                      Delete All Projects
                     </TooltipContent>
                   </Tooltip>
                 )}
@@ -108,8 +108,8 @@ export function AppSidebar({ user }: { user: User | undefined }) {
                       <PlusIcon />
                     </Button>
                   </TooltipTrigger>
-                  <TooltipContent align="end" className="hidden md:block">
-                    New Chat
+                    <TooltipContent align="end" className="hidden md:block">
+                    New Project
                   </TooltipContent>
                 </Tooltip>
               </div>
@@ -128,10 +128,10 @@ export function AppSidebar({ user }: { user: User | undefined }) {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete all chats?</AlertDialogTitle>
+            <AlertDialogTitle>Delete all projects?</AlertDialogTitle>
             <AlertDialogDescription>
               This action cannot be undone. This will permanently delete all
-              your chats and remove them from our servers.
+              your projects, chats, and shared data from our servers.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

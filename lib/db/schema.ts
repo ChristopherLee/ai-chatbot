@@ -1,6 +1,8 @@
 import type { InferSelectModel } from "drizzle-orm";
 import {
   boolean,
+  date,
+  doublePrecision,
   foreignKey,
   json,
   pgTable,
@@ -19,6 +21,18 @@ export const user = pgTable("User", {
 
 export type User = InferSelectModel<typeof user>;
 
+export const project = pgTable("Project", {
+  id: uuid("id").primaryKey().notNull().defaultRandom(),
+  createdAt: timestamp("createdAt").notNull(),
+  updatedAt: timestamp("updatedAt").notNull(),
+  title: text("title").notNull(),
+  userId: uuid("userId")
+    .notNull()
+    .references(() => user.id),
+});
+
+export type Project = InferSelectModel<typeof project>;
+
 export const chat = pgTable("Chat", {
   id: uuid("id").primaryKey().notNull().defaultRandom(),
   createdAt: timestamp("createdAt").notNull(),
@@ -26,12 +40,18 @@ export const chat = pgTable("Chat", {
   userId: uuid("userId")
     .notNull()
     .references(() => user.id),
+  projectId: uuid("projectId")
+    .notNull()
+    .references(() => project.id),
   visibility: varchar("visibility", { enum: ["public", "private"] })
     .notNull()
     .default("private"),
 });
 
 export type Chat = InferSelectModel<typeof chat>;
+export type ChatWithProject = Chat & {
+  projectTitle: string;
+};
 
 // DEPRECATED: The following schema is deprecated and will be removed in the future.
 // Read the migration guide at https://chat-sdk.dev/docs/migration-guides/message-parts
@@ -168,3 +188,81 @@ export const stream = pgTable(
 );
 
 export type Stream = InferSelectModel<typeof stream>;
+
+export const uploadedFile = pgTable("UploadedFile", {
+  id: uuid("id").primaryKey().notNull().defaultRandom(),
+  projectId: uuid("projectId")
+    .notNull()
+    .references(() => project.id),
+  filename: text("filename").notNull(),
+  storagePath: text("storagePath").notNull(),
+  uploadedAt: timestamp("uploadedAt").notNull(),
+});
+
+export type UploadedFile = InferSelectModel<typeof uploadedFile>;
+
+export const transaction = pgTable("Transaction", {
+  id: uuid("id").primaryKey().notNull().defaultRandom(),
+  projectId: uuid("projectId")
+    .notNull()
+    .references(() => project.id),
+  transactionDate: date("transactionDate", { mode: "string" }).notNull(),
+  account: text("account").notNull(),
+  description: text("description").notNull(),
+  normalizedMerchant: text("normalizedMerchant").notNull(),
+  rawCategory: text("rawCategory").notNull(),
+  tags: text("tags"),
+  amountSigned: doublePrecision("amountSigned").notNull(),
+  outflowAmount: doublePrecision("outflowAmount").notNull(),
+  mappedBucket: text("mappedBucket").notNull(),
+  bucketGroup: text("bucketGroup").notNull(),
+  includeFlag: boolean("includeFlag").notNull().default(true),
+  exclusionReason: text("exclusionReason"),
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").notNull(),
+});
+
+export type Transaction = InferSelectModel<typeof transaction>;
+
+export const financeOverride = pgTable("FinanceOverride", {
+  id: uuid("id").primaryKey().notNull().defaultRandom(),
+  projectId: uuid("projectId")
+    .notNull()
+    .references(() => project.id),
+  type: text("type").notNull(),
+  key: text("key").notNull(),
+  valueJson: json("valueJson").notNull(),
+  createdAt: timestamp("createdAt").notNull(),
+});
+
+export type FinanceOverride = InferSelectModel<typeof financeOverride>;
+
+export const financeCategorizationDenial = pgTable(
+  "FinanceCategorizationDenial",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    projectId: uuid("projectId")
+      .notNull()
+      .references(() => project.id),
+    kind: text("kind").notNull(),
+    key: text("key").notNull(),
+    summary: text("summary").notNull(),
+    valueJson: json("valueJson").notNull(),
+    createdAt: timestamp("createdAt").notNull(),
+  }
+);
+
+export type FinanceCategorizationDenial = InferSelectModel<
+  typeof financeCategorizationDenial
+>;
+
+export const financePlan = pgTable("FinancePlan", {
+  id: uuid("id").primaryKey().notNull().defaultRandom(),
+  projectId: uuid("projectId")
+    .notNull()
+    .references(() => project.id),
+  planJson: json("planJson").notNull(),
+  createdAt: timestamp("createdAt").notNull(),
+});
+
+export type FinancePlan = InferSelectModel<typeof financePlan>;

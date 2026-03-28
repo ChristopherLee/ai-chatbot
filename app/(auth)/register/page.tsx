@@ -33,7 +33,8 @@ export default function Page() {
     } else if (state.status === "invalid_data") {
       toast({
         type: "error",
-        description: "Failed validating your submission!",
+        description:
+          state.message ?? "Failed validating your submission!",
       });
     } else if (state.status === "success") {
       toast({ type: "success", description: "Account created successfully!" });
@@ -58,7 +59,12 @@ export default function Page() {
             Create an account with your email and password
           </p>
         </div>
-        <AuthForm action={handleSubmit} defaultEmail={email}>
+        <AuthForm
+          action={handleSubmit}
+          defaultEmail={email}
+          passwordAutoComplete="new-password"
+          passwordHint="Use at least 6 characters."
+        >
           <SubmitButton isSuccessful={isSuccessful}>Sign Up</SubmitButton>
           <p className="mt-4 text-center text-gray-600 text-sm dark:text-zinc-400">
             {"Already have an account? "}

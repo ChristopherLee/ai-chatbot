@@ -42,3 +42,7 @@ yarn-error.log*
 /playwright-report/
 /blob-report/
 /playwright/*
+
+codex-dev.*.log
+
+data/*

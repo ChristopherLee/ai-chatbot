@@ -16,6 +16,9 @@ import {
   ToolInput,
   ToolOutput,
 } from "./elements/tool";
+import { FinanceCategorizationMemoryResult } from "./finance/finance-categorization-memory-result";
+import { FinanceCategorizationReviewResult } from "./finance/finance-categorization-review-result";
+import { FinanceToolResult } from "./finance/finance-tool-result";
 import { SparklesIcon } from "./icons";
 import { MessageActions } from "./message-actions";
 import { MessageEditor } from "./message-editor";
@@ -336,6 +339,59 @@ const PurePreviewMessage = ({
                           )
                         }
                       />
+                    )}
+                  </ToolContent>
+                </Tool>
+              );
+            }
+
+            if (
+              type === "tool-findMiscategorizedTransactions" ||
+              type === "tool-getFinanceCategorizationMemory" ||
+              type === "tool-getFinanceSnapshot" ||
+              type === "tool-applyFinanceActions" ||
+              type === "tool-refreshFinancePlan"
+            ) {
+              const { toolCallId, state } = part;
+              const hasInput =
+                part.input &&
+                typeof part.input === "object" &&
+                Object.keys(part.input).length > 0;
+
+              return (
+                <Tool defaultOpen={true} key={toolCallId}>
+                  <ToolHeader state={state} type={type} />
+                  <ToolContent>
+                    {hasInput && <ToolInput input={part.input} />}
+                    {state === "output-available" && (
+                      <ToolOutput
+                        errorText={undefined}
+                        output={
+                          type === "tool-findMiscategorizedTransactions" ? (
+                            <FinanceCategorizationReviewResult
+                              result={part.output}
+                            />
+                          ) : type === "tool-getFinanceCategorizationMemory" ? (
+                            <FinanceCategorizationMemoryResult
+                              result={part.output}
+                            />
+                          ) : (
+                            <FinanceToolResult
+                              result={part.output}
+                              type={
+                                type === "tool-getFinanceSnapshot"
+                                  ? "snapshot"
+                                  : type === "tool-applyFinanceActions"
+                                    ? "apply"
+                                    : "refresh"
+                              }
+                            />
+                          )
+                        }
+                      />
+                    )}
+                    {state === "output-error" && (
+                      <ToolOutput errorText={part.errorText} output={null} />
                     )}
                   </ToolContent>
                 </Tool>

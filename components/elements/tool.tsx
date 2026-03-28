@@ -33,6 +33,18 @@ export type ToolHeaderProps = {
   className?: string;
 };
 
+const toolLabels: Partial<Record<ToolUIPart["type"], string>> = {
+  "tool-applyFinanceActions": "Apply Finance Changes",
+  "tool-createDocument": "Create Document",
+  "tool-findMiscategorizedTransactions": "Find Miscategorized Transactions",
+  "tool-getFinanceCategorizationMemory": "Get Categorization Memory",
+  "tool-getFinanceSnapshot": "Get Finance Snapshot",
+  "tool-getWeather": "Get Weather",
+  "tool-refreshFinancePlan": "Refresh Finance Plan",
+  "tool-requestSuggestions": "Request Suggestions",
+  "tool-updateDocument": "Update Document",
+};
+
 const getStatusBadge = (status: ToolUIPart["state"]) => {
   const labels: Record<ToolUIPart["state"], string> = {
     "input-streaming": "Pending",
@@ -80,7 +92,9 @@ export const ToolHeader = ({
   >
     <div className="flex min-w-0 flex-1 items-center gap-2">
       <WrenchIcon className="size-4 shrink-0 text-muted-foreground" />
-      <span className="truncate font-medium text-sm">{type}</span>
+      <span className="truncate font-medium text-sm">
+        {toolLabels[type] ?? type}
+      </span>
     </div>
     <div className="flex shrink-0 items-center gap-2">
       {getStatusBadge(state)}

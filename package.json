@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbo",
+    "dev:local": "node scripts/run-dev.mjs",
     "build": "tsx lib/db/migrate && next build",
     "start": "next start",
     "lint": "ultracite check",
@@ -15,7 +16,8 @@
     "db:pull": "drizzle-kit pull",
     "db:check": "drizzle-kit check",
     "db:up": "drizzle-kit up",
-    "test": "export PLAYWRIGHT=True && pnpm exec playwright test"
+    "test": "node scripts/run-playwright-tests.mjs",
+    "test:unit": "tsx --test tests/unit/**/*.test.ts"
   },
   "dependencies": {
     "@ai-sdk/gateway": "^3.0.15",
@@ -86,6 +88,7 @@
     "react-dom": "19.0.1",
     "react-resizable-panels": "^2.1.7",
     "react-syntax-highlighter": "^15.6.6",
+    "recharts": "^3.8.1",
     "redis": "^5.0.0",
     "resumable-stream": "^2.2.10",
     "server-only": "^0.0.1",

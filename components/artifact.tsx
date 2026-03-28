@@ -338,10 +338,13 @@ function PureArtifact({
                     attachments={attachments}
                     chatId={chatId}
                     className="bg-background dark:bg-muted"
+                    hasFinanceDataset={true}
                     input={input}
                     messages={messages}
+                    onFinanceUploaded={undefined}
                     selectedModelId={selectedModelId}
                     selectedVisibilityType={selectedVisibilityType}
+                    projectId={null}
                     sendMessage={sendMessage}
                     setAttachments={setAttachments}
                     setInput={setInput}

@@ -2,12 +2,13 @@
 
 import type { ChatStatus } from "ai";
 import { Loader2Icon, SendIcon, SquareIcon, XIcon } from "lucide-react";
-import type {
-  ComponentProps,
-  HTMLAttributes,
-  KeyboardEventHandler,
+import {
+  Children,
+  forwardRef,
+  type ComponentProps,
+  type HTMLAttributes,
+  type KeyboardEventHandler,
 } from "react";
-import { Children } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -38,63 +39,72 @@ export type PromptInputTextareaProps = ComponentProps<typeof Textarea> & {
   resizeOnNewLinesOnly?: boolean;
 };
 
-export const PromptInputTextarea = ({
-  onChange,
-  className,
-  placeholder = "What would you like to know?",
-  minHeight = 48,
-  maxHeight = 164,
-  disableAutoResize = false,
-  resizeOnNewLinesOnly = false,
-  ...props
-}: PromptInputTextareaProps) => {
-  const handleKeyDown: KeyboardEventHandler<HTMLTextAreaElement> = (e) => {
-    if (e.key === "Enter") {
-      if (e.nativeEvent.isComposing) {
-        return;
+export const PromptInputTextarea = forwardRef<
+  HTMLTextAreaElement,
+  PromptInputTextareaProps
+>(
+  (
+    {
+      onChange,
+      className,
+      placeholder = "What would you like to know?",
+      minHeight = 48,
+      maxHeight = 164,
+      disableAutoResize = false,
+      resizeOnNewLinesOnly = false,
+      ...props
+    },
+    ref
+  ) => {
+    const handleKeyDown: KeyboardEventHandler<HTMLTextAreaElement> = (e) => {
+      if (e.key === "Enter") {
+        if (e.nativeEvent.isComposing) {
+          return;
+        }
+
+        if (e.shiftKey) {
+          return;
+        }
+
+        e.preventDefault();
+
+        const form = e.currentTarget.form;
+        const submitButton = form?.querySelector(
+          'button[type="submit"]'
+        ) as HTMLButtonElement | null;
+        if (submitButton?.disabled) {
+          return;
+        }
+
+        form?.requestSubmit();
       }
+    };
 
-      if (e.shiftKey) {
-        return;
-      }
-
-      e.preventDefault();
-
-      const form = e.currentTarget.form;
-      const submitButton = form?.querySelector(
-        'button[type="submit"]'
-      ) as HTMLButtonElement | null;
-      if (submitButton?.disabled) {
-        return;
-      }
-
-      form?.requestSubmit();
-    }
-  };
-
-  return (
-    <Textarea
-      className={cn(
-        "w-full resize-none rounded-none border-none p-3 shadow-none outline-hidden ring-0",
-        disableAutoResize
-          ? "field-sizing-fixed"
-          : resizeOnNewLinesOnly
+    return (
+      <Textarea
+        className={cn(
+          "w-full resize-none rounded-none border-none p-3 shadow-none outline-hidden ring-0",
+          disableAutoResize
             ? "field-sizing-fixed"
-            : "field-sizing-content max-h-[6lh]",
-        "bg-transparent dark:bg-transparent",
-        "focus-visible:ring-0",
-        className
-      )}
-      name="message"
-      onChange={(e) => {
-        onChange?.(e);
-      }}
-      onKeyDown={handleKeyDown}
-      placeholder={placeholder}
-      {...props}
-    />
-  );
-};
+            : resizeOnNewLinesOnly
+              ? "field-sizing-fixed"
+              : "field-sizing-content max-h-[6lh]",
+          "bg-transparent dark:bg-transparent",
+          "focus-visible:ring-0",
+          className
+        )}
+        name="message"
+        onChange={onChange}
+        onKeyDown={handleKeyDown}
+        placeholder={placeholder}
+        ref={ref}
+        {...props}
+      />
+    );
+  }
+);
+
+PromptInputTextarea.displayName = "PromptInputTextarea";
 
 export type PromptInputToolbarProps = HTMLAttributes<HTMLDivElement>;
 

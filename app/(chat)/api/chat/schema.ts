@@ -29,6 +29,7 @@ const messageSchema = z.object({
 
 export const postRequestBodySchema = z.object({
   id: z.string().uuid(),
+  projectId: z.string().uuid().optional(),
   // Either a single new message or all messages (for tool approvals)
   message: userMessageSchema.optional(),
   messages: z.array(messageSchema).optional(),

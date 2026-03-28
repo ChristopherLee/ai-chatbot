@@ -1,6 +1,7 @@
 import { tool, type UIMessageStreamWriter } from "ai";
 import type { Session } from "next-auth";
 import { z } from "zod";
+import { withToolErrorLogging } from "@/lib/ai/logging";
 import {
   artifactKinds,
   documentHandlersByArtifactKind,
@@ -21,56 +22,60 @@ export const createDocument = ({ session, dataStream }: CreateDocumentProps) =>
       title: z.string(),
       kind: z.enum(artifactKinds),
     }),
-    execute: async ({ title, kind }) => {
-      const id = generateUUID();
+    execute: withToolErrorLogging({
+      toolName: "createDocument",
+      context: { userId: session.user?.id ?? null },
+      execute: async ({ title, kind }) => {
+        const id = generateUUID();
 
-      dataStream.write({
-        type: "data-kind",
-        data: kind,
-        transient: true,
-      });
+        dataStream.write({
+          type: "data-kind",
+          data: kind,
+          transient: true,
+        });
 
-      dataStream.write({
-        type: "data-id",
-        data: id,
-        transient: true,
-      });
+        dataStream.write({
+          type: "data-id",
+          data: id,
+          transient: true,
+        });
 
-      dataStream.write({
-        type: "data-title",
-        data: title,
-        transient: true,
-      });
+        dataStream.write({
+          type: "data-title",
+          data: title,
+          transient: true,
+        });
 
-      dataStream.write({
-        type: "data-clear",
-        data: null,
-        transient: true,
-      });
+        dataStream.write({
+          type: "data-clear",
+          data: null,
+          transient: true,
+        });
 
-      const documentHandler = documentHandlersByArtifactKind.find(
-        (documentHandlerByArtifactKind) =>
-          documentHandlerByArtifactKind.kind === kind
-      );
+        const documentHandler = documentHandlersByArtifactKind.find(
+          (documentHandlerByArtifactKind) =>
+            documentHandlerByArtifactKind.kind === kind
+        );
 
-      if (!documentHandler) {
-        throw new Error(`No document handler found for kind: ${kind}`);
-      }
+        if (!documentHandler) {
+          throw new Error(`No document handler found for kind: ${kind}`);
+        }
 
-      await documentHandler.onCreateDocument({
-        id,
-        title,
-        dataStream,
-        session,
-      });
+        await documentHandler.onCreateDocument({
+          id,
+          title,
+          dataStream,
+          session,
+        });
 
-      dataStream.write({ type: "data-finish", data: null, transient: true });
+        dataStream.write({ type: "data-finish", data: null, transient: true });
 
-      return {
-        id,
-        title,
-        kind,
-        content: "A document was created and is now visible to the user.",
-      };
-    },
+        return {
+          id,
+          title,
+          kind,
+          content: "A document was created and is now visible to the user.",
+        };
+      },
+    }),
   });

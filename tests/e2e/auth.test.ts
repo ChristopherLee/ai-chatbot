@@ -15,6 +15,8 @@ test.describe("Authentication Pages", () => {
     await expect(page.getByLabel("Password")).toBeVisible();
     await expect(page.getByRole("button", { name: "Sign Up" })).toBeVisible();
     await expect(page.getByText("Already have an account?")).toBeVisible();
+    await expect(page.getByText("Use at least 6 characters.")).toBeVisible();
+    await expect(page.getByLabel("Password")).toHaveAttribute("minlength", "6");
   });
 
   test("can navigate from login to register", async ({ page }) => {

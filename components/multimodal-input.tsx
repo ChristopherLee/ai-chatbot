@@ -15,7 +15,7 @@ import {
   useState,
 } from "react";
 import { toast } from "sonner";
-import { useLocalStorage, useWindowSize } from "usehooks-ts";
+import { useWindowSize } from "usehooks-ts";
 import {
   ModelSelector,
   ModelSelectorContent,
@@ -41,7 +41,8 @@ import {
   PromptInputToolbar,
   PromptInputTools,
 } from "./elements/prompt-input";
-import { ArrowUpIcon, PaperclipIcon, StopIcon } from "./icons";
+import { UploadPanel } from "./finance/upload-panel";
+import { ArrowUpIcon, StopIcon } from "./icons";
 import { PreviewAttachment } from "./preview-attachment";
 import { SuggestedActions } from "./suggested-actions";
 import { Button } from "./ui/button";
@@ -53,8 +54,54 @@ function setCookie(name: string, value: string) {
   document.cookie = `${name}=${encodeURIComponent(value)}; path=/; max-age=${maxAge}`;
 }
 
+const INPUT_DRAFT_STORAGE_KEY = "input";
+
+function readInputDraft() {
+  if (typeof window === "undefined") {
+    return "";
+  }
+
+  try {
+    const rawValue = window.localStorage.getItem(INPUT_DRAFT_STORAGE_KEY);
+
+    if (!rawValue) {
+      return "";
+    }
+
+    try {
+      const parsedValue = JSON.parse(rawValue);
+
+      return typeof parsedValue === "string" ? parsedValue : rawValue;
+    } catch {
+      return rawValue;
+    }
+  } catch {
+    return "";
+  }
+}
+
+function writeInputDraft(value: string) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    if (value) {
+      window.localStorage.setItem(
+        INPUT_DRAFT_STORAGE_KEY,
+        JSON.stringify(value)
+      );
+    } else {
+      window.localStorage.removeItem(INPUT_DRAFT_STORAGE_KEY);
+    }
+  } catch {
+    // Ignore localStorage failures and keep the input usable.
+  }
+}
+
 function PureMultimodalInput({
   chatId,
+  projectId,
   input,
   setInput,
   status,
@@ -67,9 +114,12 @@ function PureMultimodalInput({
   className,
   selectedVisibilityType,
   selectedModelId,
+  hasFinanceDataset,
+  onFinanceUploaded,
   onModelChange,
 }: {
   chatId: string;
+  projectId: string | null;
   input: string;
   setInput: Dispatch<SetStateAction<string>>;
   status: UseChatHelpers<ChatMessage>["status"];
@@ -82,6 +132,8 @@ function PureMultimodalInput({
   className?: string;
   selectedVisibilityType: VisibilityType;
   selectedModelId: string;
+  hasFinanceDataset: boolean;
+  onFinanceUploaded?: (chatId: string) => void;
   onModelChange?: (modelId: string) => void;
 }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -116,30 +168,42 @@ function PureMultimodalInput({
     }
   }, []);
 
-  const [localStorageInput, setLocalStorageInput] = useLocalStorage(
-    "input",
-    ""
-  );
+  const hasRestoredDraft = useRef(false);
 
   useEffect(() => {
-    if (textareaRef.current) {
-      const domValue = textareaRef.current.value;
-      // Prefer DOM value over localStorage to handle hydration
-      const finalValue = domValue || localStorageInput || "";
-      setInput(finalValue);
-      adjustHeight();
+    if (hasRestoredDraft.current) {
+      return;
     }
-    // Only run once after hydration
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [adjustHeight, localStorageInput, setInput]);
+
+    const domValue = textareaRef.current?.value ?? "";
+    const restoredValue = domValue || readInputDraft();
+
+    if (restoredValue !== input) {
+      setInput(restoredValue);
+    }
+
+    adjustHeight();
+    hasRestoredDraft.current = true;
+  }, [adjustHeight, input, setInput]);
 
   useEffect(() => {
-    setLocalStorageInput(input);
-  }, [input, setLocalStorageInput]);
+    if (!hasRestoredDraft.current) {
+      return;
+    }
 
-  const handleInput = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setInput(event.target.value);
-  };
+    writeInputDraft(input);
+  }, [input]);
+
+  const handleInput = useCallback(
+    (event: React.ChangeEvent<HTMLTextAreaElement>) => {
+      const nextInput = event.currentTarget.value;
+
+      if (nextInput !== input) {
+        setInput(nextInput);
+      }
+    },
+    [input, setInput]
+  );
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadQueue, setUploadQueue] = useState<string[]>([]);
@@ -164,7 +228,7 @@ function PureMultimodalInput({
     });
 
     setAttachments([]);
-    setLocalStorageInput("");
+    writeInputDraft("");
     resetHeight();
     setInput("");
 
@@ -177,7 +241,6 @@ function PureMultimodalInput({
     attachments,
     sendMessage,
     setAttachments,
-    setLocalStorageInput,
     width,
     chatId,
     resetHeight,
@@ -298,6 +361,7 @@ function PureMultimodalInput({
   return (
     <div className={cn("relative flex w-full flex-col gap-4", className)}>
       {messages.length === 0 &&
+        hasFinanceDataset &&
         attachments.length === 0 &&
         uploadQueue.length === 0 && (
           <SuggestedActions
@@ -306,6 +370,15 @@ function PureMultimodalInput({
             sendMessage={sendMessage}
           />
         )}
+
+      {!hasFinanceDataset && (
+        <UploadPanel
+          chatId={chatId}
+          compact={true}
+          onUploaded={onFinanceUploaded}
+          projectId={projectId}
+        />
+      )}
 
       <input
         className="pointer-events-none fixed -top-4 -left-4 size-0.5 opacity-0"
@@ -320,6 +393,10 @@ function PureMultimodalInput({
         className="rounded-xl border border-border bg-background p-3 shadow-xs transition-all duration-200 focus-within:border-border hover:border-muted-foreground/50"
         onSubmit={(event) => {
           event.preventDefault();
+          if (!hasFinanceDataset) {
+            toast.error("Upload a transaction CSV before chatting.");
+            return;
+          }
           if (!input.trim() && attachments.length === 0) {
             return;
           }
@@ -368,10 +445,15 @@ function PureMultimodalInput({
             className="grow resize-none border-0! border-none! bg-transparent p-2 text-base outline-none ring-0 [-ms-overflow-style:none] [scrollbar-width:none] placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 [&::-webkit-scrollbar]:hidden"
             data-testid="multimodal-input"
             disableAutoResize={true}
+            disabled={!hasFinanceDataset}
             maxHeight={200}
             minHeight={44}
             onChange={handleInput}
-            placeholder="Send a message..."
+            placeholder={
+              hasFinanceDataset
+                ? "Answer the onboarding questions or ask for a plan change..."
+                : "Upload a CSV to start the planner..."
+            }
             ref={textareaRef}
             rows={1}
             value={input}
@@ -379,11 +461,6 @@ function PureMultimodalInput({
         </div>
         <PromptInputToolbar className="border-top-0! border-t-0! p-0 shadow-none dark:border-0 dark:border-transparent!">
           <PromptInputTools className="gap-0 sm:gap-0.5">
-            <AttachmentsButton
-              fileInputRef={fileInputRef}
-              selectedModelId={selectedModelId}
-              status={status}
-            />
             <ModelSelectorCompact
               onModelChange={onModelChange}
               selectedModelId={selectedModelId}
@@ -396,7 +473,9 @@ function PureMultimodalInput({
             <PromptInputSubmit
               className="size-8 rounded-full bg-primary text-primary-foreground transition-colors duration-200 hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground"
               data-testid="send-button"
-              disabled={!input.trim() || uploadQueue.length > 0}
+              disabled={
+                !hasFinanceDataset || !input.trim() || uploadQueue.length > 0
+              }
               status={status}
             >
               <ArrowUpIcon size={14} />
@@ -426,40 +505,16 @@ export const MultimodalInput = memo(
     if (prevProps.selectedModelId !== nextProps.selectedModelId) {
       return false;
     }
+    if (prevProps.hasFinanceDataset !== nextProps.hasFinanceDataset) {
+      return false;
+    }
+    if (prevProps.projectId !== nextProps.projectId) {
+      return false;
+    }
 
     return true;
   }
 );
-
-function PureAttachmentsButton({
-  fileInputRef,
-  status,
-  selectedModelId,
-}: {
-  fileInputRef: React.MutableRefObject<HTMLInputElement | null>;
-  status: UseChatHelpers<ChatMessage>["status"];
-  selectedModelId: string;
-}) {
-  const isReasoningModel =
-    selectedModelId.includes("reasoning") || selectedModelId.includes("think");
-
-  return (
-    <Button
-      className="aspect-square h-8 rounded-lg p-1 transition-colors hover:bg-accent"
-      data-testid="attachments-button"
-      disabled={status !== "ready" || isReasoningModel}
-      onClick={(event) => {
-        event.preventDefault();
-        fileInputRef.current?.click();
-      }}
-      variant="ghost"
-    >
-      <PaperclipIcon size={14} style={{ width: 14, height: 14 }} />
-    </Button>
-  );
-}
-
-const AttachmentsButton = memo(PureAttachmentsButton);
 
 function PureModelSelectorCompact({
   selectedModelId,

@@ -69,3 +69,9 @@ pnpm dev
 ```
 
 Your app template should now be running on [localhost:3000](http://localhost:3000).
+
+For this repo, the finance prototype backend is part of the same Next.js process, so there is no separate API server to launch. If you want one command that checks `.env.local`, runs migrations, and starts the app, use:
+
+```bash
+pnpm dev:local
+```

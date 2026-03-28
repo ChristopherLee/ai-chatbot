@@ -1,6 +1,10 @@
 import { motion } from "framer-motion";
 
-export const Greeting = () => {
+export const Greeting = ({
+  hasFinanceDataset,
+}: {
+  hasFinanceDataset: boolean;
+}) => {
   return (
     <div
       className="mx-auto mt-4 flex size-full max-w-3xl flex-col justify-center px-4 md:mt-16 md:px-8"
@@ -13,7 +17,9 @@ export const Greeting = () => {
         initial={{ opacity: 0, y: 10 }}
         transition={{ delay: 0.5 }}
       >
-        Hello there!
+        {hasFinanceDataset
+          ? "Let’s build your first plan."
+          : "Upload a transaction CSV to begin."}
       </motion.div>
       <motion.div
         animate={{ opacity: 1, y: 0 }}
@@ -22,7 +28,26 @@ export const Greeting = () => {
         initial={{ opacity: 0, y: 10 }}
         transition={{ delay: 0.6 }}
       >
-        How can I help you today?
+        {hasFinanceDataset
+          ? "Tell me your goals, any life changes, and anything to exclude or treat specially."
+          : "Use the sample-compatible header: Date, Account, Description, Category, Tags, Amount."}
+      </motion.div>
+      <motion.div
+        animate={{ opacity: 1, y: 0 }}
+        className="mt-6 flex flex-wrap gap-2 text-sm text-zinc-500"
+        exit={{ opacity: 0, y: 10 }}
+        initial={{ opacity: 0, y: 10 }}
+        transition={{ delay: 0.7 }}
+      >
+        <span className="rounded-full bg-muted px-3 py-1">
+          Try: “exclude refinance fee”
+        </span>
+        <span className="rounded-full bg-muted px-3 py-1">
+          Try: “combine travel and transport”
+        </span>
+        <span className="rounded-full bg-muted px-3 py-1">
+          Try: “mortgage changes in April to 3200”
+        </span>
       </motion.div>
     </div>
   );

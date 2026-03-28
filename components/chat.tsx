@@ -4,9 +4,12 @@ import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import useSWR, { useSWRConfig } from "swr";
 import { unstable_serialize } from "swr/infinite";
+import { useWindowSize } from "usehooks-ts";
 import { ChatHeader } from "@/components/chat-header";
+import { FinanceDashboard } from "@/components/finance/finance-dashboard";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,6 +25,7 @@ import { useAutoResume } from "@/hooks/use-auto-resume";
 import { useChatVisibility } from "@/hooks/use-chat-visibility";
 import type { Vote } from "@/lib/db/schema";
 import { ChatSDKError } from "@/lib/errors";
+import type { FinanceSnapshot } from "@/lib/finance/types";
 import type { Attachment, ChatMessage } from "@/lib/types";
 import { fetcher, fetchWithErrorHandlers, generateUUID } from "@/lib/utils";
 import { Artifact } from "./artifact";
@@ -34,20 +38,29 @@ import type { VisibilityType } from "./visibility-selector";
 
 export function Chat({
   id,
+  projectId,
+  projectTitle,
   initialMessages,
   initialChatModel,
   initialVisibilityType,
   isReadonly,
   autoResume,
+  initialHasFinanceDataset,
+  initialFinanceSnapshot,
 }: {
   id: string;
+  projectId: string | null;
+  projectTitle: string | null;
   initialMessages: ChatMessage[];
   initialChatModel: string;
   initialVisibilityType: VisibilityType;
   isReadonly: boolean;
   autoResume: boolean;
+  initialHasFinanceDataset: boolean;
+  initialFinanceSnapshot: FinanceSnapshot | null;
 }) {
   const router = useRouter();
+  const { width } = useWindowSize();
 
   const { visibilityType } = useChatVisibility({
     chatId: id,
@@ -71,11 +84,24 @@ export function Chat({
   const [input, setInput] = useState<string>("");
   const [showCreditCardAlert, setShowCreditCardAlert] = useState(false);
   const [currentModelId, setCurrentModelId] = useState(initialChatModel);
+  const [currentProjectTitle, setCurrentProjectTitle] = useState(projectTitle);
+  const [hasFinanceDataset, setHasFinanceDataset] = useState(
+    initialHasFinanceDataset
+  );
   const currentModelIdRef = useRef(currentModelId);
+  const financeSnapshotKey = hasFinanceDataset
+    ? projectId
+      ? `/api/finance/project/${projectId}`
+      : null
+    : null;
 
   useEffect(() => {
     currentModelIdRef.current = currentModelId;
   }, [currentModelId]);
+
+  useEffect(() => {
+    setCurrentProjectTitle(projectTitle);
+  }, [projectTitle]);
 
   const {
     messages,
@@ -121,6 +147,7 @@ export function Chat({
         return {
           body: {
             id: request.id,
+            ...(projectId ? { projectId } : {}),
             ...(isToolApprovalContinuation
               ? { messages: request.messages }
               : { message: lastMessage }),
@@ -132,10 +159,16 @@ export function Chat({
       },
     }),
     onData: (dataPart) => {
+      if (dataPart.type === "data-chat-title" && !projectTitle) {
+        setCurrentProjectTitle(dataPart.data);
+      }
       setDataStream((ds) => (ds ? [...ds, dataPart] : []));
     },
     onFinish: () => {
       mutate(unstable_serialize(getChatHistoryPaginationKey));
+      if (financeSnapshotKey) {
+        mutate(financeSnapshotKey);
+      }
     },
     onError: (error) => {
       if (error instanceof ChatSDKError) {
@@ -185,48 +218,90 @@ export function Chat({
     setMessages,
   });
 
+  const chatShell = (
+    <div className="overscroll-behavior-contain flex h-full min-w-0 touch-pan-y flex-col bg-background">
+      <ChatHeader
+        chatId={id}
+        isReadonly={isReadonly}
+        projectId={projectId}
+        projectTitle={currentProjectTitle}
+        selectedVisibilityType={initialVisibilityType}
+      />
+
+      <Messages
+        addToolApprovalResponse={addToolApprovalResponse}
+        chatId={id}
+        hasFinanceDataset={hasFinanceDataset}
+        isArtifactVisible={isArtifactVisible}
+        isReadonly={isReadonly}
+        messages={messages}
+        regenerate={regenerate}
+        selectedModelId={initialChatModel}
+        setMessages={setMessages}
+        status={status}
+        votes={votes}
+      />
+
+      <div className="sticky bottom-0 z-1 mx-auto flex w-full max-w-4xl gap-2 border-t-0 bg-background px-2 pb-3 md:px-4 md:pb-4">
+        {!isReadonly && (
+          <MultimodalInput
+            attachments={attachments}
+            chatId={id}
+            hasFinanceDataset={hasFinanceDataset}
+            input={input}
+            messages={messages}
+            onFinanceUploaded={() => {
+              setHasFinanceDataset(true);
+              if (projectId) {
+                mutate(`/api/finance/project/${projectId}`);
+              }
+            }}
+            onModelChange={setCurrentModelId}
+            projectId={projectId}
+            selectedModelId={currentModelId}
+            selectedVisibilityType={visibilityType}
+            sendMessage={sendMessage}
+            setAttachments={setAttachments}
+            setInput={setInput}
+            setMessages={setMessages}
+            status={status}
+            stop={stop}
+          />
+        )}
+      </div>
+    </div>
+  );
+
   return (
     <>
-      <div className="overscroll-behavior-contain flex h-dvh min-w-0 touch-pan-y flex-col bg-background">
-        <ChatHeader
-          chatId={id}
-          isReadonly={isReadonly}
-          selectedVisibilityType={initialVisibilityType}
-        />
-
-        <Messages
-          addToolApprovalResponse={addToolApprovalResponse}
-          chatId={id}
-          isArtifactVisible={isArtifactVisible}
-          isReadonly={isReadonly}
-          messages={messages}
-          regenerate={regenerate}
-          selectedModelId={initialChatModel}
-          setMessages={setMessages}
-          status={status}
-          votes={votes}
-        />
-
-        <div className="sticky bottom-0 z-1 mx-auto flex w-full max-w-4xl gap-2 border-t-0 bg-background px-2 pb-3 md:px-4 md:pb-4">
-          {!isReadonly && (
-            <MultimodalInput
-              attachments={attachments}
-              chatId={id}
-              input={input}
-              messages={messages}
-              onModelChange={setCurrentModelId}
-              selectedModelId={currentModelId}
-              selectedVisibilityType={visibilityType}
-              sendMessage={sendMessage}
-              setAttachments={setAttachments}
-              setInput={setInput}
-              setMessages={setMessages}
-              status={status}
-              stop={stop}
+      {hasFinanceDataset && projectId && width && width >= 1024 ? (
+        <PanelGroup className="h-dvh" direction="horizontal">
+          <Panel defaultSize={48} minSize={34}>
+            {chatShell}
+          </Panel>
+          <PanelResizeHandle className="w-px bg-border" />
+          <Panel defaultSize={52} minSize={30}>
+            <div className="h-dvh overflow-y-auto border-l bg-muted/20">
+              <FinanceDashboard
+                projectId={projectId}
+                initialSnapshot={initialFinanceSnapshot}
+              />
+            </div>
+          </Panel>
+        </PanelGroup>
+      ) : hasFinanceDataset && projectId ? (
+        <div className="flex h-dvh flex-col">
+          <div className="min-h-0 flex-1">{chatShell}</div>
+          <div className="min-h-[20rem] border-t bg-muted/20">
+            <FinanceDashboard
+              projectId={projectId}
+              initialSnapshot={initialFinanceSnapshot}
             />
-          )}
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="h-dvh">{chatShell}</div>
+      )}
 
       <Artifact
         addToolApprovalResponse={addToolApprovalResponse}

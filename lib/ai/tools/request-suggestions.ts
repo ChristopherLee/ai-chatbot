@@ -1,6 +1,7 @@
 import { Output, streamText, tool, type UIMessageStreamWriter } from "ai";
 import type { Session } from "next-auth";
 import { z } from "zod";
+import { withToolErrorLogging } from "@/lib/ai/logging";
 import { getDocumentById, saveSuggestions } from "@/lib/db/queries";
 import type { Suggestion } from "@/lib/db/schema";
 import type { ChatMessage } from "@/lib/types";
@@ -26,90 +27,94 @@ export const requestSuggestions = ({
           "The UUID of an existing document artifact that was previously created with createDocument"
         ),
     }),
-    execute: async ({ documentId }) => {
-      const document = await getDocumentById({ id: documentId });
+    execute: withToolErrorLogging({
+      toolName: "requestSuggestions",
+      context: { userId: session.user?.id ?? null },
+      execute: async ({ documentId }) => {
+        const document = await getDocumentById({ id: documentId });
 
-      if (!document || !document.content) {
-        return {
-          error: "Document not found",
-        };
-      }
-
-      const suggestions: Omit<
-        Suggestion,
-        "userId" | "createdAt" | "documentCreatedAt"
-      >[] = [];
-
-      const { partialOutputStream } = streamText({
-        model: getArtifactModel(),
-        system:
-          "You are a help writing assistant. Given a piece of writing, please offer suggestions to improve the piece of writing and describe the change. It is very important for the edits to contain full sentences instead of just words. Max 5 suggestions.",
-        prompt: document.content,
-        output: Output.array({
-          element: z.object({
-            originalSentence: z.string().describe("The original sentence"),
-            suggestedSentence: z.string().describe("The suggested sentence"),
-            description: z
-              .string()
-              .describe("The description of the suggestion"),
-          }),
-        }),
-      });
-
-      let processedCount = 0;
-      for await (const partialOutput of partialOutputStream) {
-        if (!partialOutput) {
-          continue;
+        if (!document || !document.content) {
+          return {
+            error: "Document not found",
+          };
         }
 
-        for (let i = processedCount; i < partialOutput.length; i++) {
-          const element = partialOutput[i];
-          if (
-            !element?.originalSentence ||
-            !element?.suggestedSentence ||
-            !element?.description
-          ) {
+        const suggestions: Omit<
+          Suggestion,
+          "userId" | "createdAt" | "documentCreatedAt"
+        >[] = [];
+
+        const { partialOutputStream } = streamText({
+          model: getArtifactModel(),
+          system:
+            "You are a help writing assistant. Given a piece of writing, please offer suggestions to improve the piece of writing and describe the change. It is very important for the edits to contain full sentences instead of just words. Max 5 suggestions.",
+          prompt: document.content,
+          output: Output.array({
+            element: z.object({
+              originalSentence: z.string().describe("The original sentence"),
+              suggestedSentence: z.string().describe("The suggested sentence"),
+              description: z
+                .string()
+                .describe("The description of the suggestion"),
+            }),
+          }),
+        });
+
+        let processedCount = 0;
+        for await (const partialOutput of partialOutputStream) {
+          if (!partialOutput) {
             continue;
           }
 
-          const suggestion = {
-            originalText: element.originalSentence,
-            suggestedText: element.suggestedSentence,
-            description: element.description,
-            id: generateUUID(),
-            documentId,
-            isResolved: false,
-          };
+          for (let i = processedCount; i < partialOutput.length; i++) {
+            const element = partialOutput[i];
+            if (
+              !element?.originalSentence ||
+              !element?.suggestedSentence ||
+              !element?.description
+            ) {
+              continue;
+            }
 
-          dataStream.write({
-            type: "data-suggestion",
-            data: suggestion as Suggestion,
-            transient: true,
-          });
+            const suggestion = {
+              originalText: element.originalSentence,
+              suggestedText: element.suggestedSentence,
+              description: element.description,
+              id: generateUUID(),
+              documentId,
+              isResolved: false,
+            };
 
-          suggestions.push(suggestion);
-          processedCount++;
+            dataStream.write({
+              type: "data-suggestion",
+              data: suggestion as Suggestion,
+              transient: true,
+            });
+
+            suggestions.push(suggestion);
+            processedCount++;
+          }
         }
-      }
 
-      if (session.user?.id) {
-        const userId = session.user.id;
+        if (session.user?.id) {
+          const userId = session.user.id;
 
-        await saveSuggestions({
-          suggestions: suggestions.map((suggestion) => ({
-            ...suggestion,
-            userId,
-            createdAt: new Date(),
-            documentCreatedAt: document.createdAt,
-          })),
-        });
-      }
+          await saveSuggestions({
+            suggestions: suggestions.map((suggestion) => ({
+              ...suggestion,
+              userId,
+              createdAt: new Date(),
+              documentCreatedAt: document.createdAt,
+            })),
+          });
+        }
 
-      return {
-        id: documentId,
-        title: document.title,
-        kind: document.kind,
-        message: "Suggestions have been added to the document",
-      };
-    },
+        return {
+          id: documentId,
+          title: document.title,
+          kind: document.kind,
+          message: "Suggestions have been added to the document",
+        };
+      },
+    }),
   });
