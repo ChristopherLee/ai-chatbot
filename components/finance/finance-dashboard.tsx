@@ -45,13 +45,13 @@ export function FinanceDashboard({
 
   return (
     <div className="space-y-4 p-4">
-      <PlanSummary
-        appliedOverrides={snapshot.appliedOverrides}
-        planSummary={snapshot.planSummary}
-      />
+      <PlanSummary planSummary={snapshot.planSummary} />
       <MonthlySpendChart data={snapshot.monthlyChart} />
       <CumulativePaceChart data={snapshot.cumulativeChart} />
-      <CategoryDrilldown categories={snapshot.categoryCards} />
+      <CategoryDrilldown
+        budgetBuckets={snapshot.planSummary.bucketTargets}
+        categories={snapshot.categoryCards}
+      />
     </div>
   );
 }

@@ -2,6 +2,7 @@
 import type { UseChatHelpers } from "@ai-sdk/react";
 import { useState } from "react";
 import type { Vote } from "@/lib/db/schema";
+import type { FinanceAction } from "@/lib/finance/types";
 import type { ChatMessage } from "@/lib/types";
 import { cn, sanitizeText } from "@/lib/utils";
 import { useDataStream } from "./data-stream-provider";
@@ -18,7 +19,13 @@ import {
 } from "./elements/tool";
 import { FinanceCategorizationMemoryResult } from "./finance/finance-categorization-memory-result";
 import { FinanceCategorizationReviewResult } from "./finance/finance-categorization-review-result";
-import { FinanceToolResult } from "./finance/finance-tool-result";
+import { FinanceChartResult } from "./finance/finance-chart-result";
+import {
+  FinanceActionApprovalRequest,
+  FinanceActionPreview,
+  FinanceToolResult,
+} from "./finance/finance-tool-result";
+import { FinanceTransactionQueryResult } from "./finance/finance-transaction-query-result";
 import { SparklesIcon } from "./icons";
 import { MessageActions } from "./message-actions";
 import { MessageEditor } from "./message-editor";
@@ -349,6 +356,8 @@ const PurePreviewMessage = ({
               type === "tool-findMiscategorizedTransactions" ||
               type === "tool-getFinanceCategorizationMemory" ||
               type === "tool-getFinanceSnapshot" ||
+              type === "tool-queryFinanceTransactions" ||
+              type === "tool-showFinanceChart" ||
               type === "tool-applyFinanceActions" ||
               type === "tool-refreshFinancePlan"
             ) {
@@ -357,6 +366,125 @@ const PurePreviewMessage = ({
                 part.input &&
                 typeof part.input === "object" &&
                 Object.keys(part.input).length > 0;
+              const approvalId = (part as { approval?: { id: string } })
+                .approval?.id;
+              const approval = (
+                part as {
+                  approval?: { approved?: boolean };
+                }
+              ).approval;
+              const isDenied =
+                state === "output-denied" ||
+                (state === "approval-responded" &&
+                  approval?.approved === false);
+              const inputActions =
+                type === "tool-applyFinanceActions" &&
+                part.input &&
+                typeof part.input === "object" &&
+                Array.isArray((part.input as { actions?: unknown[] }).actions)
+                  ? ((part.input as { actions: FinanceAction[] }).actions ?? [])
+                  : [];
+
+              if (
+                type === "tool-applyFinanceActions" &&
+                (state === "approval-requested" ||
+                  state === "approval-responded" ||
+                  state === "output-denied")
+              ) {
+                return (
+                  <Tool defaultOpen={true} key={toolCallId}>
+                    <ToolHeader
+                      state={isDenied ? "output-denied" : state}
+                      type={type}
+                    />
+                    <ToolContent>
+                      {inputActions.length > 0 ? (
+                        <div className="space-y-3">
+                          {state === "approval-requested" && approvalId ? (
+                            <FinanceActionApprovalRequest
+                              actions={inputActions}
+                              onApprove={(selectedActions) => {
+                                if (
+                                  selectedActions.length > 0 &&
+                                  selectedActions.length !== inputActions.length
+                                ) {
+                                  setMessages((currentMessages) =>
+                                    currentMessages.map((currentMessage) => {
+                                      if (currentMessage.id !== message.id) {
+                                        return currentMessage;
+                                      }
+
+                                      return {
+                                        ...currentMessage,
+                                        parts: currentMessage.parts.map(
+                                          (currentPart) => {
+                                            if (
+                                              currentPart.type !==
+                                                "tool-applyFinanceActions" ||
+                                              currentPart.toolCallId !==
+                                                toolCallId
+                                            ) {
+                                              return currentPart;
+                                            }
+
+                                            return {
+                                              ...currentPart,
+                                              input: {
+                                                ...(typeof currentPart.input ===
+                                                  "object" && currentPart.input
+                                                  ? currentPart.input
+                                                  : {}),
+                                                actions: selectedActions,
+                                              },
+                                            };
+                                          }
+                                        ),
+                                      };
+                                    })
+                                  );
+                                }
+
+                                addToolApprovalResponse({
+                                  id: approvalId,
+                                  approved: true,
+                                });
+                              }}
+                              onDeny={() => {
+                                addToolApprovalResponse({
+                                  id: approvalId,
+                                  approved: false,
+                                  reason:
+                                    "User denied suggested finance changes",
+                                });
+                              }}
+                            />
+                          ) : (
+                            <div className="space-y-3 p-4">
+                              <div className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
+                                Proposed Changes
+                              </div>
+                              <FinanceActionPreview actions={inputActions} />
+                            </div>
+                          )}
+                          {state === "approval-responded" &&
+                            approval?.approved === true && (
+                              <div className="mx-4 rounded-md border bg-muted/40 px-3 py-2 text-muted-foreground text-sm">
+                                Saving the approved finance changes...
+                              </div>
+                            )}
+                          {isDenied && (
+                            <div className="mx-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-amber-900 text-sm">
+                              These suggested finance changes were denied.
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        hasInput && <ToolInput input={part.input} />
+                      )}
+                    </ToolContent>
+                  </Tool>
+                );
+              }
 
               return (
                 <Tool defaultOpen={true} key={toolCallId}>
@@ -375,6 +503,12 @@ const PurePreviewMessage = ({
                             <FinanceCategorizationMemoryResult
                               result={part.output}
                             />
+                          ) : type === "tool-queryFinanceTransactions" ? (
+                            <FinanceTransactionQueryResult
+                              result={part.output}
+                            />
+                          ) : type === "tool-showFinanceChart" ? (
+                            <FinanceChartResult result={part.output} />
                           ) : (
                             <FinanceToolResult
                               result={part.output}

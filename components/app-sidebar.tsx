@@ -12,6 +12,7 @@ import {
   getChatHistoryPaginationKey,
   SidebarHistory,
 } from "@/components/sidebar-history";
+import { SidebarFinanceRulesButton } from "@/components/sidebar-finance-rules-button";
 import { SidebarUserNav } from "@/components/sidebar-user-nav";
 import { Button } from "@/components/ui/button";
 import {
@@ -108,13 +109,14 @@ export function AppSidebar({ user }: { user: User | undefined }) {
                       <PlusIcon />
                     </Button>
                   </TooltipTrigger>
-                    <TooltipContent align="end" className="hidden md:block">
+                  <TooltipContent align="end" className="hidden md:block">
                     New Project
                   </TooltipContent>
                 </Tooltip>
               </div>
             </div>
           </SidebarMenu>
+          <SidebarFinanceRulesButton />
         </SidebarHeader>
         <SidebarContent>
           <SidebarHistory user={user} />

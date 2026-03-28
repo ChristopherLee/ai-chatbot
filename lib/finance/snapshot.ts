@@ -6,7 +6,10 @@ import {
   replaceFinancePlan,
 } from "@/lib/db/finance-queries";
 import type { UploadedFile as UploadedFileRecord } from "@/lib/db/schema";
-import { categorizeTransactions } from "./categorize";
+import {
+  buildBaseFinanceTransaction,
+  categorizeTransactions,
+} from "./categorize";
 import { EXPECTED_TRANSACTION_HEADERS } from "./config";
 import {
   buildAppliedOverrides,
@@ -114,6 +117,19 @@ function emptySnapshot(status: FinanceSnapshot["status"]): FinanceSnapshot {
   };
 }
 
+function snapshotNeedsOverrideRefresh(snapshot: FinanceSnapshot) {
+  if (!Array.isArray(snapshot.appliedOverrides)) {
+    return true;
+  }
+
+  return snapshot.appliedOverrides.some(
+    (override) =>
+      !Array.isArray((override as { details?: unknown }).details) ||
+      !("matchedTransactions" in override) ||
+      !("affectedOutflow" in override)
+  );
+}
+
 async function loadFinanceContext(projectId: string) {
   const [file, transactions, overrides] = await Promise.all([
     getUploadedFileByProjectId({ projectId }),
@@ -126,6 +142,7 @@ async function loadFinanceContext(projectId: string) {
   }
 
   const actions = getFinanceActionsFromOverrides(overrides);
+  const baseTransactions = transactions.map(buildBaseFinanceTransaction);
   const categorizedTransactions = categorizeTransactions({
     transactions,
     actions,
@@ -134,6 +151,7 @@ async function loadFinanceContext(projectId: string) {
   return {
     file,
     transactions,
+    baseTransactions,
     overrides,
     actions,
     categorizedTransactions,
@@ -178,7 +196,10 @@ export async function buildNeedsOnboardingSnapshot({
         bucket: transaction.mappedBucket,
         group: transaction.bucketGroup,
       })),
-    appliedOverrides: buildAppliedOverrides(context.overrides),
+    appliedOverrides: buildAppliedOverrides(
+      context.overrides,
+      context.baseTransactions
+    ),
   } satisfies FinanceSnapshot;
 }
 
@@ -210,7 +231,10 @@ export async function recomputeFinanceSnapshot({
     cumulativeChart: plan.cumulativeChart,
     categoryCards: plan.categoryCards,
     transactionHighlights: plan.transactionHighlights,
-    appliedOverrides: buildAppliedOverrides(context.overrides),
+    appliedOverrides: buildAppliedOverrides(
+      context.overrides,
+      context.baseTransactions
+    ),
   } satisfies FinanceSnapshot;
 
   await replaceFinancePlan({ projectId, snapshot });
@@ -226,7 +250,13 @@ export async function getFinanceSnapshot({
   const storedPlan = await getLatestFinancePlanByProjectId({ projectId });
 
   if (storedPlan) {
-    return storedPlan.planJson as FinanceSnapshot;
+    const snapshot = storedPlan.planJson as FinanceSnapshot;
+
+    if (snapshotNeedsOverrideRefresh(snapshot)) {
+      return recomputeFinanceSnapshot({ projectId });
+    }
+
+    return snapshot;
   }
 
   return buildNeedsOnboardingSnapshot({ projectId });

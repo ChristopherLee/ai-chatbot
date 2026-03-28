@@ -158,6 +158,106 @@ export type FinanceCumulativeChartPoint = {
   paceCumulative: number;
 };
 
+export type FinanceChartType =
+  | "monthly-spend"
+  | "cumulative-spend"
+  | "month-over-month"
+  | "spending-breakdown";
+
+export type FinanceMonthOverMonthChartPoint = {
+  bucket: string;
+  group: BucketGroup;
+  currentMonth: number;
+  previousMonth: number;
+  delta: number;
+};
+
+export type FinanceSpendingBreakdownPoint = {
+  bucket: string;
+  group: BucketGroup;
+  amount: number;
+  sharePercentage: number;
+};
+
+export type FinanceMonthlySpendChartResult = {
+  chartType: "monthly-spend";
+  title: string;
+  description: string;
+  latestMonth: string;
+  latestMonthLabel: string;
+  summary: {
+    actual: number;
+    target: number;
+    delta: number;
+  };
+  data: FinanceMonthlyChartPoint[];
+};
+
+export type FinanceCumulativeSpendChartResult = {
+  chartType: "cumulative-spend";
+  title: string;
+  description: string;
+  latestMonth: string;
+  latestMonthLabel: string;
+  summary: {
+    actualCumulative: number;
+    paceCumulative: number;
+    variance: number;
+  };
+  data: FinanceCumulativeChartPoint[];
+};
+
+export type FinanceMonthOverMonthChartResult = {
+  chartType: "month-over-month";
+  title: string;
+  description: string;
+  currentMonth: string;
+  currentMonthLabel: string;
+  previousMonth: string;
+  previousMonthLabel: string;
+  bucketLimit: number;
+  availableBucketCount: number;
+  truncated: boolean;
+  totals: {
+    currentMonth: number;
+    previousMonth: number;
+    delta: number;
+  };
+  data: FinanceMonthOverMonthChartPoint[];
+};
+
+export type FinanceSpendingBreakdownChartResult = {
+  chartType: "spending-breakdown";
+  title: string;
+  description: string;
+  month: string;
+  monthLabel: string;
+  bucketLimit: number;
+  availableBucketCount: number;
+  truncated: boolean;
+  total: number;
+  data: FinanceSpendingBreakdownPoint[];
+};
+
+export type FinanceChartResult =
+  | FinanceMonthlySpendChartResult
+  | FinanceCumulativeSpendChartResult
+  | FinanceMonthOverMonthChartResult
+  | FinanceSpendingBreakdownChartResult;
+
+export type FinanceChartToolResult =
+  | {
+      status: "available";
+      snapshotStatus: FinanceSnapshotStatus;
+      chart: FinanceChartResult;
+    }
+  | {
+      status: "unavailable";
+      snapshotStatus: FinanceSnapshotStatus;
+      chartType: FinanceChartType;
+      message: string;
+    };
+
 export type FinanceCategoryCard = {
   bucket: string;
   group: BucketGroup;
@@ -199,11 +299,58 @@ export type FinancePlanSummary = {
   }>;
 };
 
+export type FinanceAppliedOverrideDetail = {
+  label: string;
+  value: string;
+};
+
 export type FinanceAppliedOverride = {
   id: string;
   type: FinanceAction["type"];
   summary: string;
   createdAt: string;
+  details: FinanceAppliedOverrideDetail[];
+  matchedTransactions: number | null;
+  affectedOutflow: number | null;
+};
+
+export type FinanceRuleAffectedTransaction = {
+  id: string;
+  transactionDate: string;
+  description: string;
+  merchant: string;
+  account: string;
+  rawCategory: string;
+  amount: number;
+  bucket: string;
+  includeFlag: boolean;
+};
+
+export type FinanceRuleRecord = FinanceAppliedOverride & {
+  action: FinanceAction;
+  orderIndex: number;
+  affectedTransactions: FinanceRuleAffectedTransaction[];
+  affectedTransactionsTruncated: boolean;
+  totalAffectedTransactions: number;
+};
+
+export type FinanceRulesViewData = {
+  rules: FinanceRuleRecord[];
+  options: {
+    accounts: string[];
+    rawCategories: string[];
+    buckets: string[];
+  };
+};
+
+export type FinanceRulePreview = {
+  summary: string;
+  details: FinanceAppliedOverrideDetail[];
+  matchedTransactions: number | null;
+  affectedOutflow: number | null;
+  affectedTransactions: FinanceRuleAffectedTransaction[];
+  affectedTransactionsTruncated: boolean;
+  totalAffectedTransactions: number;
 };
 
 export type FinanceSnapshot = {

@@ -1,15 +1,19 @@
 "use client";
 
 import { useChat } from "@ai-sdk/react";
-import { DefaultChatTransport } from "ai";
+import {
+  DefaultChatTransport,
+  lastAssistantMessageIsCompleteWithApprovalResponses,
+} from "ai";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import useSWR, { useSWRConfig } from "swr";
 import { unstable_serialize } from "swr/infinite";
 import { useWindowSize } from "usehooks-ts";
 import { ChatHeader } from "@/components/chat-header";
 import { FinanceDashboard } from "@/components/finance/finance-dashboard";
+import { FinanceRulesView } from "@/components/finance/finance-rules-view";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,6 +27,7 @@ import {
 import { useArtifactSelector } from "@/hooks/use-artifact";
 import { useAutoResume } from "@/hooks/use-auto-resume";
 import { useChatVisibility } from "@/hooks/use-chat-visibility";
+import { autoDenyPendingToolApprovals } from "@/lib/ai/message-history";
 import type { Vote } from "@/lib/db/schema";
 import { ChatSDKError } from "@/lib/errors";
 import type { FinanceSnapshot } from "@/lib/finance/types";
@@ -89,6 +94,7 @@ export function Chat({
     initialHasFinanceDataset
   );
   const currentModelIdRef = useRef(currentModelId);
+  const resumedApprovalContinuationRef = useRef<string | null>(null);
   const financeSnapshotKey = hasFinanceDataset
     ? projectId
       ? `/api/finance/project/${projectId}`
@@ -122,9 +128,8 @@ export function Chat({
         lastMessage?.parts?.some(
           (part) =>
             "state" in part &&
-            part.state === "approval-responded" &&
-            "approval" in part &&
-            (part.approval as { approved?: boolean })?.approved === true
+            (part.state === "approval-responded" ||
+              part.state === "output-denied")
         ) ?? false;
       return shouldContinue;
     },
@@ -186,14 +191,49 @@ export function Chat({
     },
   });
 
+  const sendMessageWithAutoDenyPendingToolApprovals = useCallback<
+    typeof sendMessage
+  >(
+    async (message, options) => {
+      if (message) {
+        const nextMessages = autoDenyPendingToolApprovals(messages);
+
+        if (nextMessages !== messages) {
+          setMessages(nextMessages);
+        }
+      }
+
+      await sendMessage(message, options);
+    },
+    [messages, sendMessage, setMessages]
+  );
+
+  const retryIncompleteResponse = useCallback(async () => {
+    const lastMessage = messages.at(-1);
+
+    if (!lastMessage || lastMessage.role !== "user") {
+      return;
+    }
+
+    await sendMessage(undefined, {
+      body: {
+        messages,
+      },
+    });
+  }, [messages, sendMessage]);
+
   const searchParams = useSearchParams();
   const query = searchParams.get("query");
+  const showRulesView =
+    searchParams.get("view") === "rules" &&
+    Boolean(projectId) &&
+    hasFinanceDataset;
 
   const [hasAppendedQuery, setHasAppendedQuery] = useState(false);
 
   useEffect(() => {
     if (query && !hasAppendedQuery) {
-      sendMessage({
+      sendMessageWithAutoDenyPendingToolApprovals({
         role: "user" as const,
         parts: [{ type: "text", text: query }],
       });
@@ -201,7 +241,51 @@ export function Chat({
       setHasAppendedQuery(true);
       window.history.replaceState({}, "", `/chat/${id}`);
     }
-  }, [query, sendMessage, hasAppendedQuery, id]);
+  }, [
+    query,
+    sendMessageWithAutoDenyPendingToolApprovals,
+    hasAppendedQuery,
+    id,
+  ]);
+
+  useEffect(() => {
+    if (status !== "ready") {
+      return;
+    }
+
+    if (
+      !lastAssistantMessageIsCompleteWithApprovalResponses({
+        messages,
+      })
+    ) {
+      return;
+    }
+
+    const lastMessage = messages.at(-1);
+
+    if (!lastMessage) {
+      return;
+    }
+
+    const continuationKey = `${lastMessage.id}:${lastMessage.parts
+      .map((part) => {
+        const state = "state" in part ? part.state : "";
+        const approvalId =
+          "approval" in part && part.approval
+            ? ((part.approval as { id?: string }).id ?? "")
+            : "";
+
+        return `${part.type}:${state}:${approvalId}`;
+      })
+      .join("|")}`;
+
+    if (resumedApprovalContinuationRef.current === continuationKey) {
+      return;
+    }
+
+    resumedApprovalContinuationRef.current = continuationKey;
+    sendMessage();
+  }, [messages, sendMessage, status]);
 
   const { data: votes } = useSWR<Vote[]>(
     messages.length >= 2 ? `/api/vote?chatId=${id}` : null,
@@ -236,6 +320,7 @@ export function Chat({
         isReadonly={isReadonly}
         messages={messages}
         regenerate={regenerate}
+        retryIncompleteResponse={retryIncompleteResponse}
         selectedModelId={initialChatModel}
         setMessages={setMessages}
         status={status}
@@ -260,7 +345,7 @@ export function Chat({
             projectId={projectId}
             selectedModelId={currentModelId}
             selectedVisibilityType={visibilityType}
-            sendMessage={sendMessage}
+            sendMessage={sendMessageWithAutoDenyPendingToolApprovals}
             setAttachments={setAttachments}
             setInput={setInput}
             setMessages={setMessages}
@@ -271,36 +356,45 @@ export function Chat({
       </div>
     </div>
   );
+  const mainShell =
+    showRulesView && projectId ? (
+      <FinanceRulesView
+        projectId={projectId}
+        projectTitle={currentProjectTitle}
+      />
+    ) : (
+      chatShell
+    );
 
   return (
     <>
       {hasFinanceDataset && projectId && width && width >= 1024 ? (
         <PanelGroup className="h-dvh" direction="horizontal">
           <Panel defaultSize={48} minSize={34}>
-            {chatShell}
+            {mainShell}
           </Panel>
           <PanelResizeHandle className="w-px bg-border" />
           <Panel defaultSize={52} minSize={30}>
             <div className="h-dvh overflow-y-auto border-l bg-muted/20">
               <FinanceDashboard
-                projectId={projectId}
                 initialSnapshot={initialFinanceSnapshot}
+                projectId={projectId}
               />
             </div>
           </Panel>
         </PanelGroup>
       ) : hasFinanceDataset && projectId ? (
         <div className="flex h-dvh flex-col">
-          <div className="min-h-0 flex-1">{chatShell}</div>
+          <div className="min-h-0 flex-1">{mainShell}</div>
           <div className="min-h-[20rem] border-t bg-muted/20">
             <FinanceDashboard
-              projectId={projectId}
               initialSnapshot={initialFinanceSnapshot}
+              projectId={projectId}
             />
           </div>
         </div>
       ) : (
-        <div className="h-dvh">{chatShell}</div>
+        <div className="h-dvh">{mainShell}</div>
       )}
 
       <Artifact
@@ -313,7 +407,7 @@ export function Chat({
         regenerate={regenerate}
         selectedModelId={currentModelId}
         selectedVisibilityType={visibilityType}
-        sendMessage={sendMessage}
+        sendMessage={sendMessageWithAutoDenyPendingToolApprovals}
         setAttachments={setAttachments}
         setInput={setInput}
         setMessages={setMessages}

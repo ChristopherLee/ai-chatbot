@@ -16,6 +16,7 @@ type MessagesProps = {
   messages: ChatMessage[];
   setMessages: UseChatHelpers<ChatMessage>["setMessages"];
   regenerate: UseChatHelpers<ChatMessage>["regenerate"];
+  retryIncompleteResponse: () => Promise<void>;
   isReadonly: boolean;
   isArtifactVisible: boolean;
   selectedModelId: string;
@@ -30,6 +31,7 @@ function PureMessages({
   messages,
   setMessages,
   regenerate,
+  retryIncompleteResponse,
   isReadonly,
   selectedModelId: _selectedModelId,
 }: MessagesProps) {
@@ -44,6 +46,12 @@ function PureMessages({
   });
 
   useDataStream();
+
+  const lastMessage = messages.at(-1);
+  const shouldShowIncompleteResponseNotice =
+    !isReadonly &&
+    lastMessage?.role === "user" &&
+    (status === "ready" || status === "error");
 
   return (
     <div className="relative flex-1">
@@ -85,6 +93,28 @@ function PureMessages({
                 (part) => "state" in part && part.state === "approval-responded"
               )
             ) && <ThinkingMessage />}
+
+          {shouldShowIncompleteResponseNotice && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-amber-950 text-sm">
+              <div className="font-medium">
+                {status === "error"
+                  ? "The previous reply failed before it finished."
+                  : "The previous reply did not finish."}
+              </div>
+              <div className="mt-1 text-amber-900/80">
+                Retry the last response to continue from the saved chat history.
+              </div>
+              <button
+                className="mt-3 inline-flex items-center rounded-md bg-amber-900 px-3 py-1.5 font-medium text-amber-50 transition-colors hover:bg-amber-950"
+                onClick={() => {
+                  retryIncompleteResponse().catch(() => undefined);
+                }}
+                type="button"
+              >
+                Retry response
+              </button>
+            </div>
+          )}
 
           <div
             className="min-h-[24px] min-w-[24px] shrink-0"

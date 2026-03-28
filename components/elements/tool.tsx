@@ -40,8 +40,10 @@ const toolLabels: Partial<Record<ToolUIPart["type"], string>> = {
   "tool-getFinanceCategorizationMemory": "Get Categorization Memory",
   "tool-getFinanceSnapshot": "Get Finance Snapshot",
   "tool-getWeather": "Get Weather",
+  "tool-queryFinanceTransactions": "Query Finance Transactions",
   "tool-refreshFinancePlan": "Refresh Finance Plan",
   "tool-requestSuggestions": "Request Suggestions",
+  "tool-showFinanceChart": "Show Finance Chart",
   "tool-updateDocument": "Update Document",
 };
 

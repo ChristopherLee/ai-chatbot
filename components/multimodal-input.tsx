@@ -400,7 +400,7 @@ function PureMultimodalInput({
           if (!input.trim() && attachments.length === 0) {
             return;
           }
-          if (status !== "ready") {
+          if (status === "submitted" || status === "streaming") {
             toast.error("Please wait for the model to finish its response!");
           } else {
             submitForm();

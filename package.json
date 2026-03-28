@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev --turbo",
     "dev:local": "node scripts/run-dev.mjs",
+    "verify:chat-flow": "node scripts/verify-chat-flow.mjs",
     "build": "tsx lib/db/migrate && next build",
     "start": "next start",
     "lint": "ultracite check",

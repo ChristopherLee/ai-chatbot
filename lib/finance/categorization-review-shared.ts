@@ -1,10 +1,11 @@
 import { z } from "zod";
+import { buildFinanceActionKey } from "./action-keys";
 import {
   categorizeTransactionActionSchema,
   categorizeTransactionsActionSchema,
   type FinanceAction,
 } from "./types";
-import { safeLower, uniqueBy } from "./utils";
+import { uniqueBy } from "./utils";
 
 export const financeCategorizationRuleSuggestionSchema = z.object({
   id: z.string().min(1),
@@ -100,37 +101,10 @@ type ReviewableCategorizationAction = Extract<
   | { type: "remap_raw_category" }
 >;
 
-function normalizeMatchForKey(
-  match: FinanceCategorizationRuleSuggestion["action"]["match"]
-) {
-  return {
-    ...(match.account ? { account: safeLower(match.account.trim()) } : {}),
-    ...(match.descriptionContains
-      ? { descriptionContains: safeLower(match.descriptionContains.trim()) }
-      : {}),
-    ...(match.merchant ? { merchant: safeLower(match.merchant.trim()) } : {}),
-    ...(match.rawCategory
-      ? { rawCategory: safeLower(match.rawCategory.trim()) }
-      : {}),
-  };
-}
-
 export function buildFinanceActionReviewKey(
   action: ReviewableCategorizationAction
 ) {
-  switch (action.type) {
-    case "categorize_transaction":
-      return `categorize_transaction:${action.transactionId}:${safeLower(action.to)}`;
-    case "categorize_transactions":
-      return `categorize_transactions:${JSON.stringify({
-        match: normalizeMatchForKey(action.match),
-        to: safeLower(action.to),
-      })}`;
-    case "remap_raw_category":
-      return `remap_raw_category:${safeLower(action.from)}:${safeLower(action.to)}`;
-    default:
-      return JSON.stringify(action);
-  }
+  return buildFinanceActionKey(action);
 }
 
 export function buildRuleSuggestionKey(

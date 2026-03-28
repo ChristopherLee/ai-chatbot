@@ -354,6 +354,8 @@ Only return actions when the user clearly asks for one of these supported operat
 
 If the message only provides goals or context, return an empty array.
 Prefer exact existing raw categories and bucket names when available.
+Keep the user's requested source match and destination bucket/category exactly as stated. Never substitute a different merchant, raw category, or bucket.
+If the source or destination is ambiguous or cannot be represented exactly from the message, return an empty array.
 When the user names a merchant or transaction label, use categorize_transactions with a precise match instead of remap_raw_category.`,
       prompt: JSON.stringify({
         latestUserMessage,

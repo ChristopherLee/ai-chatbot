@@ -1,16 +1,11 @@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type {
-  FinanceAppliedOverride,
-  FinancePlanSummary,
-} from "@/lib/finance/types";
+import type { FinancePlanSummary } from "@/lib/finance/types";
 
 export function PlanSummary({
   planSummary,
-  appliedOverrides,
 }: {
   planSummary: FinancePlanSummary;
-  appliedOverrides: FinanceAppliedOverride[];
 }) {
   return (
     <div className="space-y-4">
@@ -50,46 +45,6 @@ export function PlanSummary({
           </div>
         </CardContent>
       </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Monthly budgets</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3 text-sm">
-          {planSummary.bucketTargets.slice(0, 10).map((bucket) => (
-            <div
-              className="flex items-center justify-between gap-3"
-              key={bucket.bucket}
-            >
-              <div>
-                <div className="font-medium">{bucket.bucket}</div>
-                <div className="text-muted-foreground">
-                  {bucket.group} - trailing avg $
-                  {bucket.trailingAverage.toLocaleString()}
-                </div>
-              </div>
-              <div className="font-semibold">
-                ${bucket.monthlyTarget.toLocaleString()}
-              </div>
-            </div>
-          ))}
-        </CardContent>
-      </Card>
-
-      {appliedOverrides.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Applied overrides</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-wrap gap-2 text-sm">
-            {appliedOverrides.map((override) => (
-              <Badge key={override.id} variant="outline">
-                {override.summary}
-              </Badge>
-            ))}
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }

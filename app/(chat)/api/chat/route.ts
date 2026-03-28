@@ -12,16 +12,22 @@ import { createResumableStreamContext } from "resumable-stream";
 import { auth, type UserType } from "@/app/(auth)/auth";
 import { entitlementsByUserType } from "@/lib/ai/entitlements";
 import { logChatStreamFailure } from "@/lib/ai/logging";
+import { getChatRuntimeMode } from "@/lib/ai/chat-runtime-mode";
+import {
+  filterPersistableMessages,
+  sanitizeUIMessagesForModel,
+} from "@/lib/ai/message-history";
 import { type RequestHints, systemPrompt } from "@/lib/ai/prompts";
 import { getLanguageModel } from "@/lib/ai/providers";
 import { applyFinanceActions } from "@/lib/ai/tools/apply-finance-actions";
 import { createDocument } from "@/lib/ai/tools/create-document";
-import { findMiscategorizedTransactions } from "@/lib/ai/tools/find-miscategorized-transactions";
 import { getFinanceCategorizationMemoryTool } from "@/lib/ai/tools/get-finance-categorization-memory";
 import { getFinanceSnapshotTool } from "@/lib/ai/tools/get-finance-snapshot";
 import { getWeather } from "@/lib/ai/tools/get-weather";
+import { queryFinanceTransactions } from "@/lib/ai/tools/query-finance-transactions";
 import { refreshFinancePlan } from "@/lib/ai/tools/refresh-finance-plan";
 import { requestSuggestions } from "@/lib/ai/tools/request-suggestions";
+import { showFinanceChart } from "@/lib/ai/tools/show-finance-chart";
 import { updateDocument } from "@/lib/ai/tools/update-document";
 import { isProductionEnvironment } from "@/lib/constants";
 import { hasFinanceDataset } from "@/lib/db/finance-queries";
@@ -238,6 +244,9 @@ export async function POST(request: Request) {
     const isFinanceChat = projectId
       ? await hasFinanceDataset({ projectId })
       : false;
+    const chatRuntimeMode = getChatRuntimeMode({
+      isFinanceChat,
+    });
 
     const uiMessages = isToolApprovalFlow
       ? (messages as ChatMessage[])
@@ -271,15 +280,18 @@ export async function POST(request: Request) {
       selectedChatModel.includes("reasoning") ||
       selectedChatModel.includes("thinking");
 
-    const modelMessages = await convertToModelMessages(uiMessages);
+    const modelMessages = await convertToModelMessages(
+      isToolApprovalFlow ? uiMessages : sanitizeUIMessagesForModel(uiMessages)
+    );
 
     let financeSnapshot: FinanceSnapshot | null = null;
 
-    if (projectId && isFinanceChat && !isToolApprovalFlow) {
+    if (projectId && chatRuntimeMode === "finance") {
       financeSnapshot = await getFinanceSnapshot({ projectId });
 
       if (
         message?.role === "user" &&
+        !isToolApprovalFlow &&
         financeSnapshot.status === "needs-onboarding"
       ) {
         financeSnapshot = await recomputeFinanceSnapshot({ projectId });
@@ -306,7 +318,7 @@ export async function POST(request: Request) {
           }
         };
 
-        if (isFinanceChat && !isToolApprovalFlow) {
+        if (chatRuntimeMode === "finance") {
           if (!projectId) {
             throw new ChatSDKError(
               "bad_request:api",
@@ -323,24 +335,35 @@ export async function POST(request: Request) {
 Use the finance snapshot to explain the user's current plan, what changed, and any meaningful trends.
 Keep the tone practical and supportive.
 
-You can use tools to update the finance plan:
+You can use tools to inspect, visualize, or update the finance plan:
 - getFinanceSnapshot: read the full finance dashboard snapshot currently shown to the user
+- showFinanceChart: render a chart directly in the chat for trend, comparison, or spending mix questions
+- queryFinanceTransactions: search and filter the project's transactions in detail
 - refreshFinancePlan: generate or recompute the current plan
 - applyFinanceActions: persist structured plan changes
-- findMiscategorizedTransactions: audit likely categorization mistakes and return saveable suggestions
-- getFinanceCategorizationMemory: read previously accepted and denied categorization guidance
+- getFinanceCategorizationMemory: read previously accepted categorization rules, one-off transaction overrides, and denied guidance
 
 Rules:
 - Never claim a change was applied unless you called a finance tool in this response and it succeeded.
 - Use getFinanceSnapshot whenever you need to inspect the latest full dashboard data in detail or after a tool changes the plan.
-- Use findMiscategorizedTransactions when the user asks to review, audit, or find likely miscategorized transactions.
-- Use getFinanceCategorizationMemory before proposing new categorization guidance when prior accepted or denied guidance may matter.
+- Use showFinanceChart when the user explicitly wants to see a visual, a trend line, a bucket comparison, or a current-month spending mix in the chat.
+- Use queryFinanceTransactions when you need transaction-level detail beyond the snapshot, such as keyword search, merchant lookups, current bucket filters, raw category filters, account filters, date windows, or amount ranges.
+- Use getFinanceCategorizationMemory before auditing likely miscategorizations or proposing categorization changes, so you can avoid already approved rules, one-off manual overrides, and explicitly denied guidance.
 - If the snapshot status is "needs-onboarding" and the user has provided enough context to start planning, call refreshFinancePlan before answering.
 - If the user asks for a plan change and it is specific enough to represent exactly, call applyFinanceActions.
 - If a requested change is ambiguous, ask a concise follow-up question instead of guessing.
+- For categorization and remapping requests, keep the source match and target bucket/category aligned with the user's exact request. Do not silently substitute a different merchant, raw category, or destination bucket.
+- If you cannot represent the requested source or destination exactly, ask a concise clarification question instead of calling applyFinanceActions.
 - When the user refers to an entire raw category like Uncategorized, prefer an action with match.rawCategory using the exact category name from the snapshot.
 - When the user refers to a merchant or recurring transaction label like "Direct Debit Crosscountry", prefer a match-based categorization action instead of remapping the whole raw category.
-- After any finance tool call, summarize the returned changes and the updated plan.
+- When the user asks to review, audit, or find likely miscategorized transactions, inspect the snapshot and memory yourself instead of relying on a separate audit tool.
+- For deeper transaction investigations, prefer querying transactions directly over guessing from aggregate charts.
+- For miscategorization audits, focus on ambiguous buckets, inconsistent merchant placement, recurring merchants, and large outflows that do not fit their current bucket.
+- Ignore transactions that already have one-off manual categorization overrides, and ignore rules that are already accepted.
+- Prefer categorize_transactions for stable recurring patterns. Use categorize_transaction only for isolated exceptions. Do not propose both a rule and a redundant one-off for the same transaction.
+- When you have one to four strong categorization candidates, call applyFinanceActions with those actions. The UI may ask the user to approve or deny them before anything is persisted.
+- If the user denies suggested categorization actions, use that feedback to continue the investigation, refine the proposal, or ask whether they want a deeper review.
+- After any finance tool call, summarize the result and any plan changes that occurred.
 - Do not invent transactions, categories, tool results, or chart values beyond the snapshot or tool outputs.
 
 Finance snapshot:
@@ -348,23 +371,24 @@ ${JSON.stringify(resolvedFinanceSnapshot)}`,
             messages: modelMessages,
             stopWhen: stepCountIs(6),
             experimental_activeTools: [
-              "findMiscategorizedTransactions",
               "getFinanceCategorizationMemory",
               "getFinanceSnapshot",
+              "queryFinanceTransactions",
               "refreshFinancePlan",
+              "showFinanceChart",
               "applyFinanceActions",
             ],
             tools: {
-              findMiscategorizedTransactions: findMiscategorizedTransactions({
-                projectId,
-                selectedChatModel,
-              }),
               getFinanceCategorizationMemory:
                 getFinanceCategorizationMemoryTool({
                   projectId,
                 }),
               getFinanceSnapshot: getFinanceSnapshotTool({ projectId }),
+              queryFinanceTransactions: queryFinanceTransactions({
+                projectId,
+              }),
               refreshFinancePlan: refreshFinancePlan({ projectId }),
+              showFinanceChart: showFinanceChart({ projectId }),
               applyFinanceActions: applyFinanceActions({ projectId }),
             },
             providerOptions: isReasoningModel
@@ -456,8 +480,12 @@ ${JSON.stringify(resolvedFinanceSnapshot)}`,
       },
       generateId: generateUUID,
       onFinish: async ({ messages: finishedMessages }) => {
+        const persistableMessages = filterPersistableMessages(
+          finishedMessages as ChatMessage[]
+        );
+
         if (isToolApprovalFlow) {
-          for (const finishedMsg of finishedMessages) {
+          for (const finishedMsg of persistableMessages) {
             const existingMsg = uiMessages.find((m) => m.id === finishedMsg.id);
             if (existingMsg) {
               await updateMessage({
@@ -479,9 +507,9 @@ ${JSON.stringify(resolvedFinanceSnapshot)}`,
               });
             }
           }
-        } else if (finishedMessages.length > 0) {
+        } else if (persistableMessages.length > 0) {
           await saveMessages({
-            messages: finishedMessages.map((currentMessage) => ({
+            messages: persistableMessages.map((currentMessage) => ({
               id: currentMessage.id,
               role: currentMessage.role,
               parts: currentMessage.parts,

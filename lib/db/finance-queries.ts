@@ -1,8 +1,9 @@
 import "server-only";
 
-import { asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { ChatSDKError } from "@/lib/errors";
+import { buildFinanceActionKey } from "@/lib/finance/action-keys";
 import type { FinanceAction, FinanceSnapshot } from "@/lib/finance/types";
 import {
   financeCategorizationDenial,
@@ -137,7 +138,7 @@ export async function saveFinanceOverrides({
         actions.map((action) => ({
           projectId,
           type: action.type,
-          key: JSON.stringify(action),
+          key: buildFinanceActionKey(action),
           valueJson: action,
           createdAt: new Date(),
         }))
@@ -204,6 +205,67 @@ export async function getFinanceOverridesByProjectId({
     throw new ChatSDKError(
       "bad_request:database",
       "Failed to get finance overrides by project id"
+    );
+  }
+}
+
+export async function updateFinanceOverrideById({
+  id,
+  projectId,
+  action,
+}: {
+  id: string;
+  projectId: string;
+  action: FinanceAction;
+}) {
+  try {
+    const [override] = await db
+      .update(financeOverride)
+      .set({
+        type: action.type,
+        key: buildFinanceActionKey(action),
+        valueJson: action,
+      })
+      .where(
+        and(
+          eq(financeOverride.id, id),
+          eq(financeOverride.projectId, projectId)
+        )
+      )
+      .returning();
+
+    return override ?? null;
+  } catch (_error) {
+    throw new ChatSDKError(
+      "bad_request:database",
+      "Failed to update finance override"
+    );
+  }
+}
+
+export async function deleteFinanceOverrideById({
+  id,
+  projectId,
+}: {
+  id: string;
+  projectId: string;
+}) {
+  try {
+    const [override] = await db
+      .delete(financeOverride)
+      .where(
+        and(
+          eq(financeOverride.id, id),
+          eq(financeOverride.projectId, projectId)
+        )
+      )
+      .returning();
+
+    return override ?? null;
+  } catch (_error) {
+    throw new ChatSDKError(
+      "bad_request:database",
+      "Failed to delete finance override"
     );
   }
 }

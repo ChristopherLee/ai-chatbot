@@ -9,7 +9,7 @@ export const getFinanceCategorizationMemoryTool = ({
   projectId: string;
 }) =>
   tool({
-    description: `Read accepted and explicitly denied categorization guidance for the current finance project.
+    description: `Read accepted categorization rules, one-off transaction overrides, and explicitly denied categorization guidance for the current finance project.
 
 Use this before proposing new categorization rules when prior accepted or denied guidance may affect the answer.`,
     inputSchema: z.object({}),

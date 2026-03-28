@@ -10,7 +10,7 @@ async function uploadFinanceCsv(page: Page) {
     page.getByText("Upload a transaction CSV to begin.")
   ).toBeVisible();
 
-  const csvPath = path.join(process.cwd(), "data", "transactions.csv.csv");
+  const csvPath = path.join(process.cwd(), "data", "transactions.sample.csv");
 
   await page
     .locator('input[type="file"][accept*=".csv"]')

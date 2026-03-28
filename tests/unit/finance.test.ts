@@ -1,9 +1,14 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import type { FinanceOverride } from "@/lib/db/schema";
 import { buildHeuristicActions } from "@/lib/finance/action-parser";
 import { categorizeTransactions } from "@/lib/finance/categorize";
 import { parseTransactionsCsv } from "@/lib/finance/csv-ingest";
+import {
+  buildAppliedOverrides,
+  previewFinanceRuleInSequence,
+} from "@/lib/finance/overrides";
 import { buildFinancePlan } from "@/lib/finance/planner";
 import type {
   FinanceAction,
@@ -11,12 +16,13 @@ import type {
   FinanceTransaction,
 } from "@/lib/finance/types";
 
-const csvText = readFileSync("data/transactions.csv.csv", "utf8");
+const fixtureFilename = "transactions.sample.csv";
+const csvText = readFileSync(`data/${fixtureFilename}`, "utf8");
 
 test("CSV ingest accepts the sample header and normalizes signed amounts", () => {
   const parsed = parseTransactionsCsv({
     projectId: "project-1",
-    filename: "transactions.csv.csv",
+    filename: fixtureFilename,
     csvText,
   });
 
@@ -24,7 +30,7 @@ test("CSV ingest accepts the sample header and normalizes signed amounts", () =>
     parsed.headers.join(","),
     "Date,Account,Description,Category,Tags,Amount"
   );
-  assert.equal(parsed.transactions.length > 1000, true);
+  assert.equal(parsed.transactions.length >= 10, true);
 
   const debit = parsed.transactions.find(
     (transaction) => transaction.rawCategory === "Other Expenses"
@@ -45,7 +51,7 @@ test("CSV ingest accepts the sample header and normalizes signed amounts", () =>
 test("Default categorization excludes transfer-like rows and maps common categories", () => {
   const parsed = parseTransactionsCsv({
     projectId: "project-1",
-    filename: "transactions.csv.csv",
+    filename: fixtureFilename,
     csvText,
   });
 
@@ -153,10 +159,96 @@ test("Heuristic actions prefer match-based categorization for merchant labels", 
   ]);
 });
 
+test("Heuristic actions preserve the user's requested destination bucket name", () => {
+  const snapshot: FinanceSnapshot = {
+    status: "ready",
+    datasetSummary: {
+      filename: "transactions.csv.csv",
+      totalTransactions: 2,
+      includedTransactions: 2,
+      excludedTransactions: 0,
+      totalOutflow: 500,
+      includedOutflow: 500,
+      dateRange: {
+        start: "2026-03-12",
+        end: "2026-03-26",
+      },
+      sampleHeader: [
+        "Date",
+        "Account",
+        "Description",
+        "Category",
+        "Tags",
+        "Amount",
+      ],
+      rawCategories: [
+        {
+          name: "Other Expenses",
+          count: 2,
+          totalOutflow: 500,
+        },
+      ],
+      accounts: [
+        {
+          name: "Checking",
+          count: 2,
+        },
+      ],
+    },
+    planSummary: {
+      mode: "balanced",
+      totalMonthlyTarget: 3000,
+      trailingAverageSpend: 3000,
+      totalsByGroup: {
+        fixed: 1500,
+        flexible: 1500,
+        annual: 0,
+      },
+      bucketTargets: [
+        {
+          bucket: "Household",
+          group: "flexible",
+          monthlyTarget: 500,
+          trailingAverage: 500,
+          trailingTotal: 500,
+        },
+        {
+          bucket: "Electronics",
+          group: "flexible",
+          monthlyTarget: 200,
+          trailingAverage: 200,
+          trailingTotal: 200,
+        },
+      ],
+    },
+    monthlyChart: [],
+    cumulativeChart: [],
+    categoryCards: [],
+    transactionHighlights: [],
+    appliedOverrides: [],
+  };
+
+  const actions = buildHeuristicActions({
+    latestUserMessage:
+      'Categorize "Sp Smartwings" transactions as furniture going forward.',
+    snapshot,
+  });
+
+  assert.deepEqual(actions, [
+    {
+      type: "categorize_transactions",
+      match: {
+        merchant: "Sp Smartwings",
+      },
+      to: "Furniture",
+    },
+  ]);
+});
+
 test("Match-based categorization only updates matching transactions", () => {
   const parsed = parseTransactionsCsv({
     projectId: "project-1",
-    filename: "transactions.csv.csv",
+    filename: fixtureFilename,
     csvText,
   });
 
@@ -198,7 +290,7 @@ test("Match-based categorization only updates matching transactions", () => {
 test("Single-transaction categorization only updates the targeted transaction", () => {
   const parsed = parseTransactionsCsv({
     projectId: "project-1",
-    filename: "transactions.csv.csv",
+    filename: fixtureFilename,
     csvText,
   });
 
@@ -239,6 +331,256 @@ test("Single-transaction categorization only updates the targeted transaction", 
 
   assert.ok(unaffectedTransaction);
   assert.equal(unaffectedTransaction.mappedBucket, "Other / Misc");
+});
+
+test("Manual transaction categorization overrides stay in place when later rules match the same merchant", () => {
+  const crosscountryTransactions: FinanceTransaction[] = [
+    {
+      id: "tx-1",
+      projectId: "project-1",
+      transactionDate: "2026-03-01",
+      account: "Checking",
+      description: "Direct Debit Crosscountry 1sweb Pymnt",
+      normalizedMerchant: "Direct Debit Crosscountry",
+      rawCategory: "Other Expenses",
+      tags: null,
+      amountSigned: -2500,
+      outflowAmount: 2500,
+      mappedBucket: "Other / Misc",
+      bucketGroup: "flexible",
+      includeFlag: true,
+      exclusionReason: null,
+      notes: null,
+      createdAt: new Date(),
+    },
+    {
+      id: "tx-2",
+      projectId: "project-1",
+      transactionDate: "2026-04-01",
+      account: "Checking",
+      description: "Direct Debit Crosscountry 1sweb Pymnt",
+      normalizedMerchant: "Direct Debit Crosscountry",
+      rawCategory: "Other Expenses",
+      tags: null,
+      amountSigned: -2600,
+      outflowAmount: 2600,
+      mappedBucket: "Other / Misc",
+      bucketGroup: "flexible",
+      includeFlag: true,
+      exclusionReason: null,
+      notes: null,
+      createdAt: new Date(),
+    },
+  ];
+
+  const [manuallyCategorized, ruleMatchedTransaction] =
+    crosscountryTransactions;
+
+  const categorized = categorizeTransactions({
+    transactions: crosscountryTransactions,
+    actions: [
+      {
+        type: "categorize_transaction",
+        transactionId: manuallyCategorized.id,
+        to: "Mortgage",
+      },
+      {
+        type: "categorize_transactions",
+        match: {
+          merchant: "Direct Debit Crosscountry",
+        },
+        to: "Utilities",
+      },
+    ],
+  });
+
+  const preservedManualOverride = categorized.find(
+    (transaction) => transaction.id === manuallyCategorized.id
+  );
+  const ruleUpdatedTransaction = categorized.find(
+    (transaction) => transaction.id === ruleMatchedTransaction.id
+  );
+
+  assert.ok(preservedManualOverride);
+  assert.ok(ruleUpdatedTransaction);
+  assert.equal(preservedManualOverride.mappedBucket, "Mortgage");
+  assert.equal(ruleUpdatedTransaction.mappedBucket, "Utilities");
+});
+
+test("Applied overrides expose detailed rule context and locked transaction impact", () => {
+  const manualTransactionId = "11111111-1111-4111-8111-111111111111";
+  const ruleTransactionId = "22222222-2222-4222-8222-222222222222";
+  const transactions: FinanceTransaction[] = [
+    {
+      id: manualTransactionId,
+      projectId: "project-1",
+      transactionDate: "2026-03-01",
+      account: "Checking",
+      description: "Direct Debit Crosscountry 1sweb Pymnt",
+      normalizedMerchant: "Direct Debit Crosscountry",
+      rawCategory: "Other Expenses",
+      tags: null,
+      amountSigned: -2500,
+      outflowAmount: 2500,
+      mappedBucket: "Other / Misc",
+      bucketGroup: "flexible",
+      includeFlag: true,
+      exclusionReason: null,
+      notes: null,
+      createdAt: new Date(),
+    },
+    {
+      id: ruleTransactionId,
+      projectId: "project-1",
+      transactionDate: "2026-04-01",
+      account: "Checking",
+      description: "Direct Debit Crosscountry 1sweb Pymnt",
+      normalizedMerchant: "Direct Debit Crosscountry",
+      rawCategory: "Other Expenses",
+      tags: null,
+      amountSigned: -2600,
+      outflowAmount: 2600,
+      mappedBucket: "Other / Misc",
+      bucketGroup: "flexible",
+      includeFlag: true,
+      exclusionReason: null,
+      notes: null,
+      createdAt: new Date(),
+    },
+  ];
+
+  const overrides: FinanceOverride[] = [
+    {
+      id: "override-1",
+      projectId: "project-1",
+      type: "categorize_transaction",
+      key: "categorize-transaction",
+      valueJson: {
+        type: "categorize_transaction",
+        transactionId: manualTransactionId,
+        to: "Mortgage",
+      },
+      createdAt: new Date("2026-03-02T10:00:00.000Z"),
+    },
+    {
+      id: "override-2",
+      projectId: "project-1",
+      type: "categorize_transactions",
+      key: "categorize-rule",
+      valueJson: {
+        type: "categorize_transactions",
+        match: {
+          merchant: "Direct Debit Crosscountry",
+        },
+        to: "Utilities",
+      },
+      createdAt: new Date("2026-03-03T10:00:00.000Z"),
+    },
+  ];
+
+  const appliedOverrides = buildAppliedOverrides(overrides, transactions);
+  const manualOverride = appliedOverrides.find(
+    (override) => override.type === "categorize_transaction"
+  );
+  const ruleOverride = appliedOverrides.find(
+    (override) => override.type === "categorize_transactions"
+  );
+  assert.ok(manualOverride);
+  assert.ok(ruleOverride);
+
+  assert.equal(
+    manualOverride.summary,
+    "Categorized one transaction as Mortgage"
+  );
+  assert.equal(manualOverride.affectedOutflow, 2500);
+  assert.equal(
+    manualOverride.details.find((detail) => detail.label === "Transaction")
+      ?.value,
+    "2026-03-01 - Direct Debit Crosscountry 1sweb Pymnt"
+  );
+
+  assert.equal(ruleOverride.matchedTransactions, 1);
+  assert.equal(ruleOverride.affectedOutflow, 2600);
+  assert.equal(
+    ruleOverride.details.find((detail) => detail.label === "When")?.value,
+    'Merchant contains "Direct Debit Crosscountry"'
+  );
+});
+
+test("Rule previews exclude transactions already locked by one-off overrides", () => {
+  const manualTransactionId = "11111111-1111-4111-8111-111111111111";
+  const ruleTransactionId = "22222222-2222-4222-8222-222222222222";
+  const baseTransactions: FinanceTransaction[] = [
+    {
+      id: manualTransactionId,
+      projectId: "project-1",
+      transactionDate: "2026-03-01",
+      account: "Checking",
+      description: "Direct Debit Crosscountry 1sweb Pymnt",
+      normalizedMerchant: "Direct Debit Crosscountry",
+      rawCategory: "Other Expenses",
+      tags: null,
+      amountSigned: -2500,
+      outflowAmount: 2500,
+      mappedBucket: "Other / Misc",
+      bucketGroup: "flexible",
+      includeFlag: true,
+      exclusionReason: null,
+      notes: null,
+      createdAt: new Date(),
+    },
+    {
+      id: ruleTransactionId,
+      projectId: "project-1",
+      transactionDate: "2026-04-01",
+      account: "Checking",
+      description: "Direct Debit Crosscountry 1sweb Pymnt",
+      normalizedMerchant: "Direct Debit Crosscountry",
+      rawCategory: "Other Expenses",
+      tags: null,
+      amountSigned: -2600,
+      outflowAmount: 2600,
+      mappedBucket: "Other / Misc",
+      bucketGroup: "flexible",
+      includeFlag: true,
+      exclusionReason: null,
+      notes: null,
+      createdAt: new Date(),
+    },
+  ];
+  const overrides: FinanceOverride[] = [
+    {
+      id: "override-1",
+      projectId: "project-1",
+      type: "categorize_transaction",
+      key: "categorize-transaction",
+      valueJson: {
+        type: "categorize_transaction",
+        transactionId: manualTransactionId,
+        to: "Mortgage",
+      },
+      createdAt: new Date("2026-03-02T10:00:00.000Z"),
+    },
+  ];
+
+  const preview = previewFinanceRuleInSequence({
+    baseTransactions,
+    overrides,
+    draftAction: {
+      type: "categorize_transactions",
+      match: {
+        merchant: "Direct Debit Crosscountry",
+      },
+      to: "Utilities",
+    },
+  });
+
+  assert.equal(preview.matchedTransactions, 1);
+  assert.equal(preview.affectedOutflow, 2600);
+  assert.deepEqual(
+    preview.affectedTransactions.map((transaction) => transaction.id),
+    [ruleTransactionId]
+  );
 });
 
 test("Effective-month target overrides only affect future months", () => {
