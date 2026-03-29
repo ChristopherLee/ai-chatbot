@@ -19,8 +19,8 @@ import type {
 const fixtureFilename = "transactions.sample.csv";
 const csvText = readFileSync(`data/${fixtureFilename}`, "utf8");
 
-test("CSV ingest accepts the sample header and normalizes signed amounts", () => {
-  const parsed = parseTransactionsCsv({
+test("CSV ingest accepts the sample header and normalizes signed amounts", async () => {
+  const parsed = await parseTransactionsCsv({
     projectId: "project-1",
     filename: fixtureFilename,
     csvText,
@@ -48,8 +48,8 @@ test("CSV ingest accepts the sample header and normalizes signed amounts", () =>
   assert.equal(credit.outflowAmount, 0);
 });
 
-test("Default categorization excludes transfer-like rows and maps common categories", () => {
-  const parsed = parseTransactionsCsv({
+test("Default categorization excludes transfer-like rows and maps common categories", async () => {
+  const parsed = await parseTransactionsCsv({
     projectId: "project-1",
     filename: fixtureFilename,
     csvText,
@@ -78,6 +78,40 @@ test("Default categorization excludes transfer-like rows and maps common categor
   assert.ok(restaurant);
   assert.equal(restaurant.mappedBucket, "Dining");
   assert.equal(restaurant.includeFlag, true);
+});
+
+test("CSV ingest maps common alternate headers", async () => {
+  const parsed = await parseTransactionsCsv({
+    projectId: "project-1",
+    filename: "alt-headers.csv",
+    csvText: [
+      "Transaction Date,Account Name,Merchant,Type,Labels,Transaction Amount",
+      "2026-01-05,Checking,Coffee Shop,Restaurants,Breakfast,-8.99",
+    ].join("\n"),
+  });
+
+  assert.equal(parsed.transactions.length, 1);
+  assert.equal(parsed.transactions[0]?.description, "Coffee Shop");
+  assert.equal(parsed.transactions[0]?.rawCategory, "Restaurants");
+});
+
+test("CSV ingest errors when required headers are missing", async () => {
+  await assert.rejects(
+    () =>
+      parseTransactionsCsv({
+        projectId: "project-1",
+        filename: "missing-required.csv",
+        csvText: [
+          "Date,Account,Description,Tags",
+          "2026-01-05,Checking,Coffee Shop,Breakfast",
+        ].join("\n"),
+      }),
+    (error: unknown) => {
+      assert.ok(error instanceof Error);
+      assert.match(error.message, /missing required fields/i);
+      return true;
+    }
+  );
 });
 
 test("Heuristic actions prefer match-based categorization for merchant labels", () => {
@@ -245,8 +279,8 @@ test("Heuristic actions preserve the user's requested destination bucket name", 
   ]);
 });
 
-test("Match-based categorization only updates matching transactions", () => {
-  const parsed = parseTransactionsCsv({
+test("Match-based categorization only updates matching transactions", async () => {
+  const parsed = await parseTransactionsCsv({
     projectId: "project-1",
     filename: fixtureFilename,
     csvText,
@@ -287,8 +321,8 @@ test("Match-based categorization only updates matching transactions", () => {
   assert.equal(otherExpense.bucketGroup, "flexible");
 });
 
-test("Single-transaction categorization only updates the targeted transaction", () => {
-  const parsed = parseTransactionsCsv({
+test("Single-transaction categorization only updates the targeted transaction", async () => {
+  const parsed = await parseTransactionsCsv({
     projectId: "project-1",
     filename: fixtureFilename,
     csvText,

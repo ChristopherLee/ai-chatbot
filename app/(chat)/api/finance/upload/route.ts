@@ -149,7 +149,7 @@ export async function POST(request: Request) {
     }
 
     const csvText = await file.text();
-    const parsed = parseTransactionsCsv({
+    const parsed = await parseTransactionsCsv({
       projectId,
       filename: file.name,
       csvText,
