@@ -38,6 +38,7 @@ import type {
   FinanceRuleRecord,
   FinanceRulesViewData,
 } from "@/lib/finance/types";
+import { categorizationRuleTypes as categorizationRuleTypesList } from "@/lib/finance/types";
 import { cn, fetcher } from "@/lib/utils";
 import { FinanceRuleEditorDialog } from "./finance-rule-editor-dialog";
 import { FinanceRulesTransactionTable } from "./finance-rules-transaction-table";
@@ -45,14 +46,17 @@ import { FinanceRulesTransactionTable } from "./finance-rules-transaction-table"
 const ruleTypeLabels: Record<FinanceAction["type"], string> = {
   categorize_transaction: "Single transaction",
   categorize_transactions: "Categorization rule",
-  exclude_transactions: "Exclusion rule",
-  include_transactions: "Inclusion rule",
+  exclude_transactions: "Budget exclusion",
   merge_buckets: "Bucket merge",
   remap_raw_category: "Raw category rule",
   rename_bucket: "Bucket rename",
-  set_bucket_monthly_target: "Budget target",
+  set_bucket_monthly_target: "Category budget",
   set_plan_mode: "Plan mode",
 };
+
+const categorizationRuleTypes = new Set<FinanceAction["type"]>(
+  categorizationRuleTypesList
+);
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("en-US", {
@@ -93,9 +97,7 @@ function FinanceRuleCard({
     rule.type === "set_plan_mode"
       ? "No linked transactions"
       : `${rule.totalAffectedTransactions} matching ${
-          rule.totalAffectedTransactions === 1
-            ? "transaction"
-            : "transactions"
+          rule.totalAffectedTransactions === 1 ? "transaction" : "transactions"
         }`;
 
   return (
@@ -196,7 +198,8 @@ function FinanceRuleCard({
               <div className="flex items-center justify-between gap-2">
                 <div className="font-medium text-sm">Affected transactions</div>
                 <Badge variant="outline">
-                  {rule.totalAffectedTransactions} currently visible to this rule
+                  {rule.totalAffectedTransactions} currently visible to this
+                  rule
                 </Badge>
               </div>
               <FinanceRulesTransactionTable
@@ -242,11 +245,13 @@ export function FinanceRulesView({
 
   const sortedRules = useMemo(
     () =>
-      [...(data?.rules ?? [])].sort(
-        (left, right) =>
-          new Date(right.createdAt).getTime() -
-          new Date(left.createdAt).getTime()
-      ),
+      [...(data?.rules ?? [])]
+        .filter((rule) => categorizationRuleTypes.has(rule.type))
+        .sort(
+          (left, right) =>
+            new Date(right.createdAt).getTime() -
+            new Date(left.createdAt).getTime()
+        ),
     [data?.rules]
   );
 
@@ -291,7 +296,7 @@ export function FinanceRulesView({
       setRulePendingDelete(null);
       toast({
         type: "success",
-        description: "Finance rule deleted.",
+        description: "Categorization rule deleted.",
       });
     } catch (deleteError) {
       toast({
@@ -299,7 +304,7 @@ export function FinanceRulesView({
         description:
           deleteError instanceof Error
             ? deleteError.message
-            : "Failed to delete the finance rule.",
+            : "Failed to delete the categorization rule.",
       });
     }
   };
@@ -311,10 +316,10 @@ export function FinanceRulesView({
 
         <div className="min-w-0 flex-1">
           <div className="truncate font-medium text-sm">
-            {projectTitle ?? "Finance rules"}
+            {projectTitle ?? "Categorization rules"}
           </div>
           <div className="truncate text-muted-foreground text-xs">
-            Rule editor
+            Categorization rules
           </div>
         </div>
 
@@ -346,11 +351,12 @@ export function FinanceRulesView({
 
                 <div className="space-y-1">
                   <h1 className="font-semibold text-2xl tracking-tight">
-                    Finance rules
+                    Categorization rules
                   </h1>
                   <p className="max-w-2xl text-muted-foreground text-sm leading-6">
-                    Inspect affected transactions, edit existing logic, and add
-                    new rules directly from this page.
+                    Manage category mappings, bucket naming, and merge logic
+                    from one place. Budget exclusions and monthly budgets now
+                    live on the budget page.
                   </p>
                 </div>
               </div>
@@ -358,11 +364,11 @@ export function FinanceRulesView({
               <div className="flex flex-wrap items-center gap-2">
                 <div className="flex items-center gap-2 rounded-xl border bg-background px-3 py-2 text-muted-foreground text-sm">
                   <BookOpenText className="size-4" />
-                  Dedicated rules view
+                  Dedicated categorization view
                 </div>
                 <Button onClick={openAddDialog} type="button">
                   <Plus className="size-4" />
-                  Add rule
+                  Add categorization rule
                 </Button>
               </div>
             </div>
@@ -372,26 +378,26 @@ export function FinanceRulesView({
             <Card>
               <CardContent className="flex items-center gap-3 p-6 text-muted-foreground text-sm">
                 <Loader2 className="size-4 animate-spin" />
-                Loading finance rules...
+                Loading categorization rules...
               </CardContent>
             </Card>
           ) : error ? (
             <Card>
               <CardContent className="p-6 text-destructive text-sm">
-                Unable to load finance rules right now.
+                Unable to load categorization rules right now.
               </CardContent>
             </Card>
           ) : sortedRules.length === 0 ? (
             <Card>
               <CardContent className="flex flex-col items-start gap-3 p-6 text-sm">
-                <div className="font-medium">No rules yet</div>
+                <div className="font-medium">No categorization rules yet</div>
                 <div className="text-muted-foreground leading-6">
-                  Add your first manual rule to start shaping categorization,
-                  exclusions, bucket names, or plan targets from here.
+                  Add your first categorization rule to shape bucket mapping,
+                  raw category remaps, and bucket naming from here.
                 </div>
                 <Button onClick={openAddDialog} type="button">
                   <Plus className="size-4" />
-                  Add rule
+                  Add categorization rule
                 </Button>
               </CardContent>
             </Card>
@@ -409,6 +415,17 @@ export function FinanceRulesView({
       </div>
 
       <FinanceRuleEditorDialog
+        allowedTypes={categorizationRuleTypesList}
+        copy={{
+          createSubmitLabel: "Add categorization rule",
+          createSuccess: "Categorization rule added.",
+          createTitle: "Add categorization rule",
+          description:
+            "Preview the current impact before saving so you can verify which transactions are affected.",
+          editSuccess: "Categorization rule updated.",
+          editTitle: "Edit categorization rule",
+        }}
+        defaultType="categorize_transactions"
         onOpenChange={(open) => {
           setIsEditorOpen(open);
 
@@ -433,7 +450,7 @@ export function FinanceRulesView({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete finance rule?</AlertDialogTitle>
+            <AlertDialogTitle>Delete categorization rule?</AlertDialogTitle>
             <AlertDialogDescription>
               {rulePendingDelete
                 ? `This will remove "${rulePendingDelete.summary}" from the saved finance plan.`

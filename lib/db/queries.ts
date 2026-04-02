@@ -210,6 +210,35 @@ export async function updateProjectTitleById({
   }
 }
 
+export async function updateProjectFinanceTargetsById({
+  projectId,
+  totalMonthlyBudgetTarget,
+  totalMonthlyIncomeTarget,
+}: {
+  projectId: string;
+  totalMonthlyBudgetTarget: number | null;
+  totalMonthlyIncomeTarget: number | null;
+}) {
+  try {
+    const [updatedProject] = await db
+      .update(project)
+      .set({
+        totalMonthlyBudgetTarget,
+        totalMonthlyIncomeTarget,
+        updatedAt: new Date(),
+      })
+      .where(eq(project.id, projectId))
+      .returning();
+
+    return updatedProject ?? null;
+  } catch (_error) {
+    throw new ChatSDKError(
+      "bad_request:database",
+      "Failed to update finance targets for project"
+    );
+  }
+}
+
 export async function deleteProjectById({ id }: { id: string }) {
   try {
     await deleteProjectScopedRecords([id]);

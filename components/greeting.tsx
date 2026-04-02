@@ -18,8 +18,8 @@ export const Greeting = ({
         transition={{ delay: 0.5 }}
       >
         {hasFinanceDataset
-          ? "Let’s build your first plan."
-          : "Upload a transaction CSV to begin."}
+          ? "Let's build your first plan."
+          : "Ask anything, or add a transaction CSV."}
       </motion.div>
       <motion.div
         animate={{ opacity: 1, y: 0 }}
@@ -30,7 +30,7 @@ export const Greeting = ({
       >
         {hasFinanceDataset
           ? "Tell me your goals, any life changes, and anything to exclude or treat specially."
-          : "Use the sample-compatible header: Date, Account, Description, Category, Tags, Amount."}
+          : "You can upload a sample-compatible CSV at any time with: Date, Account, Description, Category, Tags, Amount."}
       </motion.div>
       <motion.div
         animate={{ opacity: 1, y: 0 }}
@@ -40,13 +40,13 @@ export const Greeting = ({
         transition={{ delay: 0.7 }}
       >
         <span className="rounded-full bg-muted px-3 py-1">
-          Try: “exclude refinance fee”
+          Try: "exclude refinance fee"
         </span>
         <span className="rounded-full bg-muted px-3 py-1">
-          Try: “combine travel and transport”
+          Try: "combine travel and transport"
         </span>
         <span className="rounded-full bg-muted px-3 py-1">
-          Try: “mortgage changes in April to 3200”
+          Try: "mortgage changes in April to 3200"
         </span>
       </motion.div>
     </div>

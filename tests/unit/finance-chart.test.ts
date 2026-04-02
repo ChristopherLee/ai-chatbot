@@ -45,6 +45,14 @@ function buildSnapshot(transactions: FinanceTransaction[]): FinanceSnapshot {
 
   return {
     status: "ready",
+    cashFlowSummary: {
+      totalMonthlyBudgetTarget: null,
+      totalMonthlyIncomeTarget: null,
+      categoryBudgetTotal: plan.planSummary.totalMonthlyTarget,
+      catchAllBudget: null,
+      historicalAverageMonthlyIncome: 0,
+      historicalAverageMonthlySpend: plan.planSummary.trailingAverageSpend,
+    },
     datasetSummary: {
       filename: "transactions.csv",
       totalTransactions: transactions.length,

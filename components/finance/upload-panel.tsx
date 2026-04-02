@@ -86,14 +86,14 @@ export function UploadPanel({
     >
       <CardHeader className={compact ? "p-3 pb-2" : "p-5 pb-3"}>
         <CardTitle className={compact ? "text-sm" : "text-lg"}>
-          Upload your transaction CSV
+          Add a transaction CSV
         </CardTitle>
       </CardHeader>
       <CardContent
         className={compact ? "space-y-3 p-3 pt-0" : "space-y-4 p-5 pt-0"}
       >
         <p className="text-muted-foreground text-sm">
-          Start with the sample-compatible export:
+          Optional. Use the sample-compatible export:
           <span className="ml-1 font-mono text-xs">
             Date, Account, Description, Category, Tags, Amount
           </span>
@@ -101,13 +101,13 @@ export function UploadPanel({
 
         <div className="flex flex-wrap gap-2 text-muted-foreground text-xs">
           <span className="rounded-full bg-muted px-2 py-1">
-            Reply with goals after upload
+            Add one any time to switch into planner mode
           </span>
           <span className="rounded-full bg-muted px-2 py-1">
-            Try: “exclude refinance fee”
+            Try: "exclude refinance fee"
           </span>
           <span className="rounded-full bg-muted px-2 py-1">
-            Try: “mortgage changes in April to 3200”
+            Try: "mortgage changes in April to 3200"
           </span>
         </div>
 
@@ -131,7 +131,7 @@ export function UploadPanel({
           ) : (
             <UploadIcon className="mr-2 size-4" />
           )}
-          {isUploading ? "Uploading..." : "Choose CSV"}
+          {isUploading ? "Uploading..." : "Choose transaction CSV"}
         </Button>
       </CardContent>
     </Card>

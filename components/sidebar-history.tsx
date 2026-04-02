@@ -1,7 +1,9 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { usePathname, useRouter } from "next/navigation";
+import { BookOpenText, Wallet } from "lucide-react";
+import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { User } from "next-auth";
 import type { CSSProperties } from "react";
 import { useState } from "react";
@@ -23,6 +25,9 @@ import {
   SidebarGroup,
   SidebarGroupContent,
   SidebarMenu,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
   useSidebar,
 } from "@/components/ui/sidebar";
 import type { ChatWithProject } from "@/lib/db/schema";
@@ -88,7 +93,11 @@ export function getChatHistoryPaginationKey(
 export function SidebarHistory({ user }: { user: User | undefined }) {
   const { setOpenMobile } = useSidebar();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const activeChatId = pathname?.startsWith("/chat/")
+    ? pathname.split("/")[2]
+    : null;
+  const activeBudgetProjectId = pathname?.startsWith("/project/")
     ? pathname.split("/")[2]
     : null;
 
@@ -250,6 +259,40 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
                       <span className="sr-only">New chat in project</span>
                     </Button>
                   </div>
+
+                  <SidebarMenuSub>
+                    <SidebarMenuSubItem>
+                      <SidebarMenuSubButton
+                        asChild
+                        isActive={
+                          searchParams.get("view") === "rules" &&
+                          project.chats.some((chat) => chat.id === activeChatId)
+                        }
+                      >
+                        <Link
+                          href={`/chat/${project.chats[0]?.id}?view=rules`}
+                          onClick={() => setOpenMobile(false)}
+                        >
+                          <BookOpenText />
+                          <span>Categorization Rules</span>
+                        </Link>
+                      </SidebarMenuSubButton>
+                    </SidebarMenuSubItem>
+                    <SidebarMenuSubItem>
+                      <SidebarMenuSubButton
+                        asChild
+                        isActive={activeBudgetProjectId === project.projectId}
+                      >
+                        <Link
+                          href={`/project/${project.projectId}/budget`}
+                          onClick={() => setOpenMobile(false)}
+                        >
+                          <Wallet />
+                          <span>Budget</span>
+                        </Link>
+                      </SidebarMenuSubButton>
+                    </SidebarMenuSubItem>
+                  </SidebarMenuSub>
 
                   {project.chats.map((chat) => (
                     <ChatItem

@@ -9,7 +9,6 @@ import { ChatSDKError } from "@/lib/errors";
 import {
   EXPECTED_TRANSACTION_HEADERS,
   getDefaultMappedBucket,
-  isExcludedRawCategory,
   resolveBucketGroupFromBucket,
 } from "./config";
 import {
@@ -341,7 +340,6 @@ export async function parseTransactionsCsv({
     const outflowAmount =
       amountSigned < 0 ? roundCurrency(Math.abs(amountSigned)) : 0;
     const mappedBucket = getDefaultMappedBucket(rawCategory);
-    const includeFlag = !isExcludedRawCategory(rawCategory);
 
     return {
       projectId,
@@ -356,10 +354,10 @@ export async function parseTransactionsCsv({
       mappedBucket,
       bucketGroup: resolveBucketGroupFromBucket({
         bucket: mappedBucket,
-        includeFlag,
+        includeFlag: true,
       }),
-      includeFlag,
-      exclusionReason: includeFlag ? null : "Excluded by default category rule",
+      includeFlag: true,
+      exclusionReason: null,
       notes: null,
     } satisfies Omit<Transaction, "id" | "createdAt">;
   });

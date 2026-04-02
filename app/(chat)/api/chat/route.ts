@@ -10,9 +10,9 @@ import {
 import { after } from "next/server";
 import { createResumableStreamContext } from "resumable-stream";
 import { auth, type UserType } from "@/app/(auth)/auth";
+import { getChatRuntimeMode } from "@/lib/ai/chat-runtime-mode";
 import { entitlementsByUserType } from "@/lib/ai/entitlements";
 import { logChatStreamFailure } from "@/lib/ai/logging";
-import { getChatRuntimeMode } from "@/lib/ai/chat-runtime-mode";
 import {
   filterPersistableMessages,
   sanitizeUIMessagesForModel,
@@ -68,7 +68,11 @@ function isGatewayActivationError(error: unknown) {
   );
 }
 
-function formatCurrency(value: number) {
+function formatCurrency(value: number | null) {
+  if (value === null) {
+    return "Not set";
+  }
+
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
@@ -116,7 +120,9 @@ function buildFinanceFallbackMessage({
 
   return `${intro}
 
-Current monthly target: ${formatCurrency(planSummary.totalMonthlyTarget)}
+Total monthly budget: ${formatCurrency(snapshot.cashFlowSummary.totalMonthlyBudgetTarget)}
+Bucket allocations: ${formatCurrency(planSummary.totalMonthlyTarget)}
+Catch-all budget: ${formatCurrency(snapshot.cashFlowSummary.catchAllBudget)}
 Plan mode: ${planSummary.mode}
 Top buckets: ${topBuckets || "No included buckets yet."}
 ${latestOverrides ? `Latest changes: ${latestOverrides}` : ""}
@@ -365,6 +371,7 @@ Rules:
 - If the user denies suggested categorization actions, use that feedback to continue the investigation, refine the proposal, or ask whether they want a deeper review.
 - After any finance tool call, summarize the result and any plan changes that occurred.
 - Do not invent transactions, categories, tool results, or chart values beyond the snapshot or tool outputs.
+- Distinguish between the user-set total monthly budget/income and the derived bucket allocations in the plan. The catch-all budget is whatever remains after bucket allocations.
 
 Finance snapshot:
 ${JSON.stringify(resolvedFinanceSnapshot)}`,

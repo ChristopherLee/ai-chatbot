@@ -1,7 +1,7 @@
 import type { Transaction } from "@/lib/db/schema";
 import {
   getDefaultMappedBucket,
-  isExcludedRawCategory,
+  getDefaultFinanceExclusionActions,
   resolveBucketGroupFromBucket,
 } from "./config";
 import { applyFinanceOverrides } from "./overrides";
@@ -10,7 +10,6 @@ import type { FinanceAction, FinanceTransaction } from "./types";
 export function buildBaseFinanceTransaction(
   transaction: Transaction
 ): FinanceTransaction {
-  const includeFlag = !isExcludedRawCategory(transaction.rawCategory);
   const mappedBucket = getDefaultMappedBucket(transaction.rawCategory);
 
   return {
@@ -27,13 +26,24 @@ export function buildBaseFinanceTransaction(
     mappedBucket,
     bucketGroup: resolveBucketGroupFromBucket({
       bucket: mappedBucket,
-      includeFlag,
+      includeFlag: true,
     }),
-    includeFlag,
-    exclusionReason: includeFlag ? null : "Excluded by default category rule",
+    includeFlag: true,
+    exclusionReason: null,
     notes: transaction.notes,
     createdAt: transaction.createdAt,
   };
+}
+
+export function buildInitialFinanceTransactions(
+  transactions: Transaction[]
+): FinanceTransaction[] {
+  const baseTransactions = transactions.map(buildBaseFinanceTransaction);
+
+  return applyFinanceOverrides(
+    baseTransactions,
+    getDefaultFinanceExclusionActions()
+  );
 }
 
 export function categorizeTransactions({
@@ -43,6 +53,6 @@ export function categorizeTransactions({
   transactions: Transaction[];
   actions: FinanceAction[];
 }) {
-  const baseTransactions = transactions.map(buildBaseFinanceTransaction);
+  const baseTransactions = buildInitialFinanceTransactions(transactions);
   return applyFinanceOverrides(baseTransactions, actions);
 }

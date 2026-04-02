@@ -1,4 +1,8 @@
-import { resolveBucketGroupFromBucket } from "./config";
+import {
+  FINANCE_DISPLAY_HISTORY_MONTHS,
+  FINANCE_RECOMMENDATION_LOOKBACK_MONTHS,
+  resolveBucketGroupFromBucket,
+} from "./config";
 import { getBucketTargetOverrides, getPlanMode } from "./overrides";
 import type {
   FinanceAction,
@@ -140,16 +144,34 @@ export function buildFinancePlan({
     };
   }
 
-  const maxDate = [...transactions]
-    .sort((a, b) => a.transactionDate.localeCompare(b.transactionDate))
-    .at(-1)?.transactionDate;
+  const sortedTransactions = [...transactions].sort((a, b) =>
+    a.transactionDate.localeCompare(b.transactionDate)
+  );
+  const minDate = sortedTransactions[0]?.transactionDate;
+  const maxDate = sortedTransactions.at(-1)?.transactionDate;
 
-  if (!maxDate) {
-    throw new Error("Expected a maximum transaction date");
+  if (!minDate || !maxDate) {
+    throw new Error("Expected transaction history to have a date range");
   }
 
+  const earliestObservedMonth = toMonthKey(minDate);
   const observedEndMonth = toMonthKey(maxDate);
-  const observedStartMonth = getTrailingStartMonth(maxDate, 12);
+  const recommendationStartMonth = getTrailingStartMonth(
+    maxDate,
+    FINANCE_RECOMMENDATION_LOOKBACK_MONTHS
+  );
+  const observedStartMonth =
+    recommendationStartMonth < earliestObservedMonth
+      ? earliestObservedMonth
+      : recommendationStartMonth;
+  const displayStartMonth = getTrailingStartMonth(
+    maxDate,
+    FINANCE_DISPLAY_HISTORY_MONTHS
+  );
+  const boundedDisplayStartMonth =
+    displayStartMonth < earliestObservedMonth
+      ? earliestObservedMonth
+      : displayStartMonth;
   const bucketTargetOverrides = getBucketTargetOverrides(actions);
   const displayEndMonth =
     [
@@ -165,113 +187,149 @@ export function buildFinancePlan({
     observedEndMonth
   );
   const displayMonths = getMonthKeysBetween(
-    observedStartMonth,
+    boundedDisplayStartMonth,
     displayEndMonth
   );
   const planMode = getPlanMode(actions);
 
   const bucketEntries = Array.from(
-    includedTransactions.reduce((map, transaction) => {
-      const bucketTransactions = map.get(transaction.mappedBucket) ?? [];
-      bucketTransactions.push(transaction);
-      map.set(transaction.mappedBucket, bucketTransactions);
-      return map;
-    }, new Map<string, FinanceTransaction[]>())
+    (() => {
+      const bucketMap = includedTransactions.reduce(
+        (map, transaction) => {
+          const bucketKey = safeLower(transaction.mappedBucket);
+          const existing = map.get(bucketKey);
+
+          if (existing) {
+            existing.transactions.push(transaction);
+            return map;
+          }
+
+          map.set(bucketKey, {
+            bucket: transaction.mappedBucket,
+            transactions: [transaction],
+          });
+
+          return map;
+        },
+        new Map<
+          string,
+          {
+            bucket: string;
+            transactions: FinanceTransaction[];
+          }
+        >()
+      );
+
+      for (const override of bucketTargetOverrides) {
+        const bucketKey = safeLower(override.bucket);
+
+        if (!bucketMap.has(bucketKey)) {
+          bucketMap.set(bucketKey, {
+            bucket: override.bucket,
+            transactions: [],
+          });
+        }
+      }
+
+      return bucketMap.values();
+    })()
   );
 
-  const plannedBuckets = bucketEntries.map(([bucket, bucketTransactions]) => {
-    const actualByMonth = new Map<string, number>();
+  const plannedBuckets = bucketEntries.map(
+    ({ bucket, transactions: bucketTransactions }) => {
+      const actualByMonth = new Map<string, number>();
 
-    for (const transaction of bucketTransactions) {
-      const month = toMonthKey(transaction.transactionDate);
-      const current = actualByMonth.get(month) ?? 0;
-      actualByMonth.set(
-        month,
-        roundCurrency(current + transaction.outflowAmount)
-      );
-    }
-
-    const observedMonthlyValues = observedMonths.map(
-      (month) => actualByMonth.get(month) ?? 0
-    );
-    const activeMonths = observedMonthlyValues.filter(
-      (value) => value > 0
-    ).length;
-    const group = resolveBucketGroupFromBucket({
-      bucket,
-      includeFlag: true,
-      activeMonths,
-    });
-    const baseTarget = getTargetForGroup({
-      group,
-      monthlyValues: observedMonthlyValues,
-      planMode,
-    });
-
-    const monthly = displayMonths.map((month) => ({
-      month,
-      label: getMonthLabel(month),
-      actual: roundCurrency(actualByMonth.get(month) ?? 0),
-      target: getMonthTarget({
-        bucket,
-        month,
-        baseTarget,
-        actions: bucketTargetOverrides,
-      }),
-    }));
-
-    const topMerchants = Array.from(
-      bucketTransactions.reduce((map, transaction) => {
-        const current = map.get(transaction.normalizedMerchant) ?? 0;
-        map.set(
-          transaction.normalizedMerchant,
+      for (const transaction of bucketTransactions) {
+        const month = toMonthKey(transaction.transactionDate);
+        const current = actualByMonth.get(month) ?? 0;
+        actualByMonth.set(
+          month,
           roundCurrency(current + transaction.outflowAmount)
         );
-        return map;
-      }, new Map<string, number>())
-    )
-      .map(([merchant, amount]) => ({ merchant, amount }))
-      .sort((a, b) => b.amount - a.amount)
-      .slice(0, 5);
+      }
 
-    const transactionsForCard = [...bucketTransactions]
-      .sort((a, b) => {
-        if (a.transactionDate === b.transactionDate) {
-          return b.outflowAmount - a.outflowAmount;
-        }
+      const observedMonthlyValues = observedMonths.map(
+        (month) => actualByMonth.get(month) ?? 0
+      );
+      const activeMonths = observedMonthlyValues.filter(
+        (value) => value > 0
+      ).length;
+      const group = resolveBucketGroupFromBucket({
+        bucket,
+        includeFlag: true,
+        activeMonths: activeMonths > 0 ? activeMonths : undefined,
+      });
+      const baseTarget = getTargetForGroup({
+        group,
+        monthlyValues: observedMonthlyValues,
+        planMode,
+      });
 
-        return b.transactionDate.localeCompare(a.transactionDate);
-      })
-      .slice(0, 25)
-      .map((transaction) => ({
-        id: transaction.id,
-        transactionDate: transaction.transactionDate,
-        description: transaction.description,
-        merchant: transaction.normalizedMerchant,
-        amount: transaction.outflowAmount,
-        rawCategory: transaction.rawCategory,
-        account: transaction.account,
+      const monthly = displayMonths.map((month) => ({
+        month,
+        label: getMonthLabel(month),
+        actual: roundCurrency(actualByMonth.get(month) ?? 0),
+        target: getMonthTarget({
+          bucket,
+          month,
+          baseTarget,
+          actions: bucketTargetOverrides,
+        }),
       }));
 
-    return {
-      bucket,
-      group,
-      monthlyTarget: monthly.at(-1)?.target ?? 0,
-      trailingAverage: roundCurrency(average(observedMonthlyValues)),
-      trailingTotal: roundCurrency(
-        observedMonthlyValues.reduce((sum, value) => sum + value, 0)
-      ),
-      monthly,
-      totalOutflow: roundCurrency(
-        bucketTransactions.reduce(
-          (sum, transaction) => sum + transaction.outflowAmount,
-          0
-        )
-      ),
-      topMerchants,
-      transactions: transactionsForCard,
-    } satisfies PlannedBucket;
-  });
+      const topMerchants = Array.from(
+        bucketTransactions.reduce((map, transaction) => {
+          const current = map.get(transaction.normalizedMerchant) ?? 0;
+          map.set(
+            transaction.normalizedMerchant,
+            roundCurrency(current + transaction.outflowAmount)
+          );
+          return map;
+        }, new Map<string, number>())
+      )
+        .map(([merchant, amount]) => ({ merchant, amount }))
+        .sort((a, b) => b.amount - a.amount)
+        .slice(0, 5);
+
+      const transactionsForCard = [...bucketTransactions]
+        .sort((a, b) => {
+          if (a.transactionDate === b.transactionDate) {
+            return b.outflowAmount - a.outflowAmount;
+          }
+
+          return b.transactionDate.localeCompare(a.transactionDate);
+        })
+        .slice(0, 25)
+        .map((transaction) => ({
+          id: transaction.id,
+          transactionDate: transaction.transactionDate,
+          description: transaction.description,
+          merchant: transaction.normalizedMerchant,
+          amount: transaction.outflowAmount,
+          rawCategory: transaction.rawCategory,
+          account: transaction.account,
+        }));
+
+      return {
+        bucket,
+        group,
+        monthlyTarget: monthly.at(-1)?.target ?? 0,
+        trailingAverage: roundCurrency(average(observedMonthlyValues)),
+        trailingTotal: roundCurrency(
+          observedMonthlyValues.reduce((sum, value) => sum + value, 0)
+        ),
+        monthly,
+        totalOutflow: roundCurrency(
+          bucketTransactions.reduce(
+            (sum, transaction) => sum + transaction.outflowAmount,
+            0
+          )
+        ),
+        topMerchants,
+        transactions: transactionsForCard,
+      } satisfies PlannedBucket;
+    }
+  );
 
   const monthlyChart = displayMonths.map((month) => ({
     month,

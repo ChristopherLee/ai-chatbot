@@ -1,4 +1,4 @@
-import type { BucketGroup } from "./types";
+import type { BucketGroup, FinanceAction } from "./types";
 
 export const EXPECTED_TRANSACTION_HEADERS = [
   "Date",
@@ -9,6 +9,9 @@ export const EXPECTED_TRANSACTION_HEADERS = [
   "Amount",
 ] as const;
 
+export const FINANCE_RECOMMENDATION_LOOKBACK_MONTHS = 6;
+export const FINANCE_DISPLAY_HISTORY_MONTHS = 12;
+
 export const EXCLUDED_RAW_CATEGORIES = new Set([
   "Transfers",
   "Credit Card Payments",
@@ -18,6 +21,12 @@ export const EXCLUDED_RAW_CATEGORIES = new Set([
   "Retirement Contributions",
   "Deposits",
   "Interest",
+]);
+
+export const NON_INCOME_RAW_CATEGORIES = new Set([
+  "Transfers",
+  "Credit Card Payments",
+  "Securities Trades",
 ]);
 
 export const RAW_CATEGORY_BUCKET_MAP: Record<string, string> = {
@@ -67,8 +76,14 @@ export const ANNUAL_BUCKETS = new Set([
   "Personal Style",
 ]);
 
-export function isExcludedRawCategory(rawCategory: string) {
-  return EXCLUDED_RAW_CATEGORIES.has(rawCategory);
+export function getDefaultFinanceExclusionActions(): Extract<
+  FinanceAction,
+  { type: "exclude_transactions" }
+>[] {
+  return [...EXCLUDED_RAW_CATEGORIES].map((rawCategory) => ({
+    type: "exclude_transactions",
+    match: { rawCategory },
+  }));
 }
 
 export function getDefaultMappedBucket(rawCategory: string) {

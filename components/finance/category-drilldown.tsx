@@ -1,4 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { FINANCE_RECOMMENDATION_LOOKBACK_MONTHS } from "@/lib/finance/config";
 import type {
   FinanceCategoryCard,
   FinancePlanSummary,
@@ -49,7 +50,7 @@ export function CategoryDrilldown({
                   <div className="grid gap-1 text-right text-sm">
                     <div>
                       <div className="text-muted-foreground text-xs">
-                        Trailing avg
+                        {FINANCE_RECOMMENDATION_LOOKBACK_MONTHS}-mo avg
                       </div>
                       <div className="font-semibold">
                         ${bucket.trailingAverage.toLocaleString()}
@@ -57,7 +58,7 @@ export function CategoryDrilldown({
                     </div>
                     <div>
                       <div className="text-muted-foreground text-xs">
-                        12-mo total
+                        {FINANCE_RECOMMENDATION_LOOKBACK_MONTHS}-mo total
                       </div>
                       <div className="font-semibold">
                         ${bucket.trailingTotal.toLocaleString()}

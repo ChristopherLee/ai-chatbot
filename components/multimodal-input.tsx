@@ -371,7 +371,7 @@ function PureMultimodalInput({
           />
         )}
 
-      {!hasFinanceDataset && (
+      {messages.length === 0 && (
         <UploadPanel
           chatId={chatId}
           compact={true}
@@ -393,10 +393,6 @@ function PureMultimodalInput({
         className="rounded-xl border border-border bg-background p-3 shadow-xs transition-all duration-200 focus-within:border-border hover:border-muted-foreground/50"
         onSubmit={(event) => {
           event.preventDefault();
-          if (!hasFinanceDataset) {
-            toast.error("Upload a transaction CSV before chatting.");
-            return;
-          }
           if (!input.trim() && attachments.length === 0) {
             return;
           }
@@ -445,14 +441,13 @@ function PureMultimodalInput({
             className="grow resize-none border-0! border-none! bg-transparent p-2 text-base outline-none ring-0 [-ms-overflow-style:none] [scrollbar-width:none] placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 [&::-webkit-scrollbar]:hidden"
             data-testid="multimodal-input"
             disableAutoResize={true}
-            disabled={!hasFinanceDataset}
             maxHeight={200}
             minHeight={44}
             onChange={handleInput}
             placeholder={
               hasFinanceDataset
                 ? "Answer the onboarding questions or ask for a plan change..."
-                : "Upload a CSV to start the planner..."
+                : "Ask anything, or upload a CSV to build a finance plan..."
             }
             ref={textareaRef}
             rows={1}
@@ -473,9 +468,7 @@ function PureMultimodalInput({
             <PromptInputSubmit
               className="size-8 rounded-full bg-primary text-primary-foreground transition-colors duration-200 hover:bg-primary/90 disabled:bg-muted disabled:text-muted-foreground"
               data-testid="send-button"
-              disabled={
-                !hasFinanceDataset || !input.trim() || uploadQueue.length > 0
-              }
+              disabled={!input.trim() || uploadQueue.length > 0}
               status={status}
             >
               <ArrowUpIcon size={14} />

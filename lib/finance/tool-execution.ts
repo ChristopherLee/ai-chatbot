@@ -23,7 +23,17 @@ function buildSnapshotSummary(snapshot: FinanceSnapshot) {
   return {
     status: snapshot.status,
     includedOutflow: snapshot.datasetSummary?.includedOutflow ?? null,
-    totalMonthlyTarget: snapshot.planSummary?.totalMonthlyTarget ?? null,
+    totalMonthlyBudgetTarget:
+      snapshot.cashFlowSummary.totalMonthlyBudgetTarget ?? null,
+    totalMonthlyIncomeTarget:
+      snapshot.cashFlowSummary.totalMonthlyIncomeTarget ?? null,
+    categoryBudgetTotal: snapshot.cashFlowSummary.categoryBudgetTotal,
+    suggestedMonthlyTarget: snapshot.planSummary?.totalMonthlyTarget ?? null,
+    catchAllBudget: snapshot.cashFlowSummary.catchAllBudget,
+    historicalAverageMonthlyIncome:
+      snapshot.cashFlowSummary.historicalAverageMonthlyIncome,
+    historicalAverageMonthlySpend:
+      snapshot.cashFlowSummary.historicalAverageMonthlySpend,
     trailingAverageSpend: snapshot.planSummary?.trailingAverageSpend ?? null,
     topBuckets:
       snapshot.planSummary?.bucketTargets.slice(0, 5).map((bucket) => ({
@@ -83,7 +93,6 @@ export async function applyFinanceActionsForChat({
 
     if (
       action.type === "exclude_transactions" ||
-      action.type === "include_transactions" ||
       action.type === "categorize_transactions"
     ) {
       const stats = getTransactionMatchStats(action, transactions, {

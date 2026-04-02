@@ -2,6 +2,7 @@ import { put } from "@vercel/blob";
 import { NextResponse } from "next/server";
 import { auth } from "@/app/(auth)/auth";
 import {
+  getTransactionsByProjectId,
   getUploadedFileByProjectId,
   saveTransactions,
   saveUploadedFile,
@@ -20,6 +21,7 @@ import {
   buildFinanceChatTitle,
   parseTransactionsCsv,
 } from "@/lib/finance/csv-ingest";
+import { filterNewTransactions } from "@/lib/finance/transaction-dedupe";
 import { generateUUID } from "@/lib/utils";
 
 function buildOnboardingMessage({
@@ -139,21 +141,22 @@ export async function POST(request: Request) {
       projectId = generateUUID();
     }
 
-    const existingUpload = await getUploadedFileByProjectId({ projectId });
-
-    if (existingUpload) {
-      return NextResponse.json(
-        { error: "This project already has a dataset." },
-        { status: 409 }
-      );
-    }
-
     const csvText = await file.text();
     const parsed = await parseTransactionsCsv({
       projectId,
       filename: file.name,
       csvText,
     });
+    const [existingUpload, existingTransactions] = await Promise.all([
+      getUploadedFileByProjectId({ projectId }),
+      getTransactionsByProjectId({ projectId }),
+    ]);
+
+    const newTransactions = filterNewTransactions({
+      existingTransactions,
+      candidateTransactions: parsed.transactions,
+    });
+
     const financeTitle = buildFinanceChatTitle({
       filename: parsed.filename,
       startDate: parsed.dateRange.start,
@@ -203,7 +206,7 @@ export async function POST(request: Request) {
     });
 
     await saveTransactions({
-      transactions: parsed.transactions,
+      transactions: newTransactions,
     });
 
     await saveMessages({
@@ -217,7 +220,7 @@ export async function POST(request: Request) {
               type: "text",
               text: buildOnboardingMessage({
                 filename: file.name,
-                rowCount: parsed.rowCount,
+                rowCount: newTransactions.length,
               }),
             },
           ],
@@ -227,7 +230,13 @@ export async function POST(request: Request) {
       ],
     });
 
-    return NextResponse.json({ chatId, projectId });
+    return NextResponse.json({
+      chatId,
+      projectId,
+      uploadedBefore: Boolean(existingUpload),
+      insertedRows: newTransactions.length,
+      parsedRows: parsed.rowCount,
+    });
   } catch (error) {
     if (error instanceof ChatSDKError) {
       return error.toResponse();

@@ -2,13 +2,13 @@
 
 import useSWR from "swr";
 import { Card, CardContent } from "@/components/ui/card";
-import type { FinanceSnapshot } from "@/lib/finance/types";
+import type {
+  FinanceSnapshot,
+  FinanceTargetsResponse,
+} from "@/lib/finance/types";
 import { fetcher } from "@/lib/utils";
-import { CategoryDrilldown } from "./category-drilldown";
-import { CumulativePaceChart } from "./cumulative-pace-chart";
 import { DatasetSummaryEmptyState } from "./dataset-summary-empty-state";
-import { MonthlySpendChart } from "./monthly-spend-chart";
-import { PlanSummary } from "./plan-summary";
+import { MonthlyBudgetDashboard } from "./monthly-budget-dashboard";
 
 export function FinanceDashboard({
   projectId,
@@ -21,6 +21,10 @@ export function FinanceDashboard({
     `/api/finance/project/${projectId}`,
     fetcher,
     initialSnapshot ? { fallbackData: initialSnapshot } : undefined
+  );
+  const { data: targets } = useSWR<FinanceTargetsResponse>(
+    `/api/finance/project/${projectId}/targets`,
+    fetcher
   );
 
   if (!snapshot) {
@@ -43,14 +47,24 @@ export function FinanceDashboard({
     );
   }
 
+  if (!targets) {
+    return (
+      <div className="space-y-4 p-4">
+        <Card>
+          <CardContent className="p-4 text-muted-foreground text-sm">
+            Loading budget dashboard...
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4 p-4">
-      <PlanSummary planSummary={snapshot.planSummary} />
-      <MonthlySpendChart data={snapshot.monthlyChart} />
-      <CumulativePaceChart data={snapshot.cumulativeChart} />
-      <CategoryDrilldown
-        budgetBuckets={snapshot.planSummary.bucketTargets}
-        categories={snapshot.categoryCards}
+      <MonthlyBudgetDashboard
+        projectId={projectId}
+        snapshot={snapshot}
+        targets={targets}
       />
     </div>
   );

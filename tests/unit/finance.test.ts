@@ -3,7 +3,12 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import type { FinanceOverride } from "@/lib/db/schema";
 import { buildHeuristicActions } from "@/lib/finance/action-parser";
+import { buildFinanceCashFlowSummary } from "@/lib/finance/cash-flow";
 import { categorizeTransactions } from "@/lib/finance/categorize";
+import {
+  getCurrentCategoryBudgetOverrides,
+  getCurrentCategoryBudgetTotal,
+} from "@/lib/finance/category-budgets";
 import { parseTransactionsCsv } from "@/lib/finance/csv-ingest";
 import {
   buildAppliedOverrides,
@@ -108,7 +113,10 @@ test("CSV ingest errors when required headers are missing", async () => {
       }),
     (error: unknown) => {
       assert.ok(error instanceof Error);
-      assert.match(error.message, /missing required fields/i);
+      assert.match(
+        String(error.cause ?? error.message),
+        /missing required fields/i
+      );
       return true;
     }
   );
@@ -117,6 +125,14 @@ test("CSV ingest errors when required headers are missing", async () => {
 test("Heuristic actions prefer match-based categorization for merchant labels", () => {
   const snapshot: FinanceSnapshot = {
     status: "ready",
+    cashFlowSummary: {
+      totalMonthlyBudgetTarget: null,
+      totalMonthlyIncomeTarget: null,
+      categoryBudgetTotal: 3000,
+      catchAllBudget: null,
+      historicalAverageMonthlyIncome: 0,
+      historicalAverageMonthlySpend: 3000,
+    },
     datasetSummary: {
       filename: "transactions.csv.csv",
       totalTransactions: 2,
@@ -196,6 +212,14 @@ test("Heuristic actions prefer match-based categorization for merchant labels", 
 test("Heuristic actions preserve the user's requested destination bucket name", () => {
   const snapshot: FinanceSnapshot = {
     status: "ready",
+    cashFlowSummary: {
+      totalMonthlyBudgetTarget: null,
+      totalMonthlyIncomeTarget: null,
+      categoryBudgetTotal: 3000,
+      catchAllBudget: null,
+      historicalAverageMonthlyIncome: 0,
+      historicalAverageMonthlySpend: 3000,
+    },
     datasetSummary: {
       filename: "transactions.csv.csv",
       totalTransactions: 2,
@@ -365,6 +389,46 @@ test("Single-transaction categorization only updates the targeted transaction", 
 
   assert.ok(unaffectedTransaction);
   assert.equal(unaffectedTransaction.mappedBucket, "Other / Misc");
+});
+
+test("Single-transaction categorization clears the default exclusion state", () => {
+  const categorized = categorizeTransactions({
+    transactions: [
+      {
+        id: "tx-1",
+        projectId: "project-1",
+        transactionDate: "2026-01-05",
+        account: "Checking",
+        description: "Direct Debit Jpmorgan Chasechase Ach",
+        normalizedMerchant: "Direct Debit Jpmorgan Chasechase Ach",
+        rawCategory: "Credit Card Payments",
+        tags: null,
+        amountSigned: -13160.01,
+        outflowAmount: 13160.01,
+        mappedBucket: "Credit Card Payments",
+        bucketGroup: "excluded",
+        includeFlag: false,
+        exclusionReason: "Excluded by default category rule",
+        notes: null,
+        createdAt: new Date(),
+      },
+    ],
+    actions: [
+      {
+        type: "categorize_transaction",
+        transactionId: "tx-1",
+        to: "Mortgage",
+      },
+    ],
+  });
+
+  const updatedTransaction = categorized[0];
+
+  assert.ok(updatedTransaction);
+  assert.equal(updatedTransaction.mappedBucket, "Mortgage");
+  assert.equal(updatedTransaction.includeFlag, true);
+  assert.equal(updatedTransaction.exclusionReason, null);
+  assert.equal(updatedTransaction.bucketGroup, "fixed");
 });
 
 test("Manual transaction categorization overrides stay in place when later rules match the same merchant", () => {
@@ -665,4 +729,272 @@ test("Effective-month target overrides only affect future months", () => {
   assert.ok(april);
   assert.equal(march.target, 3000);
   assert.equal(april.target, 3200);
+});
+
+test("Current category budget helpers keep only the latest default budget per bucket", () => {
+  const overrides: FinanceOverride[] = [
+    {
+      id: "override-1",
+      projectId: "project-1",
+      type: "set_bucket_monthly_target",
+      key: "budget-groceries-300",
+      valueJson: {
+        type: "set_bucket_monthly_target",
+        bucket: "Groceries",
+        amount: 300,
+      },
+      createdAt: new Date("2026-03-01T10:00:00.000Z"),
+    },
+    {
+      id: "override-2",
+      projectId: "project-1",
+      type: "set_bucket_monthly_target",
+      key: "budget-groceries-450",
+      valueJson: {
+        type: "set_bucket_monthly_target",
+        bucket: "Groceries",
+        amount: 450,
+      },
+      createdAt: new Date("2026-03-02T10:00:00.000Z"),
+    },
+    {
+      id: "override-3",
+      projectId: "project-1",
+      type: "set_bucket_monthly_target",
+      key: "budget-groceries-april",
+      valueJson: {
+        type: "set_bucket_monthly_target",
+        bucket: "Groceries",
+        amount: 500,
+        effectiveMonth: "2026-04",
+      },
+      createdAt: new Date("2026-03-03T10:00:00.000Z"),
+    },
+    {
+      id: "override-4",
+      projectId: "project-1",
+      type: "set_bucket_monthly_target",
+      key: "budget-dining-200",
+      valueJson: {
+        type: "set_bucket_monthly_target",
+        bucket: "Dining",
+        amount: 200,
+      },
+      createdAt: new Date("2026-03-04T10:00:00.000Z"),
+    },
+  ];
+
+  assert.deepEqual(getCurrentCategoryBudgetOverrides(overrides), [
+    {
+      bucket: "Dining",
+      amount: 200,
+      overrideId: "override-4",
+    },
+    {
+      bucket: "Groceries",
+      amount: 450,
+      overrideId: "override-2",
+    },
+  ]);
+  assert.equal(getCurrentCategoryBudgetTotal(overrides), 650);
+});
+
+test("Planner includes buckets that only exist because of manual category budgets", () => {
+  const transaction = (month: string, amount: number): FinanceTransaction => ({
+    id: `${month}-${amount}`,
+    projectId: "project-1",
+    transactionDate: `${month}-15`,
+    account: "Checking",
+    description: "Groceries",
+    normalizedMerchant: "Whole Foods",
+    rawCategory: "Groceries",
+    tags: null,
+    amountSigned: -amount,
+    outflowAmount: amount,
+    mappedBucket: "Groceries",
+    bucketGroup: "flexible",
+    includeFlag: true,
+    exclusionReason: null,
+    notes: null,
+    createdAt: new Date(),
+  });
+
+  const plan = buildFinancePlan({
+    transactions: [
+      transaction("2026-01", 400),
+      transaction("2026-02", 420),
+      transaction("2026-03", 380),
+    ],
+    actions: [
+      {
+        type: "set_bucket_monthly_target",
+        bucket: "Pets",
+        amount: 150,
+      },
+    ],
+  });
+
+  const petsBucket = plan.planSummary.bucketTargets.find(
+    (bucket) => bucket.bucket === "Pets"
+  );
+  const petsCard = plan.categoryCards.find((card) => card.bucket === "Pets");
+
+  assert.ok(petsBucket);
+  assert.ok(petsCard);
+  assert.equal(petsBucket.group, "flexible");
+  assert.equal(petsBucket.monthlyTarget, 150);
+  assert.equal(petsCard.monthlyTarget, 150);
+  assert.equal(petsCard.totalOutflow, 0);
+});
+
+test("Budget recommendations use the latest six months of history", () => {
+  const mortgageTransaction = (
+    month: string,
+    amount: number
+  ): FinanceTransaction => ({
+    id: `${month}-${amount}`,
+    projectId: "project-1",
+    transactionDate: `${month}-15`,
+    account: "Checking",
+    description: "Mortgage payment",
+    normalizedMerchant: "Mortgage",
+    rawCategory: "Mortgages",
+    tags: null,
+    amountSigned: -amount,
+    outflowAmount: amount,
+    mappedBucket: "Mortgage",
+    bucketGroup: "fixed",
+    includeFlag: true,
+    exclusionReason: null,
+    notes: null,
+    createdAt: new Date(),
+  });
+
+  const plan = buildFinancePlan({
+    transactions: [
+      mortgageTransaction("2026-01", 5000),
+      mortgageTransaction("2026-02", 5000),
+      mortgageTransaction("2026-03", 1000),
+      mortgageTransaction("2026-04", 1000),
+      mortgageTransaction("2026-05", 1000),
+      mortgageTransaction("2026-06", 1000),
+      mortgageTransaction("2026-07", 1000),
+      mortgageTransaction("2026-08", 1000),
+    ],
+    actions: [],
+  });
+
+  const mortgageBucket = plan.planSummary.bucketTargets.find(
+    (bucket) => bucket.bucket === "Mortgage"
+  );
+
+  assert.ok(mortgageBucket);
+  assert.equal(mortgageBucket.monthlyTarget, 1000);
+  assert.equal(mortgageBucket.trailingAverage, 1000);
+  assert.equal(mortgageBucket.trailingTotal, 6000);
+  assert.equal(plan.planSummary.trailingAverageSpend, 1000);
+});
+
+test("Budget recommendations use available history when less than six months exist", () => {
+  const mortgageTransaction = (
+    month: string,
+    amount: number
+  ): FinanceTransaction => ({
+    id: `${month}-${amount}`,
+    projectId: "project-1",
+    transactionDate: `${month}-15`,
+    account: "Checking",
+    description: "Mortgage payment",
+    normalizedMerchant: "Mortgage",
+    rawCategory: "Mortgages",
+    tags: null,
+    amountSigned: -amount,
+    outflowAmount: amount,
+    mappedBucket: "Mortgage",
+    bucketGroup: "fixed",
+    includeFlag: true,
+    exclusionReason: null,
+    notes: null,
+    createdAt: new Date(),
+  });
+
+  const plan = buildFinancePlan({
+    transactions: [
+      mortgageTransaction("2026-01", 3000),
+      mortgageTransaction("2026-02", 3000),
+      mortgageTransaction("2026-03", 3000),
+    ],
+    actions: [],
+  });
+
+  const mortgageBucket = plan.planSummary.bucketTargets.find(
+    (bucket) => bucket.bucket === "Mortgage"
+  );
+
+  assert.ok(mortgageBucket);
+  assert.equal(mortgageBucket.monthlyTarget, 3000);
+  assert.equal(mortgageBucket.trailingAverage, 3000);
+  assert.equal(mortgageBucket.trailingTotal, 9000);
+  assert.equal(plan.planSummary.trailingAverageSpend, 3000);
+  assert.deepEqual(
+    plan.monthlyChart.map((entry) => entry.month),
+    ["2026-01", "2026-02", "2026-03"]
+  );
+});
+
+test("Cash flow summary separates total budget from category allocations", () => {
+  const transactions: FinanceTransaction[] = [
+    {
+      id: "spend-1",
+      projectId: "project-1",
+      transactionDate: "2026-03-05",
+      account: "Checking",
+      description: "Groceries",
+      normalizedMerchant: "Whole Foods",
+      rawCategory: "Groceries",
+      tags: null,
+      amountSigned: -400,
+      outflowAmount: 400,
+      mappedBucket: "Groceries",
+      bucketGroup: "flexible",
+      includeFlag: true,
+      exclusionReason: null,
+      notes: null,
+      createdAt: new Date(),
+    },
+    {
+      id: "income-1",
+      projectId: "project-1",
+      transactionDate: "2026-03-20",
+      account: "Checking",
+      description: "Payroll",
+      normalizedMerchant: "Datadog Payroll",
+      rawCategory: "Paychecks/Salary",
+      tags: null,
+      amountSigned: 5000,
+      outflowAmount: 0,
+      mappedBucket: "Paychecks/Salary",
+      bucketGroup: "excluded",
+      includeFlag: false,
+      exclusionReason: "Excluded by default category rule",
+      notes: null,
+      createdAt: new Date(),
+    },
+  ];
+
+  const summary = buildFinanceCashFlowSummary({
+    categoryBudgetTotal: 3000,
+    targets: {
+      totalMonthlyBudgetTarget: 4500,
+      totalMonthlyIncomeTarget: 7000,
+    },
+    transactions,
+  });
+
+  assert.equal(summary.totalMonthlyBudgetTarget, 4500);
+  assert.equal(summary.totalMonthlyIncomeTarget, 7000);
+  assert.equal(summary.categoryBudgetTotal, 3000);
+  assert.equal(summary.catchAllBudget, 1500);
+  assert.equal(summary.historicalAverageMonthlySpend, 33.33);
+  assert.equal(summary.historicalAverageMonthlyIncome, 416.67);
 });

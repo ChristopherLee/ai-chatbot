@@ -6,6 +6,11 @@ test.describe("Chat Page", () => {
     await expect(page.getByTestId("multimodal-input")).toBeVisible();
   });
 
+  test("home page offers an optional finance CSV upload", async ({ page }) => {
+    await page.goto("/");
+    await expect(page.getByTestId("finance-upload-button")).toBeVisible();
+  });
+
   test("can type in the input field", async ({ page }) => {
     await page.goto("/");
     const input = page.getByTestId("multimodal-input");
@@ -18,10 +23,11 @@ test.describe("Chat Page", () => {
     await expect(page.getByTestId("send-button")).toBeVisible();
   });
 
-  test("suggested actions are visible on empty chat", async ({ page }) => {
+  test("empty chat does not require a finance dataset before typing", async ({
+    page,
+  }) => {
     await page.goto("/");
-    const suggestions = page.locator("[data-testid='suggested-actions']");
-    await expect(suggestions).toBeVisible();
+    await expect(page.getByTestId("multimodal-input")).toBeEditable();
   });
 
   test("can stop generation with stop button", async ({ page }) => {

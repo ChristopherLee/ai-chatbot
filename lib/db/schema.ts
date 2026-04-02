@@ -26,6 +26,8 @@ export const project = pgTable("Project", {
   createdAt: timestamp("createdAt").notNull(),
   updatedAt: timestamp("updatedAt").notNull(),
   title: text("title").notNull(),
+  totalMonthlyBudgetTarget: doublePrecision("totalMonthlyBudgetTarget"),
+  totalMonthlyIncomeTarget: doublePrecision("totalMonthlyIncomeTarget"),
   userId: uuid("userId")
     .notNull()
     .references(() => user.id),

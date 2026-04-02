@@ -37,11 +37,10 @@ const ruleTypeLabels: Record<FinanceAction["type"], string> = {
   categorize_transaction: "Single transaction",
   categorize_transactions: "Categorization rule",
   exclude_transactions: "Exclusion rule",
-  include_transactions: "Inclusion rule",
   merge_buckets: "Bucket merge",
   remap_raw_category: "Raw category rule",
   rename_bucket: "Bucket rename",
-  set_bucket_monthly_target: "Budget target",
+  set_bucket_monthly_target: "Category budget",
   set_plan_mode: "Plan mode",
 };
 
@@ -51,13 +50,23 @@ const creatableRuleTypes: Exclude<
 >[] = [
   "categorize_transactions",
   "exclude_transactions",
-  "include_transactions",
   "remap_raw_category",
   "merge_buckets",
   "rename_bucket",
   "set_bucket_monthly_target",
   "set_plan_mode",
 ];
+
+const defaultDialogCopy = {
+  createSubmitLabel: "Add rule",
+  createSuccess: "Finance rule added.",
+  createTitle: "Add finance rule",
+  description:
+    "Preview the current impact before saving so you can verify which transactions are affected.",
+  editSubmitLabel: "Save changes",
+  editSuccess: "Finance rule updated.",
+  editTitle: "Edit finance rule",
+};
 
 type RuleFormState = {
   type: FinanceAction["type"];
@@ -129,7 +138,6 @@ function createFormStateFromRule(rule: FinanceRuleRecord): RuleFormState {
         destinationBucket: action.to,
       };
     case "exclude_transactions":
-    case "include_transactions":
       return {
         ...emptyFormState(action.type),
         merchant: action.match.merchant ?? "",
@@ -230,21 +238,6 @@ function buildAction(form: RuleFormState) {
         } satisfies FinanceAction,
         error: null,
       };
-    case "include_transactions":
-      if (!match) {
-        return {
-          action: null,
-          error: "Add at least one match condition.",
-        };
-      }
-
-      return {
-        action: {
-          type: "include_transactions",
-          match,
-        } satisfies FinanceAction,
-        error: null,
-      };
     case "remap_raw_category":
       if (!form.rawCategory.trim() || !form.destinationBucket.trim()) {
         return {
@@ -322,7 +315,7 @@ function buildAction(form: RuleFormState) {
       if (!form.targetBucket.trim() || !Number.isFinite(amount) || amount < 0) {
         return {
           action: null,
-          error: "Choose a bucket and a valid non-negative monthly target.",
+          error: "Choose a bucket and a valid non-negative category budget.",
         };
       }
 
@@ -355,6 +348,9 @@ function buildAction(form: RuleFormState) {
 }
 
 export function FinanceRuleEditorDialog({
+  allowedTypes,
+  copy,
+  defaultType,
   onOpenChange,
   onSaved,
   open,
@@ -362,6 +358,9 @@ export function FinanceRuleEditorDialog({
   projectId,
   rule,
 }: {
+  allowedTypes?: readonly FinanceAction["type"][];
+  copy?: Partial<typeof defaultDialogCopy>;
+  defaultType?: FinanceAction["type"];
   onOpenChange: (open: boolean) => void;
   onSaved: () => void | Promise<void>;
   open: boolean;
@@ -369,6 +368,11 @@ export function FinanceRuleEditorDialog({
   projectId: string;
   rule: FinanceRuleRecord | null;
 }) {
+  const dialogCopy = {
+    ...defaultDialogCopy,
+    ...copy,
+  };
+  const normalizedAllowedTypes = allowedTypes ?? creatableRuleTypes;
   const [form, setForm] = useState<RuleFormState>(emptyFormState());
   const [preview, setPreview] = useState<FinanceRulePreview | null>(null);
   const [isPreviewing, setIsPreviewing] = useState(false);
@@ -377,10 +381,11 @@ export function FinanceRuleEditorDialog({
   const editableTypes = useMemo(
     (): FinanceAction["type"][] =>
       form.type === "categorize_transaction"
-        ? ["categorize_transaction", ...creatableRuleTypes]
-        : creatableRuleTypes,
-    [form.type]
+        ? ["categorize_transaction", ...normalizedAllowedTypes]
+        : [...normalizedAllowedTypes],
+    [form.type, normalizedAllowedTypes]
   );
+  const showTypeSelector = editableTypes.length > 1;
 
   useEffect(() => {
     if (!open) {
@@ -393,9 +398,13 @@ export function FinanceRuleEditorDialog({
       return;
     }
 
-    setForm(emptyFormState());
+    setForm(
+      emptyFormState(
+        defaultType ?? normalizedAllowedTypes[0] ?? "categorize_transactions"
+      )
+    );
     setPreview(null);
-  }, [open, rule]);
+  }, [defaultType, normalizedAllowedTypes, open, rule]);
 
   const updateForm = (patch: Partial<RuleFormState>) => {
     setForm((current) => ({
@@ -488,7 +497,7 @@ export function FinanceRuleEditorDialog({
       onOpenChange(false);
       toast({
         type: "success",
-        description: rule ? "Finance rule updated." : "Finance rule added.",
+        description: rule ? dialogCopy.editSuccess : dialogCopy.createSuccess,
       });
     } catch (saveError) {
       toast({
@@ -508,46 +517,44 @@ export function FinanceRuleEditorDialog({
       <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            {rule ? "Edit finance rule" : "Add finance rule"}
+            {rule ? dialogCopy.editTitle : dialogCopy.createTitle}
           </DialogTitle>
-          <DialogDescription>
-            Preview the current impact before saving so you can verify which
-            transactions are affected.
-          </DialogDescription>
+          <DialogDescription>{dialogCopy.description}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="finance-rule-type">Rule type</Label>
-            <Select
-              onValueChange={(value) =>
-                updateForm({
-                  ...emptyFormState(value as FinanceAction["type"]),
-                  type: value as FinanceAction["type"],
-                  ...(value === "categorize_transaction" &&
-                  rule?.action.type === "categorize_transaction"
-                    ? { transactionId: rule.action.transactionId }
-                    : {}),
-                })
-              }
-              value={form.type}
-            >
-              <SelectTrigger id="finance-rule-type">
-                <SelectValue placeholder="Select a rule type" />
-              </SelectTrigger>
-              <SelectContent>
-                {(rule ? editableTypes : creatableRuleTypes).map((type) => (
-                  <SelectItem key={type} value={type}>
-                    {ruleTypeLabels[type]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {showTypeSelector ? (
+            <div className="space-y-2">
+              <Label htmlFor="finance-rule-type">Rule type</Label>
+              <Select
+                onValueChange={(value) =>
+                  updateForm({
+                    ...emptyFormState(value as FinanceAction["type"]),
+                    type: value as FinanceAction["type"],
+                    ...(value === "categorize_transaction" &&
+                    rule?.action.type === "categorize_transaction"
+                      ? { transactionId: rule.action.transactionId }
+                      : {}),
+                  })
+                }
+                value={form.type}
+              >
+                <SelectTrigger id="finance-rule-type">
+                  <SelectValue placeholder="Select a rule type" />
+                </SelectTrigger>
+                <SelectContent>
+                  {editableTypes.map((type) => (
+                    <SelectItem key={type} value={type}>
+                      {ruleTypeLabels[type]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ) : null}
 
           {form.type === "categorize_transactions" ||
-          form.type === "exclude_transactions" ||
-          form.type === "include_transactions" ? (
+          form.type === "exclude_transactions" ? (
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="finance-rule-merchant">Merchant contains</Label>
@@ -760,7 +767,7 @@ export function FinanceRuleEditorDialog({
               </div>
               <div className="space-y-2">
                 <Label htmlFor="finance-rule-target-amount">
-                  Monthly target
+                  Category budget
                 </Label>
                 <Input
                   id="finance-rule-target-amount"
@@ -888,9 +895,9 @@ export function FinanceRuleEditorDialog({
                 Saving...
               </>
             ) : rule ? (
-              "Save changes"
+              dialogCopy.editSubmitLabel
             ) : (
-              "Add rule"
+              dialogCopy.createSubmitLabel
             )}
           </Button>
         </DialogFooter>

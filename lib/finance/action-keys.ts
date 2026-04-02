@@ -27,8 +27,6 @@ export function buildFinanceActionKey(action: FinanceAction) {
       return `remap_raw_category:${safeLower(action.from)}:${safeLower(action.to)}`;
     case "exclude_transactions":
       return `exclude_transactions:${JSON.stringify(normalizeMatchForKey(action.match))}`;
-    case "include_transactions":
-      return `include_transactions:${JSON.stringify(normalizeMatchForKey(action.match))}`;
     case "merge_buckets":
       return `merge_buckets:${JSON.stringify({
         from: action.from.map((value) => safeLower(value.trim())).sort(),

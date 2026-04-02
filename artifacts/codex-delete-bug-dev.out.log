@@ -1,0 +1,193 @@
+
+> ai-chatbot@3.1.0 dev:local C:\Users\chris\OneDrive\Documents\projects\ai-chatbot
+> node scripts/run-dev.mjs
+
+⏳ Running migrations...
+{
+  severity_local: 'NOTICE',
+  severity: 'NOTICE',
+  code: '42P06',
+  message: 'schema "drizzle" already exists, skipping',
+  file: 'schemacmds.c',
+  line: '132',
+  routine: 'CreateSchemaCommand'
+}
+{
+  severity_local: 'NOTICE',
+  severity: 'NOTICE',
+  code: '42P07',
+  message: 'relation "__drizzle_migrations" already exists, skipping',
+  file: 'parse_utilcmd.c',
+  line: '207',
+  routine: 'transformCreateStmt'
+}
+✅ Migrations completed in 380 ms
+
+> ai-chatbot@3.1.0 dev C:\Users\chris\OneDrive\Documents\projects\ai-chatbot
+> next dev --turbo
+
+   ▲ Next.js 16.0.10 (Turbopack, Cache Components)
+   - Local:         http://localhost:3000
+   - Network:       http://192.168.2.93:3000
+   - Environments: .env.local
+
+ ✓ Starting...
+ ✓ Ready in 2.1s
+ GET /api/auth/guest?redirectUrl=http%3A%2F%2Flocalhost%3A3000%2F 307 in 1258ms (compile: 871ms, proxy.ts: 5ms, render: 383ms)
+ ○ Compiling / ...
+ GET / 200 in 9.5s (compile: 8.3s, proxy.ts: 9ms, render: 1203ms)
+ GET /chat/8b96de6e-605d-4800-b7ff-07696b0296fd 200 in 4.6s (compile: 3.2s, proxy.ts: 8ms, render: 1467ms)
+ GET /api/history?limit=20 200 in 689ms (compile: 349ms, proxy.ts: 9ms, render: 331ms)
+ GET /api/auth/session 200 in 1356ms (compile: 1337ms, proxy.ts: 9ms, render: 9ms)
+ GET /api/auth/session 200 in 36ms (compile: 17ms, proxy.ts: 10ms, render: 9ms)
+ GET /api/vote?chatId=8b96de6e-605d-4800-b7ff-07696b0296fd 200 in 428ms (compile: 222ms, proxy.ts: 9ms, render: 196ms)
+ GET /api/finance/chat/8b96de6e-605d-4800-b7ff-07696b0296fd 200 in 2.2s (compile: 1531ms, proxy.ts: 7ms, render: 619ms)
+ GET /api/finance/project/04a516f8-9714-4909-8b14-b927237037f3/targets 200 in 1368ms (compile: 1156ms, proxy.ts: 9ms, render: 203ms)
+ GET /api/finance/project/04a516f8-9714-4909-8b14-b927237037f3 200 in 1440ms (compile: 1102ms, proxy.ts: 8ms, render: 330ms)
+ GET /api/auth/guest?redirectUrl=http%3A%2F%2Flocalhost%3A3000%2F 307 in 162ms (compile: 3ms, proxy.ts: 7ms, render: 152ms)
+ GET / 200 in 281ms (compile: 6ms, proxy.ts: 7ms, render: 269ms)
+ GET /api/history?limit=20 200 in 112ms (compile: 10ms, proxy.ts: 25ms, render: 78ms)
+ GET /api/vote?chatId=8b96de6e-605d-4800-b7ff-07696b0296fd 200 in 159ms (compile: 12ms, proxy.ts: 21ms, render: 126ms)
+ GET /api/finance/chat/8b96de6e-605d-4800-b7ff-07696b0296fd 200 in 395ms (compile: 38ms, proxy.ts: 26ms, render: 332ms)
+ GET /api/finance/project/04a516f8-9714-4909-8b14-b927237037f3 200 in 426ms (compile: 42ms, proxy.ts: 23ms, render: 360ms)
+ GET /api/finance/project/04a516f8-9714-4909-8b14-b927237037f3/targets 200 in 509ms (compile: 55ms, proxy.ts: 22ms, render: 431ms)
+ GET /api/auth/guest?redirectUrl=http%3A%2F%2Flocalhost%3A3000%2F 307 in 122ms (compile: 3ms, proxy.ts: 3ms, render: 115ms)
+ GET / 200 in 213ms (compile: 4ms, proxy.ts: 4ms, render: 205ms)
+ GET /api/auth/session 200 in 37ms (compile: 22ms, proxy.ts: 7ms, render: 7ms)
+ GET /api/auth/session 200 in 24ms (compile: 8ms, proxy.ts: 6ms, render: 10ms)
+ GET /api/history?limit=20 200 in 59ms (compile: 2ms, proxy.ts: 5ms, render: 52ms)
+ GET /api/history?limit=20 200 in 110ms (compile: 7ms, proxy.ts: 25ms, render: 78ms)
+ GET /api/vote?chatId=8b96de6e-605d-4800-b7ff-07696b0296fd 200 in 168ms (compile: 11ms, proxy.ts: 19ms, render: 138ms)
+ GET /api/finance/project/04a516f8-9714-4909-8b14-b927237037f3 200 in 249ms (compile: 43ms, proxy.ts: 24ms, render: 181ms)
+ GET /api/finance/project/04a516f8-9714-4909-8b14-b927237037f3/targets 200 in 267ms (compile: 56ms, proxy.ts: 23ms, render: 188ms)
+ GET /api/finance/chat/8b96de6e-605d-4800-b7ff-07696b0296fd 200 in 487ms (compile: 31ms, proxy.ts: 26ms, render: 430ms)
+ GET /api/auth/guest?redirectUrl=http%3A%2F%2Flocalhost%3A3000%2F 307 in 133ms (compile: 4ms, proxy.ts: 4ms, render: 125ms)
+ GET / 200 in 215ms (compile: 6ms, proxy.ts: 4ms, render: 204ms)
+ GET /api/auth/session 200 in 26ms (compile: 15ms, proxy.ts: 4ms, render: 7ms)
+ GET /api/auth/session 200 in 18ms (compile: 7ms, proxy.ts: 6ms, render: 5ms)
+ GET /api/history?limit=20 200 in 73ms (compile: 3ms, proxy.ts: 6ms, render: 64ms)
+ GET /api/auth/guest?redirectUrl=http%3A%2F%2Flocalhost%3A3000%2F 307 in 130ms (compile: 3ms, proxy.ts: 3ms, render: 124ms)
+ GET / 200 in 213ms (compile: 5ms, proxy.ts: 4ms, render: 204ms)
+ GET /api/auth/session 200 in 34ms (compile: 20ms, proxy.ts: 6ms, render: 7ms)
+ GET /api/history?limit=20 200 in 71ms (compile: 3ms, proxy.ts: 4ms, render: 64ms)
+ GET /api/auth/session 200 in 23ms (compile: 7ms, proxy.ts: 9ms, render: 7ms)
+ ✓ Compiled in 383ms
+ GET / 200 in 1123ms (compile: 397ms, proxy.ts: 18ms, render: 708ms)
+ GET / 200 in 121ms (compile: 8ms, proxy.ts: 7ms, render: 106ms)
+ GET /chat/8b96de6e-605d-4800-b7ff-07696b0296fd 200 in 2.1s (compile: 891ms, proxy.ts: 19ms, render: 1149ms)
+ GET /chat/8b96de6e-605d-4800-b7ff-07696b0296fd 200 in 933ms (compile: 20ms, proxy.ts: 47ms, render: 866ms)
+ GET /api/auth/guest?redirectUrl=http%3A%2F%2Flocalhost%3A3000%2F 307 in 128ms (compile: 2ms, proxy.ts: 3ms, render: 122ms)
+ GET / 200 in 785ms (compile: 4ms, proxy.ts: 3ms, render: 778ms)
+ GET /api/auth/session 200 in 22ms (compile: 13ms, proxy.ts: 4ms, render: 5ms)
+ GET /api/auth/session 200 in 12ms (compile: 4ms, proxy.ts: 4ms, render: 4ms)
+ GET /api/history?limit=20 200 in 56ms (compile: 2ms, proxy.ts: 4ms, render: 50ms)
+ GET /api/auth/guest?redirectUrl=http%3A%2F%2Flocalhost%3A3000%2F 307 in 126ms (compile: 3ms, proxy.ts: 4ms, render: 119ms)
+ GET / 200 in 188ms (compile: 7ms, proxy.ts: 4ms, render: 177ms)
+ GET /api/auth/session 200 in 32ms (compile: 19ms, proxy.ts: 4ms, render: 10ms)
+ GET /api/auth/session 200 in 14ms (compile: 5ms, proxy.ts: 5ms, render: 4ms)
+ GET /api/history?limit=20 200 in 55ms (compile: 2ms, proxy.ts: 5ms, render: 48ms)
+ GET /api/history?limit=20 200 in 50ms (compile: 2ms, proxy.ts: 4ms, render: 44ms)
+ GET /api/auth/guest?redirectUrl=http%3A%2F%2Flocalhost%3A3000%2F 307 in 131ms (compile: 2ms, proxy.ts: 3ms, render: 125ms)
+ GET / 200 in 197ms (compile: 5ms, proxy.ts: 3ms, render: 189ms)
+ GET /api/auth/session 200 in 34ms (compile: 21ms, proxy.ts: 5ms, render: 8ms)
+ GET /api/history?limit=20 200 in 73ms (compile: 6ms, proxy.ts: 5ms, render: 62ms)
+ GET /api/auth/session 200 in 14ms (compile: 7ms, proxy.ts: 4ms, render: 4ms)
+ GET /api/auth/session 200 in 19ms (compile: 12ms, proxy.ts: 3ms, render: 4ms)
+ GET /api/auth/guest?redirectUrl=http%3A%2F%2Flocalhost%3A3000%2F 307 in 129ms (compile: 2ms, proxy.ts: 3ms, render: 124ms)
+ GET / 200 in 197ms (compile: 4ms, proxy.ts: 3ms, render: 190ms)
+ GET /api/auth/session 200 in 22ms (compile: 12ms, proxy.ts: 4ms, render: 6ms)
+ GET /api/history?limit=20 200 in 52ms (compile: 2ms, proxy.ts: 4ms, render: 45ms)
+ GET /api/auth/session 200 in 17ms (compile: 6ms, proxy.ts: 5ms, render: 7ms)
+ POST /api/finance/upload 200 in 1496ms (compile: 569ms, proxy.ts: 5ms, render: 922ms)
+ GET /chat/8bc05ec9-7d96-4312-b6c6-02cb3a902b29 200 in 610ms (compile: 30ms, proxy.ts: 6ms, render: 574ms)
+ GET /chat/8bc05ec9-7d96-4312-b6c6-02cb3a902b29 200 in 543ms (compile: 8ms, proxy.ts: 4ms, render: 531ms)
+ GET /api/finance/chat/8bc05ec9-7d96-4312-b6c6-02cb3a902b29 200 in 1270ms (compile: 205ms, proxy.ts: 17ms, render: 1047ms)
+ GET /api/history?limit=20 200 in 123ms (compile: 23ms, proxy.ts: 26ms, render: 74ms)
+ GET /api/finance/project/6d183ba4-80b0-486c-ab2e-b791527252a7/targets 200 in 1111ms (compile: 199ms, proxy.ts: 4ms, render: 908ms)
+ GET /api/vote?chatId=8b96de6e-605d-4800-b7ff-07696b0296fd 200 in 180ms (compile: 32ms, proxy.ts: 18ms, render: 130ms)
+ GET /api/finance/chat/8b96de6e-605d-4800-b7ff-07696b0296fd 200 in 242ms (compile: 44ms, proxy.ts: 14ms, render: 183ms)
+ GET /api/finance/project/6d183ba4-80b0-486c-ab2e-b791527252a7 200 in 1138ms (compile: 203ms, proxy.ts: 12ms, render: 924ms)
+ GET /api/finance/project/04a516f8-9714-4909-8b14-b927237037f3 200 in 432ms (compile: 43ms, proxy.ts: 24ms, render: 366ms)
+ GET /api/finance/project/04a516f8-9714-4909-8b14-b927237037f3/targets 200 in 505ms (compile: 54ms, proxy.ts: 21ms, render: 430ms)
+ GET /api/auth/guest?redirectUrl=http%3A%2F%2Flocalhost%3A3000%2F 307 in 146ms (compile: 3ms, proxy.ts: 4ms, render: 139ms)
+ GET / 200 in 218ms (compile: 4ms, proxy.ts: 3ms, render: 211ms)
+ GET /api/auth/session 200 in 22ms (compile: 13ms, proxy.ts: 3ms, render: 6ms)
+ GET /api/history?limit=20 200 in 51ms (compile: 2ms, proxy.ts: 4ms, render: 45ms)
+ GET /api/auth/session 200 in 20ms (compile: 9ms, proxy.ts: 6ms, render: 5ms)
+ POST /api/finance/upload 200 in 483ms (compile: 2ms, proxy.ts: 4ms, render: 477ms)
+ GET /chat/1a23898e-9b61-4920-b1d9-81db82cace42 200 in 328ms (compile: 14ms, proxy.ts: 4ms, render: 310ms)
+ GET /api/finance/chat/1a23898e-9b61-4920-b1d9-81db82cace42 200 in 197ms (compile: 13ms, proxy.ts: 11ms, render: 173ms)
+ GET /chat/1a23898e-9b61-4920-b1d9-81db82cace42 200 in 309ms (compile: 6ms, proxy.ts: 4ms, render: 299ms)
+ GET /api/finance/project/7f99bb46-2196-4730-a7c8-03e3209727ee/targets 200 in 246ms (compile: 18ms, proxy.ts: 4ms, render: 223ms)
+ GET /api/finance/project/7f99bb46-2196-4730-a7c8-03e3209727ee 200 in 206ms (compile: 13ms, proxy.ts: 6ms, render: 187ms)
+ ✓ Compiled in 278ms
+ GET / 200 in 1157ms (compile: 355ms, proxy.ts: 18ms, render: 784ms)
+ GET / 200 in 244ms (compile: 17ms, proxy.ts: 21ms, render: 205ms)
+ GET /chat/1a23898e-9b61-4920-b1d9-81db82cace42 200 in 748ms (compile: 127ms, proxy.ts: 21ms, render: 600ms)
+ GET /chat/8b96de6e-605d-4800-b7ff-07696b0296fd 200 in 1874ms (compile: 899ms, proxy.ts: 16ms, render: 959ms)
+ GET /chat/1a23898e-9b61-4920-b1d9-81db82cace42 200 in 1936ms (compile: 792ms, proxy.ts: 17ms, render: 1127ms)
+ GET /chat/8b96de6e-605d-4800-b7ff-07696b0296fd 200 in 927ms (compile: 132ms, proxy.ts: 22ms, render: 773ms)
+ ✓ Compiled in 295ms
+ GET / 200 in 1084ms (compile: 266ms, proxy.ts: 39ms, render: 779ms)
+ GET / 200 in 264ms (compile: 24ms, proxy.ts: 47ms, render: 193ms)
+ GET /chat/1a23898e-9b61-4920-b1d9-81db82cace42 200 in 688ms (compile: 86ms, proxy.ts: 45ms, render: 558ms)
+ GET /chat/1a23898e-9b61-4920-b1d9-81db82cace42 200 in 1770ms (compile: 862ms, proxy.ts: 16ms, render: 892ms)
+ GET /chat/8b96de6e-605d-4800-b7ff-07696b0296fd 200 in 1809ms (compile: 701ms, proxy.ts: 38ms, render: 1070ms)
+ GET /chat/8b96de6e-605d-4800-b7ff-07696b0296fd 200 in 962ms (compile: 131ms, proxy.ts: 43ms, render: 788ms)
+ GET /api/auth/guest?redirectUrl=http%3A%2F%2Flocalhost%3A3000%2F 307 in 140ms (compile: 5ms, proxy.ts: 4ms, render: 132ms)
+ GET / 200 in 1143ms (compile: 6ms, proxy.ts: 5ms, render: 1132ms)
+ GET /api/auth/session 200 in 29ms (compile: 17ms, proxy.ts: 5ms, render: 7ms)
+ GET /api/history?limit=20 200 in 67ms (compile: 3ms, proxy.ts: 4ms, render: 60ms)
+ GET /api/auth/session 200 in 26ms (compile: 7ms, proxy.ts: 12ms, render: 7ms)
+ GET /api/history?limit=20 200 in 663ms (compile: 7ms, proxy.ts: 19ms, render: 636ms)
+ GET /api/vote?chatId=8b96de6e-605d-4800-b7ff-07696b0296fd 200 in 735ms (compile: 11ms, proxy.ts: 17ms, render: 707ms)
+ GET /api/finance/chat/8b96de6e-605d-4800-b7ff-07696b0296fd 200 in 1277ms (compile: 236ms, proxy.ts: 20ms, render: 1021ms)
+ GET /api/finance/project/04a516f8-9714-4909-8b14-b927237037f3 200 in 1285ms (compile: 428ms, proxy.ts: 19ms, render: 838ms)
+ GET /api/finance/project/04a516f8-9714-4909-8b14-b927237037f3/targets 200 in 1305ms (compile: 637ms, proxy.ts: 19ms, render: 650ms)
+ GET /api/auth/session 200 in 43ms (compile: 24ms, proxy.ts: 11ms, render: 8ms)
+ GET /api/auth/session 200 in 49ms (compile: 18ms, proxy.ts: 14ms, render: 18ms)
+ GET /chat/8b96de6e-605d-4800-b7ff-07696b0296fd 200 in 1070ms (compile: 22ms, proxy.ts: 5ms, render: 1043ms)
+ GET /api/history?limit=20 200 in 91ms (compile: 6ms, proxy.ts: 16ms, render: 68ms)
+ GET /api/finance/chat/8b96de6e-605d-4800-b7ff-07696b0296fd 200 in 200ms (compile: 27ms, proxy.ts: 17ms, render: 156ms)
+ GET /api/vote?chatId=8b96de6e-605d-4800-b7ff-07696b0296fd 200 in 120ms (compile: 4ms, proxy.ts: 8ms, render: 108ms)
+ GET /api/finance/project/04a516f8-9714-4909-8b14-b927237037f3/targets 200 in 223ms (compile: 26ms, proxy.ts: 8ms, render: 188ms)
+ GET /api/finance/project/04a516f8-9714-4909-8b14-b927237037f3 200 in 185ms (compile: 22ms, proxy.ts: 6ms, render: 157ms)
+ POST /api/chat 200 in 4.1s (compile: 764ms, proxy.ts: 6ms, render: 3.3s)
+ GET /api/history?limit=20 200 in 68ms (compile: 3ms, proxy.ts: 7ms, render: 58ms)
+ GET /api/finance/project/04a516f8-9714-4909-8b14-b927237037f3 200 in 175ms (compile: 17ms, proxy.ts: 8ms, render: 151ms)
+ GET /api/history?limit=20 200 in 126ms (compile: 9ms, proxy.ts: 28ms, render: 89ms)
+ GET /api/vote?chatId=8b96de6e-605d-4800-b7ff-07696b0296fd 200 in 181ms (compile: 11ms, proxy.ts: 27ms, render: 143ms)
+ GET /api/finance/chat/8b96de6e-605d-4800-b7ff-07696b0296fd 200 in 253ms (compile: 34ms, proxy.ts: 28ms, render: 191ms)
+ GET /api/finance/project/04a516f8-9714-4909-8b14-b927237037f3 200 in 268ms (compile: 48ms, proxy.ts: 28ms, render: 192ms)
+ GET /api/finance/project/04a516f8-9714-4909-8b14-b927237037f3/targets 200 in 282ms (compile: 67ms, proxy.ts: 27ms, render: 188ms)
+ GET /api/finance/project/04a516f8-9714-4909-8b14-b927237037f3 200 in 168ms (compile: 15ms, proxy.ts: 7ms, render: 146ms)
+ GET /?projectId=04a516f8-9714-4909-8b14-b927237037f3 200 in 653ms (compile: 5ms, proxy.ts: 4ms, render: 644ms)
+ GET /?projectId=04a516f8-9714-4909-8b14-b927237037f3 200 in 608ms (compile: 4ms, proxy.ts: 3ms, render: 601ms)
+ GET /api/finance/project/04a516f8-9714-4909-8b14-b927237037f3/targets 200 in 205ms (compile: 18ms, proxy.ts: 5ms, render: 182ms)
+ GET /api/finance/chat/bed7a85b-023f-44d5-a246-8aeb59a7ed89 404 in 72ms (compile: 13ms, proxy.ts: 5ms, render: 54ms)
+ GET /api/vote?chatId=bed7a85b-023f-44d5-a246-8aeb59a7ed89 200 in 112ms (compile: 3ms, proxy.ts: 3ms, render: 106ms)
+ GET /api/history?limit=20 200 in 50ms (compile: 2ms, proxy.ts: 4ms, render: 44ms)
+ GET /api/finance/chat/bed7a85b-023f-44d5-a246-8aeb59a7ed89 200 in 160ms (compile: 12ms, proxy.ts: 3ms, render: 145ms)
+ GET /api/history?limit=20 200 in 58ms (compile: 3ms, proxy.ts: 6ms, render: 50ms)
+ POST /api/chat 200 in 10.3s (compile: 3ms, proxy.ts: 9ms, render: 10.3s)
+ GET /api/finance/project/04a516f8-9714-4909-8b14-b927237037f3 200 in 180ms (compile: 22ms, proxy.ts: 5ms, render: 152ms)
+ GET /api/auth/guest?redirectUrl=http%3A%2F%2Flocalhost%3A3000%2F 307 in 121ms (compile: 2ms, proxy.ts: 3ms, render: 115ms)
+ GET / 200 in 205ms (compile: 4ms, proxy.ts: 3ms, render: 198ms)
+ GET /api/auth/session 200 in 24ms (compile: 13ms, proxy.ts: 5ms, render: 5ms)
+ GET /api/history?limit=20 200 in 53ms (compile: 2ms, proxy.ts: 5ms, render: 46ms)
+ GET /api/auth/session 200 in 16ms (compile: 4ms, proxy.ts: 7ms, render: 4ms)
+ POST /api/finance/upload 200 in 1294ms (compile: 279ms, proxy.ts: 4ms, render: 1010ms)
+ GET /chat/3d9b81b0-18c3-4d2a-b085-c39531ebb821 200 in 344ms (compile: 15ms, proxy.ts: 11ms, render: 318ms)
+ GET /api/finance/chat/3d9b81b0-18c3-4d2a-b085-c39531ebb821 200 in 203ms (compile: 14ms, proxy.ts: 6ms, render: 183ms)
+ GET /chat/3d9b81b0-18c3-4d2a-b085-c39531ebb821 200 in 323ms (compile: 7ms, proxy.ts: 4ms, render: 313ms)
+ GET /api/finance/project/7bb7bdf0-76eb-4d1b-8001-b4bb6dc1753c/targets 200 in 223ms (compile: 13ms, proxy.ts: 5ms, render: 205ms)
+ GET /api/finance/project/7bb7bdf0-76eb-4d1b-8001-b4bb6dc1753c 200 in 201ms (compile: 16ms, proxy.ts: 5ms, render: 181ms)
+ GET /api/vote?chatId=3d9b81b0-18c3-4d2a-b085-c39531ebb821 200 in 99ms (compile: 5ms, proxy.ts: 6ms, render: 88ms)
+ POST /api/chat 200 in 1000ms (compile: 3ms, proxy.ts: 6ms, render: 991ms)
+ GET /api/history?limit=20 200 in 81ms (compile: 4ms, proxy.ts: 6ms, render: 71ms)
+ GET /api/finance/project/7bb7bdf0-76eb-4d1b-8001-b4bb6dc1753c 200 in 127ms (compile: 28ms, proxy.ts: 6ms, render: 93ms)
+ GET /api/history?limit=20 200 in 197ms (compile: 27ms, proxy.ts: 50ms, render: 120ms)
+ GET /api/vote?chatId=bed7a85b-023f-44d5-a246-8aeb59a7ed89 200 in 235ms (compile: 34ms, proxy.ts: 27ms, render: 174ms)
+ GET /api/finance/chat/bed7a85b-023f-44d5-a246-8aeb59a7ed89 200 in 321ms (compile: 88ms, proxy.ts: 53ms, render: 180ms)
+ GET /api/finance/project/04a516f8-9714-4909-8b14-b927237037f3 200 in 331ms (compile: 75ms, proxy.ts: 51ms, render: 205ms)
+ GET /api/finance/project/04a516f8-9714-4909-8b14-b927237037f3/targets 200 in 346ms (compile: 108ms, proxy.ts: 52ms, render: 186ms)

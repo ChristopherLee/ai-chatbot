@@ -1,0 +1,526 @@
+(node:21728) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\.next\dev\server\chunks\node_modules__pnpm_5f23e4ae._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\.next\dev\server\chunks\[root-of-the-server]__d07dd45b._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\node_modules\.pnpm\next@16.0.10_@opentelemetry+api@1.9.0_@playwright+test@1.51.0_react-dom@19.0.1_react@19.0.1__react@19.0.1\node_modules\next\dist\compiled\next-server\app-route-turbo.runtime.dev.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\.next\dev\server\chunks\49185_next_54e57724._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\node_modules\.pnpm\next@16.0.10_@opentelemetry+api@1.9.0_@playwright+test@1.51.0_react-dom@19.0.1_react@19.0.1__react@19.0.1\node_modules\next\dist\server\base-server.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\node_modules\.pnpm\next@16.0.10_@opentelemetry+api@1.9.0_@playwright+test@1.51.0_react-dom@19.0.1_react@19.0.1__react@19.0.1\node_modules\next\dist\server\next-server.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\node_modules\.pnpm\next@16.0.10_@opentelemetry+api@1.9.0_@playwright+test@1.51.0_react-dom@19.0.1_react@19.0.1__react@19.0.1\node_modules\next\dist\server\dev\next-dev-server.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\node_modules\.pnpm\next@16.0.10_@opentelemetry+api@1.9.0_@playwright+test@1.51.0_react-dom@19.0.1_react@19.0.1__react@19.0.1\node_modules\next\dist\trace\trace.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\node_modules\.pnpm\next@16.0.10_@opentelemetry+api@1.9.0_@playwright+test@1.51.0_react-dom@19.0.1_react@19.0.1__react@19.0.1\node_modules\next\dist\server\lib\router-server.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\node_modules\.pnpm\next@16.0.10_@opentelemetry+api@1.9.0_@playwright+test@1.51.0_react-dom@19.0.1_react@19.0.1__react@19.0.1\node_modules\next\dist\server\lib\start-server.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+Finance CSV blob upload failed, falling back to local-only metadata storage. Error: Vercel Blob: Cannot use public access on a private store. The store is configured with private access.
+    at async storeUploadedCsv (C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\.next\dev\server\chunks\[root-of-the-server]__d07dd45b._.js:2570:30)
+    at async POST (C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\.next\dev\server\chunks\[root-of-the-server]__d07dd45b._.js:2684:29)
+    at async responseGenerator (C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\.next\dev\server\chunks\49185_next_54e57724._.js:16107:38)
+    at async handleResponse (C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\.next\dev\server\chunks\49185_next_54e57724._.js:16169:32)
+    at async handler (C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\.next\dev\server\chunks\49185_next_54e57724._.js:16220:13)
+C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\.next\dev\server\chunks\node_modules__pnpm_5f23e4ae._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\.next\dev\server\chunks\[root-of-the-server]__d07dd45b._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\node_modules\.pnpm\next@16.0.10_@opentelemetry+api@1.9.0_@playwright+test@1.51.0_react-dom@19.0.1_react@19.0.1__react@19.0.1\node_modules\next\dist\compiled\next-server\app-route-turbo.runtime.dev.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\.next\dev\server\chunks\49185_next_54e57724._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\node_modules\.pnpm\next@16.0.10_@opentelemetry+api@1.9.0_@playwright+test@1.51.0_react-dom@19.0.1_react@19.0.1__react@19.0.1\node_modules\next\dist\server\base-server.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\node_modules\.pnpm\next@16.0.10_@opentelemetry+api@1.9.0_@playwright+test@1.51.0_react-dom@19.0.1_react@19.0.1__react@19.0.1\node_modules\next\dist\server\next-server.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\node_modules\.pnpm\next@16.0.10_@opentelemetry+api@1.9.0_@playwright+test@1.51.0_react-dom@19.0.1_react@19.0.1__react@19.0.1\node_modules\next\dist\server\dev\next-dev-server.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\node_modules\.pnpm\next@16.0.10_@opentelemetry+api@1.9.0_@playwright+test@1.51.0_react-dom@19.0.1_react@19.0.1__react@19.0.1\node_modules\next\dist\trace\trace.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\node_modules\.pnpm\next@16.0.10_@opentelemetry+api@1.9.0_@playwright+test@1.51.0_react-dom@19.0.1_react@19.0.1__react@19.0.1\node_modules\next\dist\server\lib\router-server.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\node_modules\.pnpm\next@16.0.10_@opentelemetry+api@1.9.0_@playwright+test@1.51.0_react-dom@19.0.1_react@19.0.1__react@19.0.1\node_modules\next\dist\server\lib\start-server.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+Finance CSV blob upload failed, falling back to local-only metadata storage. Error: Vercel Blob: Cannot use public access on a private store. The store is configured with private access.
+    at async storeUploadedCsv (C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\.next\dev\server\chunks\[root-of-the-server]__d07dd45b._.js:2570:30)
+    at async POST (C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\.next\dev\server\chunks\[root-of-the-server]__d07dd45b._.js:2684:29)
+    at async responseGenerator (C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\.next\dev\server\chunks\49185_next_54e57724._.js:16107:38)
+    at async handleResponse (C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\.next\dev\server\chunks\49185_next_54e57724._.js:16169:32)
+    at async handler (C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\.next\dev\server\chunks\49185_next_54e57724._.js:16220:13)
+C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\.next\dev\server\chunks\node_modules__pnpm_2b61f1bc._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\.next\dev\server\chunks\c12c0_ai_dist_index_mjs_b0a8d498._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\.next\dev\server\chunks\node_modules__pnpm_6cad96f9._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\.next\dev\server\chunks\node_modules__pnpm_2b61f1bc._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\.next\dev\server\chunks\c12c0_ai_dist_index_mjs_b0a8d498._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+Error [GatewayInternalServerError]: prompt is too long: 211431 tokens > 200000 maximum
+    at async fn (C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\.next\dev\server\chunks\c12c0_ai_dist_index_mjs_b0a8d498._.js:6362:45)
+    at async (C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\.next\dev\server\chunks\c12c0_ai_dist_index_mjs_b0a8d498._.js:2114:28)
+    at async _retryWithExponentialBackoff (C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\.next\dev\server\chunks\c12c0_ai_dist_index_mjs_b0a8d498._.js:2321:16)
+    at async streamStep (C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\.next\dev\server\chunks\c12c0_ai_dist_index_mjs_b0a8d498._.js:6320:112)
+    at async fn (C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\.next\dev\server\chunks\c12c0_ai_dist_index_mjs_b0a8d498._.js:6686:17)
+    at async (C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\.next\dev\server\chunks\c12c0_ai_dist_index_mjs_b0a8d498._.js:2114:28) {
+  statusCode: 400,
+  type: 'internal_server_error',
+  [cause]: Error [AI_APICallError]: [object Object]
+      at async fn (C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\.next\dev\server\chunks\c12c0_ai_dist_index_mjs_b0a8d498._.js:6362:45)
+      at async (C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\.next\dev\server\chunks\c12c0_ai_dist_index_mjs_b0a8d498._.js:2114:28)
+      at async _retryWithExponentialBackoff (C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\.next\dev\server\chunks\c12c0_ai_dist_index_mjs_b0a8d498._.js:2321:16)
+      at async streamStep (C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\.next\dev\server\chunks\c12c0_ai_dist_index_mjs_b0a8d498._.js:6320:112)
+      at async fn (C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\.next\dev\server\chunks\c12c0_ai_dist_index_mjs_b0a8d498._.js:6686:17)
+      at async (C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\.next\dev\server\chunks\c12c0_ai_dist_index_mjs_b0a8d498._.js:2114:28) {
+    cause: undefined,
+    url: 'https://ai-gateway.vercel.sh/v3/ai/language-model',
+    requestBodyValues: {
+      maxOutputTokens: undefined,
+      temperature: undefined,
+      topP: undefined,
+      topK: undefined,
+      presencePenalty: undefined,
+      frequencyPenalty: undefined,
+      stopSequences: undefined,
+      seed: undefined,
+      tools: [Array],
+      toolChoice: [Object],
+      responseFormat: undefined,
+      prompt: [Array],
+      providerOptions: undefined,
+      headers: undefined,
+      includeRawChunks: false
+    },
+    statusCode: 400,
+    responseHeaders: {
+      'cache-control': 'public, max-age=0, must-revalidate',
+      'content-type': 'application/json',
+      date: 'Thu, 02 Apr 2026 01:56:04 GMT',
+      server: 'Vercel',
+      'strict-transport-security': 'max-age=63072000; includeSubDomains; preload',
+      'transfer-encoding': 'chunked',
+      vary: 'rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch',
+      'x-matched-path': '/v3/ai/language-model',
+      'x-vercel-cache': 'MISS',
+      'x-vercel-id': 'iad1::iad1::z88mj-1775094962149-866d85358c07'
+    },
+    responseBody: '{"error":{"message":"prompt is too long: 211431 tokens > 200000 maximum","type":"AI_APICallError","param":{"error":"prompt is too long: 211431 tokens > 200000 maximum","statusCode":400,"name":"AI_APICallError","message":"prompt is too long: 211431 tokens > 200000 maximum","url":"https://aiplatform.googleapis.com/v1/projects/141030677902/locations/global/publishers/anthropic/models/claude-haiku-4-5@20251001:streamRawPredict","isRetryable":false,"type":"AI_APICallError"}},"providerMetadata":{"gateway":{"routing":{"originalModelId":"anthropic/claude-haiku-4.5","resolvedProvider":"anthropic","resolvedProviderApiModelId":"claude-haiku-4-5-20251001","internalResolvedModelId":"anthropic:claude-haiku-4-5-20251001","fallbacksAvailable":["bedrock","vertexAnthropic"],"internalReasoning":"Selected anthropic as preferred provider for claude-haiku-4.5. 2 fallback(s) available: bedrock, vertexAnthropic","canonicalSlug":"anthropic/claude-haiku-4.5","attempts":[{"provider":"anthropic","internalModelId":"anthropic:claude-haiku-4-5-20251001","providerApiModelId":"claude-haiku-4-5-20251001","credentialType":"system","success":false,"error":"prompt is too long: 211431 tokens > 200000 maximum","startTime":516047.975889,"endTime":516244.897375,"statusCode":400},{"provider":"bedrock","internalModelId":"bedrock:global.anthropic.claude-haiku-4-5-20251001-v1:0","providerApiModelId":"global.anthropic.claude-haiku-4-5-20251001-v1:0","credentialType":"system","success":false,"error":"prompt is too long: 211431 tokens > 200000 maximum","startTime":516257.463328,"endTime":518089.270558,"statusCode":400},{"provider":"vertexAnthropic","internalModelId":"vertexAnthropic:claude-haiku-4-5@20251001","providerApiModelId":"claude-haiku-4-5@20251001","credentialType":"system","success":false,"error":"prompt is too long: 211431 tokens > 200000 maximum","startTime":518099.705538,"endTime":518333.748041,"statusCode":400}],"modelAttemptCount":1,"modelAttempts":[{"modelId":"anthropic:claude-haiku-4-5-20251001","canonicalSlug":"anthropic/claude-haiku-4.5","success":false,"providerAttemptCount":3,"providerAttempts":[{"provider":"anthropic","internalModelId":"anthropic:claude-haiku-4-5-20251001","providerApiModelId":"claude-haiku-4-5-20251001","credentialType":"system","success":false,"error":"prompt is too long: 211431 tokens > 200000 maximum","startTime":516047.975889,"endTime":516244.897375,"statusCode":400},{"provider":"bedrock","internalModelId":"bedrock:global.anthropic.claude-haiku-4-5-20251001-v1:0","providerApiModelId":"global.anthropic.claude-haiku-4-5-20251001-v1:0","credentialType":"system","success":false,"error":"prompt is too long: 211431 tokens > 200000 maximum","startTime":516257.463328,"endTime":518089.270558,"statusCode":400},{"provider":"vertexAnthropic","internalModelId":"vertexAnthropic:claude-haiku-4-5@20251001","providerApiModelId":"claude-haiku-4-5@20251001","credentialType":"system","success":false,"error":"prompt is too long: 211431 tokens > 200000 maximum","startTime":518099.705538,"endTime":518333.748041,"statusCode":400}]}],"totalProviderAttemptCount":3}}}}',
+    isRetryable: false,
+    data: { error: [Object], providerMetadata: [Object] }
+  }
+}
+Chat stream failed {
+  chatId: '8b96de6e-605d-4800-b7ff-07696b0296fd',
+  projectId: '04a516f8-9714-4909-8b14-b927237037f3',
+  scope: 'finance',
+  selectedChatModel: 'anthropic/claude-haiku-4.5',
+  error: {
+    name: 'GatewayInternalServerError',
+    message: 'prompt is too long: 211431 tokens > 200000 maximum',
+    stack: 'GatewayInternalServerError: prompt is too long: 211431 tokens > 200000 maximum\n' +
+      '    at createGatewayErrorFromResponse (C:\\Users\\chris\\OneDrive\\Documents\\projects\\ai-chatbot\\.next\\dev\\server\\chunks\\node_modules__pnpm_2b61f1bc._.js:4519:20)\n' +
+      '    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\n' +
+      '    at async GatewayLanguageModel.doStream (C:\\Users\\chris\\OneDrive\\Documents\\projects\\ai-chatbot\\.next\\dev\\server\\chunks\\node_modules__pnpm_2b61f1bc._.js:4778:19)\n' +
+      '    at async fn (C:\\Users\\chris\\OneDrive\\Documents\\projects\\ai-chatbot\\.next\\dev\\server\\chunks\\c12c0_ai_dist_index_mjs_b0a8d498._.js:6362:45)\n' +
+      '    at async C:\\Users\\chris\\OneDrive\\Documents\\projects\\ai-chatbot\\.next\\dev\\server\\chunks\\c12c0_ai_dist_index_mjs_b0a8d498._.js:2114:28\n' +
+      '    at async _retryWithExponentialBackoff (C:\\Users\\chris\\OneDrive\\Documents\\projects\\ai-chatbot\\.next\\dev\\server\\chunks\\c12c0_ai_dist_index_mjs_b0a8d498._.js:2321:16)\n' +
+      '    at async streamStep (C:\\Users\\chris\\OneDrive\\Documents\\projects\\ai-chatbot\\.next\\dev\\server\\chunks\\c12c0_ai_dist_index_mjs_b0a8d498._.js:6320:112)\n' +
+      '    at async fn (C:\\Users\\chris\\OneDrive\\Documents\\projects\\ai-chatbot\\.next\\dev\\server\\chunks\\c12c0_ai_dist_index_mjs_b0a8d498._.js:6686:17)\n' +
+      '    at async C:\\Users\\chris\\OneDrive\\Documents\\projects\\ai-chatbot\\.next\\dev\\server\\chunks\\c12c0_ai_dist_index_mjs_b0a8d498._.js:2114:28',
+    cause: {
+      name: 'AI_APICallError',
+      message: '[object Object]',
+      stack: 'AI_APICallError: [object Object]\n' +
+        '    at C:\\Users\\chris\\OneDrive\\Documents\\projects\\ai-chatbot\\.next\\dev\\server\\chunks\\node_modules__pnpm_6cad96f9._.js:8482:24\n' +
+        '    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\n' +
+        '    at async postToApi (C:\\Users\\chris\\OneDrive\\Documents\\projects\\ai-chatbot\\.next\\dev\\server\\chunks\\node_modules__pnpm_6cad96f9._.js:8355:36)\n' +
+        '    at async GatewayLanguageModel.doStream (C:\\Users\\chris\\OneDrive\\Documents\\projects\\ai-chatbot\\.next\\dev\\server\\chunks\\node_modules__pnpm_2b61f1bc._.js:4731:58)\n' +
+        '    at async fn (C:\\Users\\chris\\OneDrive\\Documents\\projects\\ai-chatbot\\.next\\dev\\server\\chunks\\c12c0_ai_dist_index_mjs_b0a8d498._.js:6362:45)\n' +
+        '    at async C:\\Users\\chris\\OneDrive\\Documents\\projects\\ai-chatbot\\.next\\dev\\server\\chunks\\c12c0_ai_dist_index_mjs_b0a8d498._.js:2114:28\n' +
+        '    at async _retryWithExponentialBackoff (C:\\Users\\chris\\OneDrive\\Documents\\projects\\ai-chatbot\\.next\\dev\\server\\chunks\\c12c0_ai_dist_index_mjs_b0a8d498._.js:2321:16)\n' +
+        '    at async streamStep (C:\\Users\\chris\\OneDrive\\Documents\\projects\\ai-chatbot\\.next\\dev\\server\\chunks\\c12c0_ai_dist_index_mjs_b0a8d498._.js:6320:112)\n' +
+        '    at async fn (C:\\Users\\chris\\OneDrive\\Documents\\projects\\ai-chatbot\\.next\\dev\\server\\chunks\\c12c0_ai_dist_index_mjs_b0a8d498._.js:6686:17)\n' +
+        '    at async C:\\Users\\chris\\OneDrive\\Documents\\projects\\ai-chatbot\\.next\\dev\\server\\chunks\\c12c0_ai_dist_index_mjs_b0a8d498._.js:2114:28'
+    }
+  }
+}
+Chat stream failed {
+  chatId: '8b96de6e-605d-4800-b7ff-07696b0296fd',
+  projectId: '04a516f8-9714-4909-8b14-b927237037f3',
+  scope: 'stream',
+  selectedChatModel: 'anthropic/claude-haiku-4.5',
+  error: {
+    name: 'Error',
+    message: 'I ran into an issue while finishing the finance response. Here is the latest deterministic summary instead.\n' +
+      '\n' +
+      'Total monthly budget: $23,000\n' +
+      'Bucket allocations: $25,501\n' +
+      'Catch-all budget: $322\n' +
+      'Plan mode: balanced\n' +
+      'Top buckets: Mortgage ($12,366/mo), Education ($3,750/mo), Groceries ($1,500/mo)\n' +
+      'Latest changes: Set Skin care category budget to $81; Categorized one transaction as Mortgage\n' +
+      '\n' +
+      'You can keep chatting and I will continue applying finance changes even without the model-written explanation.',
+    stack: 'Error: I ran into an issue while finishing the finance response. Here is the latest deterministic summary instead.\n' +
+      '\n' +
+      'Total monthly budget: $23,000\n' +
+      'Bucket allocations: $25,501\n' +
+      'Catch-all budget: $322\n' +
+      'Plan mode: balanced\n' +
+      'Top buckets: Mortgage ($12,366/mo), Education ($3,750/mo), Groceries ($1,500/mo)\n' +
+      'Latest changes: Set Skin care category budget to $81; Categorized one transaction as Mortgage\n' +
+      '\n' +
+      'You can keep chatting and I will continue applying finance changes even without the model-written explanation.\n' +
+      '    at C:\\Users\\chris\\OneDrive\\Documents\\projects\\ai-chatbot\\.next\\dev\\server\\chunks\\c12c0_ai_dist_index_mjs_b0a8d498._.js:5159:64\n' +
+      '    at runUpdateMessageJob (C:\\Users\\chris\\OneDrive\\Documents\\projects\\ai-chatbot\\.next\\dev\\server\\chunks\\c12c0_ai_dist_index_mjs_b0a8d498._.js:5223:15)\n' +
+      '    at Object.transform (C:\\Users\\chris\\OneDrive\\Documents\\projects\\ai-chatbot\\.next\\dev\\server\\chunks\\c12c0_ai_dist_index_mjs_b0a8d498._.js:4693:19)\n' +
+      '    at invokePromiseCallback (node:internal/webstreams/util:172:10)\n' +
+      '    at Object.transformAlgorithm (node:internal/webstreams/util:177:23)\n' +
+      '    at transformStreamDefaultControllerPerformTransform (node:internal/webstreams/transformstream:527:37)\n' +
+      '    at transformStreamDefaultSinkWriteAlgorithm (node:internal/webstreams/transformstream:573:10)\n' +
+      '    at node:internal/webstreams/transformstream:378:16\n' +
+      '    at writableStreamDefaultControllerProcessWrite (node:internal/webstreams/writablestream:1139:5)\n' +
+      '    at writableStreamDefaultControllerAdvanceQueueIfNeeded (node:internal/webstreams/writablestream:1265:5)\n' +
+      '    at writableStreamDefaultControllerWrite (node:internal/webstreams/writablestream:1128:3)\n' +
+      '    at writableStreamDefaultWriterWrite (node:internal/webstreams/writablestream:1018:3)\n' +
+      '    at [kChunk] (node:internal/webstreams/readablestream:1587:31)\n' +
+      '    at readableStreamFulfillReadRequest (node:internal/webstreams/readablestream:2120:24)\n' +
+      '    at readableStreamDefaultControllerEnqueue (node:internal/webstreams/readablestream:2312:5)\n' +
+      '    at transformStreamDefaultControllerEnqueue (node:internal/webstreams/transformstream:508:5)\n' +
+      '    at TransformStreamDefaultController.enqueue (node:internal/webstreams/transformstream:324:5)\n' +
+      '    at Object.transform (C:\\Users\\chris\\OneDrive\\Documents\\projects\\ai-chatbot\\.next\\dev\\server\\chunks\\c12c0_ai_dist_index_mjs_b0a8d498._.js:5212:24)\n' +
+      '    at invokePromiseCallback (node:internal/webstreams/util:172:10)\n' +
+      '    at Object.transformAlgorithm (node:internal/webstreams/util:177:23)\n' +
+      '    at transformStreamDefaultControllerPerformTransform (node:internal/webstreams/transformstream:527:37)\n' +
+      '    at transformStreamDefaultSinkWriteAlgorithm (node:internal/webstreams/transformstream:573:10)\n' +
+      '    at node:internal/webstreams/transformstream:378:16\n' +
+      '    at writableStreamDefaultControllerProcessWrite (node:internal/webstreams/writablestream:1139:5)\n' +
+      '    at writableStreamDefaultControllerAdvanceQueueIfNeeded (node:internal/webstreams/writablestream:1265:5)\n' +
+      '    at writableStreamDefaultControllerWrite (node:internal/webstreams/writablestream:1128:3)\n' +
+      '    at writableStreamDefaultWriterWrite (node:internal/webstreams/writablestream:1018:3)\n' +
+      '    at [kChunk] (node:internal/webstreams/readablestream:1587:31)\n' +
+      '    at readableStreamFulfillReadRequest (node:internal/webstreams/readablestream:2120:24)\n' +
+      '    at readableStreamDefaultControllerEnqueue (node:internal/webstreams/readablestream:2312:5)\n' +
+      '    at ReadableStreamDefaultController.enqueue (node:internal/webstreams/readablestream:1078:5)\n' +
+      '    at safeEnqueue (C:\\Users\\chris\\OneDrive\\Documents\\projects\\ai-chatbot\\.next\\dev\\server\\chunks\\c12c0_ai_dist_index_mjs_b0a8d498._.js:7298:24)\n' +
+      '    at C:\\Users\\chris\\OneDrive\\Documents\\projects\\ai-chatbot\\.next\\dev\\server\\chunks\\c12c0_ai_dist_index_mjs_b0a8d498._.js:7313:29\n' +
+      '    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\n' +
+      '    at async C:\\Users\\chris\\OneDrive\\Documents\\projects\\ai-chatbot\\.next\\dev\\server\\chunks\\c12c0_ai_dist_index_mjs_b0a8d498._.js:7341:13',
+    cause: undefined
+  }
+}
+{
+  code: 'not_found:database',
+  message: 'An error occurred while executing a database query.',
+  cause: 'Chat not found'
+}
+C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\.next\dev\server\chunks\node_modules__pnpm_2b61f1bc._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\.next\dev\server\chunks\c12c0_ai_dist_index_mjs_b0a8d498._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\.next\dev\server\chunks\node_modules__pnpm_6cad96f9._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\.next\dev\server\chunks\node_modules__pnpm_2b61f1bc._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\.next\dev\server\chunks\c12c0_ai_dist_index_mjs_b0a8d498._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+Error [GatewayInternalServerError]: Insufficient funds. Please add credits to your account to continue using AI services. Visit https://vercel.com/d?to=%2F%5Bteam%5D%2F%7E%2Fai%3Fmodal%3Dtop-up to top up your credits.
+    at async fn (C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\.next\dev\server\chunks\c12c0_ai_dist_index_mjs_b0a8d498._.js:6362:45)
+    at async (C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\.next\dev\server\chunks\c12c0_ai_dist_index_mjs_b0a8d498._.js:2114:28)
+    at async _retryWithExponentialBackoff (C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\.next\dev\server\chunks\c12c0_ai_dist_index_mjs_b0a8d498._.js:2321:16)
+    at async streamStep (C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\.next\dev\server\chunks\c12c0_ai_dist_index_mjs_b0a8d498._.js:6320:112)
+    at async Object.flush (C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\.next\dev\server\chunks\c12c0_ai_dist_index_mjs_b0a8d498._.js:6662:37) {
+  statusCode: 402,
+  type: 'internal_server_error',
+  [cause]: Error [AI_APICallError]: [object Object]
+      at async fn (C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\.next\dev\server\chunks\c12c0_ai_dist_index_mjs_b0a8d498._.js:6362:45)
+      at async (C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\.next\dev\server\chunks\c12c0_ai_dist_index_mjs_b0a8d498._.js:2114:28)
+      at async _retryWithExponentialBackoff (C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\.next\dev\server\chunks\c12c0_ai_dist_index_mjs_b0a8d498._.js:2321:16)
+      at async streamStep (C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\.next\dev\server\chunks\c12c0_ai_dist_index_mjs_b0a8d498._.js:6320:112)
+      at async Object.flush (C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\.next\dev\server\chunks\c12c0_ai_dist_index_mjs_b0a8d498._.js:6662:37) {
+    cause: undefined,
+    url: 'https://ai-gateway.vercel.sh/v3/ai/language-model',
+    requestBodyValues: {
+      maxOutputTokens: undefined,
+      temperature: undefined,
+      topP: undefined,
+      topK: undefined,
+      presencePenalty: undefined,
+      frequencyPenalty: undefined,
+      stopSequences: undefined,
+      seed: undefined,
+      tools: [Array],
+      toolChoice: [Object],
+      responseFormat: undefined,
+      prompt: [Array],
+      providerOptions: undefined,
+      headers: undefined,
+      includeRawChunks: false
+    },
+    statusCode: 402,
+    responseHeaders: {
+      'cache-control': 'public, max-age=0, must-revalidate',
+      'content-type': 'application/json',
+      date: 'Thu, 02 Apr 2026 01:56:57 GMT',
+      server: 'Vercel',
+      'strict-transport-security': 'max-age=63072000; includeSubDomains; preload',
+      'transfer-encoding': 'chunked',
+      vary: 'rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch',
+      'x-matched-path': '/v3/ai/language-model',
+      'x-vercel-cache': 'MISS',
+      'x-vercel-id': 'iad1::iad1::hldph-1775095017281-a64373be8eba'
+    },
+    responseBody: '{"error":{"message":"Insufficient funds. Please add credits to your account to continue using AI services. Visit https://vercel.com/d?to=%2F%5Bteam%5D%2F%7E%2Fai%3Fmodal%3Dtop-up to top up your credits.","type":"insufficient_funds"}}',
+    isRetryable: false,
+    data: { error: [Object] }
+  }
+}
+Chat stream failed {
+  chatId: 'bed7a85b-023f-44d5-a246-8aeb59a7ed89',
+  projectId: '04a516f8-9714-4909-8b14-b927237037f3',
+  scope: 'finance',
+  selectedChatModel: 'anthropic/claude-haiku-4.5',
+  error: {
+    name: 'GatewayInternalServerError',
+    message: 'Insufficient funds. Please add credits to your account to continue using AI services. Visit https://vercel.com/d?to=%2F%5Bteam%5D%2F%7E%2Fai%3Fmodal%3Dtop-up to top up your credits.',
+    stack: 'GatewayInternalServerError: Insufficient funds. Please add credits to your account to continue using AI services. Visit https://vercel.com/d?to=%2F%5Bteam%5D%2F%7E%2Fai%3Fmodal%3Dtop-up to top up your credits.\n' +
+      '    at createGatewayErrorFromResponse (C:\\Users\\chris\\OneDrive\\Documents\\projects\\ai-chatbot\\.next\\dev\\server\\chunks\\node_modules__pnpm_2b61f1bc._.js:4519:20)\n' +
+      '    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\n' +
+      '    at async GatewayLanguageModel.doStream (C:\\Users\\chris\\OneDrive\\Documents\\projects\\ai-chatbot\\.next\\dev\\server\\chunks\\node_modules__pnpm_2b61f1bc._.js:4778:19)\n' +
+      '    at async fn (C:\\Users\\chris\\OneDrive\\Documents\\projects\\ai-chatbot\\.next\\dev\\server\\chunks\\c12c0_ai_dist_index_mjs_b0a8d498._.js:6362:45)\n' +
+      '    at async C:\\Users\\chris\\OneDrive\\Documents\\projects\\ai-chatbot\\.next\\dev\\server\\chunks\\c12c0_ai_dist_index_mjs_b0a8d498._.js:2114:28\n' +
+      '    at async _retryWithExponentialBackoff (C:\\Users\\chris\\OneDrive\\Documents\\projects\\ai-chatbot\\.next\\dev\\server\\chunks\\c12c0_ai_dist_index_mjs_b0a8d498._.js:2321:16)\n' +
+      '    at async streamStep (C:\\Users\\chris\\OneDrive\\Documents\\projects\\ai-chatbot\\.next\\dev\\server\\chunks\\c12c0_ai_dist_index_mjs_b0a8d498._.js:6320:112)\n' +
+      '    at async Object.flush (C:\\Users\\chris\\OneDrive\\Documents\\projects\\ai-chatbot\\.next\\dev\\server\\chunks\\c12c0_ai_dist_index_mjs_b0a8d498._.js:6662:37)',
+    cause: {
+      name: 'AI_APICallError',
+      message: '[object Object]',
+      stack: 'AI_APICallError: [object Object]\n' +
+        '    at C:\\Users\\chris\\OneDrive\\Documents\\projects\\ai-chatbot\\.next\\dev\\server\\chunks\\node_modules__pnpm_6cad96f9._.js:8482:24\n' +
+        '    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\n' +
+        '    at async postToApi (C:\\Users\\chris\\OneDrive\\Documents\\projects\\ai-chatbot\\.next\\dev\\server\\chunks\\node_modules__pnpm_6cad96f9._.js:8355:36)\n' +
+        '    at async GatewayLanguageModel.doStream (C:\\Users\\chris\\OneDrive\\Documents\\projects\\ai-chatbot\\.next\\dev\\server\\chunks\\node_modules__pnpm_2b61f1bc._.js:4731:58)\n' +
+        '    at async fn (C:\\Users\\chris\\OneDrive\\Documents\\projects\\ai-chatbot\\.next\\dev\\server\\chunks\\c12c0_ai_dist_index_mjs_b0a8d498._.js:6362:45)\n' +
+        '    at async C:\\Users\\chris\\OneDrive\\Documents\\projects\\ai-chatbot\\.next\\dev\\server\\chunks\\c12c0_ai_dist_index_mjs_b0a8d498._.js:2114:28\n' +
+        '    at async _retryWithExponentialBackoff (C:\\Users\\chris\\OneDrive\\Documents\\projects\\ai-chatbot\\.next\\dev\\server\\chunks\\c12c0_ai_dist_index_mjs_b0a8d498._.js:2321:16)\n' +
+        '    at async streamStep (C:\\Users\\chris\\OneDrive\\Documents\\projects\\ai-chatbot\\.next\\dev\\server\\chunks\\c12c0_ai_dist_index_mjs_b0a8d498._.js:6320:112)\n' +
+        '    at async Object.flush (C:\\Users\\chris\\OneDrive\\Documents\\projects\\ai-chatbot\\.next\\dev\\server\\chunks\\c12c0_ai_dist_index_mjs_b0a8d498._.js:6662:37)'
+    }
+  }
+}
+Chat stream failed {
+  chatId: 'bed7a85b-023f-44d5-a246-8aeb59a7ed89',
+  projectId: '04a516f8-9714-4909-8b14-b927237037f3',
+  scope: 'stream',
+  selectedChatModel: 'anthropic/claude-haiku-4.5',
+  error: {
+    name: 'Error',
+    message: 'I ran into an issue while finishing the finance response. Here is the latest deterministic summary instead.\n' +
+      '\n' +
+      'Total monthly budget: $23,000\n' +
+      'Bucket allocations: $25,501\n' +
+      'Catch-all budget: $322\n' +
+      'Plan mode: balanced\n' +
+      'Top buckets: Mortgage ($12,366/mo), Education ($3,750/mo), Groceries ($1,500/mo)\n' +
+      'Latest changes: Set Skin care category budget to $81; Categorized one transaction as Mortgage\n' +
+      '\n' +
+      'You can keep chatting and I will continue applying finance changes even without the model-written explanation.',
+    stack: 'Error: I ran into an issue while finishing the finance response. Here is the latest deterministic summary instead.\n' +
+      '\n' +
+      'Total monthly budget: $23,000\n' +
+      'Bucket allocations: $25,501\n' +
+      'Catch-all budget: $322\n' +
+      'Plan mode: balanced\n' +
+      'Top buckets: Mortgage ($12,366/mo), Education ($3,750/mo), Groceries ($1,500/mo)\n' +
+      'Latest changes: Set Skin care category budget to $81; Categorized one transaction as Mortgage\n' +
+      '\n' +
+      'You can keep chatting and I will continue applying finance changes even without the model-written explanation.\n' +
+      '    at C:\\Users\\chris\\OneDrive\\Documents\\projects\\ai-chatbot\\.next\\dev\\server\\chunks\\c12c0_ai_dist_index_mjs_b0a8d498._.js:5159:64\n' +
+      '    at runUpdateMessageJob (C:\\Users\\chris\\OneDrive\\Documents\\projects\\ai-chatbot\\.next\\dev\\server\\chunks\\c12c0_ai_dist_index_mjs_b0a8d498._.js:5223:15)\n' +
+      '    at Object.transform (C:\\Users\\chris\\OneDrive\\Documents\\projects\\ai-chatbot\\.next\\dev\\server\\chunks\\c12c0_ai_dist_index_mjs_b0a8d498._.js:4693:19)\n' +
+      '    at invokePromiseCallback (node:internal/webstreams/util:172:10)\n' +
+      '    at Object.transformAlgorithm (node:internal/webstreams/util:177:23)\n' +
+      '    at transformStreamDefaultControllerPerformTransform (node:internal/webstreams/transformstream:527:37)\n' +
+      '    at transformStreamDefaultSinkWriteAlgorithm (node:internal/webstreams/transformstream:573:10)\n' +
+      '    at node:internal/webstreams/transformstream:378:16\n' +
+      '    at writableStreamDefaultControllerProcessWrite (node:internal/webstreams/writablestream:1139:5)\n' +
+      '    at writableStreamDefaultControllerAdvanceQueueIfNeeded (node:internal/webstreams/writablestream:1265:5)\n' +
+      '    at writableStreamDefaultControllerWrite (node:internal/webstreams/writablestream:1128:3)\n' +
+      '    at writableStreamDefaultWriterWrite (node:internal/webstreams/writablestream:1018:3)\n' +
+      '    at [kChunk] (node:internal/webstreams/readablestream:1587:31)\n' +
+      '    at readableStreamFulfillReadRequest (node:internal/webstreams/readablestream:2120:24)\n' +
+      '    at readableStreamDefaultControllerEnqueue (node:internal/webstreams/readablestream:2312:5)\n' +
+      '    at transformStreamDefaultControllerEnqueue (node:internal/webstreams/transformstream:508:5)\n' +
+      '    at TransformStreamDefaultController.enqueue (node:internal/webstreams/transformstream:324:5)\n' +
+      '    at Object.transform (C:\\Users\\chris\\OneDrive\\Documents\\projects\\ai-chatbot\\.next\\dev\\server\\chunks\\c12c0_ai_dist_index_mjs_b0a8d498._.js:5212:24)\n' +
+      '    at invokePromiseCallback (node:internal/webstreams/util:172:10)\n' +
+      '    at Object.transformAlgorithm (node:internal/webstreams/util:177:23)\n' +
+      '    at transformStreamDefaultControllerPerformTransform (node:internal/webstreams/transformstream:527:37)\n' +
+      '    at transformStreamDefaultSinkWriteAlgorithm (node:internal/webstreams/transformstream:573:10)\n' +
+      '    at node:internal/webstreams/transformstream:378:16\n' +
+      '    at writableStreamDefaultControllerProcessWrite (node:internal/webstreams/writablestream:1139:5)\n' +
+      '    at writableStreamDefaultControllerAdvanceQueueIfNeeded (node:internal/webstreams/writablestream:1265:5)\n' +
+      '    at writableStreamDefaultControllerWrite (node:internal/webstreams/writablestream:1128:3)\n' +
+      '    at writableStreamDefaultWriterWrite (node:internal/webstreams/writablestream:1018:3)\n' +
+      '    at [kChunk] (node:internal/webstreams/readablestream:1587:31)\n' +
+      '    at readableStreamFulfillReadRequest (node:internal/webstreams/readablestream:2120:24)\n' +
+      '    at readableStreamDefaultControllerEnqueue (node:internal/webstreams/readablestream:2312:5)\n' +
+      '    at ReadableStreamDefaultController.enqueue (node:internal/webstreams/readablestream:1078:5)\n' +
+      '    at safeEnqueue (C:\\Users\\chris\\OneDrive\\Documents\\projects\\ai-chatbot\\.next\\dev\\server\\chunks\\c12c0_ai_dist_index_mjs_b0a8d498._.js:7298:24)\n' +
+      '    at C:\\Users\\chris\\OneDrive\\Documents\\projects\\ai-chatbot\\.next\\dev\\server\\chunks\\c12c0_ai_dist_index_mjs_b0a8d498._.js:7313:29\n' +
+      '    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\n' +
+      '    at async C:\\Users\\chris\\OneDrive\\Documents\\projects\\ai-chatbot\\.next\\dev\\server\\chunks\\c12c0_ai_dist_index_mjs_b0a8d498._.js:7341:13',
+    cause: undefined
+  }
+}
+C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\.next\dev\server\chunks\node_modules__pnpm_5f23e4ae._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\.next\dev\server\chunks\[root-of-the-server]__d07dd45b._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\node_modules\.pnpm\next@16.0.10_@opentelemetry+api@1.9.0_@playwright+test@1.51.0_react-dom@19.0.1_react@19.0.1__react@19.0.1\node_modules\next\dist\compiled\next-server\app-route-turbo.runtime.dev.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\.next\dev\server\chunks\49185_next_54e57724._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\node_modules\.pnpm\next@16.0.10_@opentelemetry+api@1.9.0_@playwright+test@1.51.0_react-dom@19.0.1_react@19.0.1__react@19.0.1\node_modules\next\dist\server\base-server.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\node_modules\.pnpm\next@16.0.10_@opentelemetry+api@1.9.0_@playwright+test@1.51.0_react-dom@19.0.1_react@19.0.1__react@19.0.1\node_modules\next\dist\server\next-server.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\node_modules\.pnpm\next@16.0.10_@opentelemetry+api@1.9.0_@playwright+test@1.51.0_react-dom@19.0.1_react@19.0.1__react@19.0.1\node_modules\next\dist\server\dev\next-dev-server.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\node_modules\.pnpm\next@16.0.10_@opentelemetry+api@1.9.0_@playwright+test@1.51.0_react-dom@19.0.1_react@19.0.1__react@19.0.1\node_modules\next\dist\trace\trace.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\node_modules\.pnpm\next@16.0.10_@opentelemetry+api@1.9.0_@playwright+test@1.51.0_react-dom@19.0.1_react@19.0.1__react@19.0.1\node_modules\next\dist\server\lib\router-server.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\node_modules\.pnpm\next@16.0.10_@opentelemetry+api@1.9.0_@playwright+test@1.51.0_react-dom@19.0.1_react@19.0.1__react@19.0.1\node_modules\next\dist\server\lib\start-server.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+Finance CSV blob upload failed, falling back to local-only metadata storage. Error: Vercel Blob: Cannot use public access on a private store. The store is configured with private access.
+    at async storeUploadedCsv (C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\.next\dev\server\chunks\[root-of-the-server]__d07dd45b._.js:2576:30)
+    at async POST (C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\.next\dev\server\chunks\[root-of-the-server]__d07dd45b._.js:2690:29)
+    at async responseGenerator (C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\.next\dev\server\chunks\49185_next_54e57724._.js:16107:38)
+    at async handleResponse (C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\.next\dev\server\chunks\49185_next_54e57724._.js:16169:32)
+    at async handler (C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\.next\dev\server\chunks\49185_next_54e57724._.js:16220:13)
+C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\.next\dev\server\chunks\node_modules__pnpm_2b61f1bc._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\.next\dev\server\chunks\c12c0_ai_dist_index_mjs_b0a8d498._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\.next\dev\server\chunks\node_modules__pnpm_6cad96f9._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\.next\dev\server\chunks\node_modules__pnpm_2b61f1bc._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\.next\dev\server\chunks\c12c0_ai_dist_index_mjs_b0a8d498._.js: Invalid source map. Only conformant source maps can be used to find the original code. Cause: Error: sourceMapURL could not be parsed
+Error [GatewayInternalServerError]: Insufficient funds. Please add credits to your account to continue using AI services. Visit https://vercel.com/d?to=%2F%5Bteam%5D%2F%7E%2Fai%3Fmodal%3Dtop-up to top up your credits.
+    at async fn (C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\.next\dev\server\chunks\c12c0_ai_dist_index_mjs_b0a8d498._.js:6362:45)
+    at async (C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\.next\dev\server\chunks\c12c0_ai_dist_index_mjs_b0a8d498._.js:2114:28)
+    at async _retryWithExponentialBackoff (C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\.next\dev\server\chunks\c12c0_ai_dist_index_mjs_b0a8d498._.js:2321:16)
+    at async streamStep (C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\.next\dev\server\chunks\c12c0_ai_dist_index_mjs_b0a8d498._.js:6320:112)
+    at async fn (C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\.next\dev\server\chunks\c12c0_ai_dist_index_mjs_b0a8d498._.js:6686:17)
+    at async (C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\.next\dev\server\chunks\c12c0_ai_dist_index_mjs_b0a8d498._.js:2114:28) {
+  statusCode: 402,
+  type: 'internal_server_error',
+  [cause]: Error [AI_APICallError]: [object Object]
+      at async fn (C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\.next\dev\server\chunks\c12c0_ai_dist_index_mjs_b0a8d498._.js:6362:45)
+      at async (C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\.next\dev\server\chunks\c12c0_ai_dist_index_mjs_b0a8d498._.js:2114:28)
+      at async _retryWithExponentialBackoff (C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\.next\dev\server\chunks\c12c0_ai_dist_index_mjs_b0a8d498._.js:2321:16)
+      at async streamStep (C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\.next\dev\server\chunks\c12c0_ai_dist_index_mjs_b0a8d498._.js:6320:112)
+      at async fn (C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\.next\dev\server\chunks\c12c0_ai_dist_index_mjs_b0a8d498._.js:6686:17)
+      at async (C:\Users\chris\OneDrive\Documents\projects\ai-chatbot\.next\dev\server\chunks\c12c0_ai_dist_index_mjs_b0a8d498._.js:2114:28) {
+    cause: undefined,
+    url: 'https://ai-gateway.vercel.sh/v3/ai/language-model',
+    requestBodyValues: {
+      maxOutputTokens: undefined,
+      temperature: undefined,
+      topP: undefined,
+      topK: undefined,
+      presencePenalty: undefined,
+      frequencyPenalty: undefined,
+      stopSequences: undefined,
+      seed: undefined,
+      tools: [Array],
+      toolChoice: [Object],
+      responseFormat: undefined,
+      prompt: [Array],
+      providerOptions: undefined,
+      headers: undefined,
+      includeRawChunks: false
+    },
+    statusCode: 402,
+    responseHeaders: {
+      'cache-control': 'public, max-age=0, must-revalidate',
+      'content-type': 'application/json',
+      date: 'Thu, 02 Apr 2026 01:57:35 GMT',
+      server: 'Vercel',
+      'strict-transport-security': 'max-age=63072000; includeSubDomains; preload',
+      'transfer-encoding': 'chunked',
+      vary: 'rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch',
+      'x-matched-path': '/v3/ai/language-model',
+      'x-vercel-cache': 'MISS',
+      'x-vercel-id': 'iad1::iad1::h2qkw-1775095055488-33c7d142385e'
+    },
+    responseBody: '{"error":{"message":"Insufficient funds. Please add credits to your account to continue using AI services. Visit https://vercel.com/d?to=%2F%5Bteam%5D%2F%7E%2Fai%3Fmodal%3Dtop-up to top up your credits.","type":"insufficient_funds"}}',
+    isRetryable: false,
+    data: { error: [Object] }
+  }
+}
+Chat stream failed {
+  chatId: '3d9b81b0-18c3-4d2a-b085-c39531ebb821',
+  projectId: '7bb7bdf0-76eb-4d1b-8001-b4bb6dc1753c',
+  scope: 'finance',
+  selectedChatModel: 'google/gemini-2.5-flash-lite',
+  error: {
+    name: 'GatewayInternalServerError',
+    message: 'Insufficient funds. Please add credits to your account to continue using AI services. Visit https://vercel.com/d?to=%2F%5Bteam%5D%2F%7E%2Fai%3Fmodal%3Dtop-up to top up your credits.',
+    stack: 'GatewayInternalServerError: Insufficient funds. Please add credits to your account to continue using AI services. Visit https://vercel.com/d?to=%2F%5Bteam%5D%2F%7E%2Fai%3Fmodal%3Dtop-up to top up your credits.\n' +
+      '    at createGatewayErrorFromResponse (C:\\Users\\chris\\OneDrive\\Documents\\projects\\ai-chatbot\\.next\\dev\\server\\chunks\\node_modules__pnpm_2b61f1bc._.js:4519:20)\n' +
+      '    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\n' +
+      '    at async GatewayLanguageModel.doStream (C:\\Users\\chris\\OneDrive\\Documents\\projects\\ai-chatbot\\.next\\dev\\server\\chunks\\node_modules__pnpm_2b61f1bc._.js:4778:19)\n' +
+      '    at async fn (C:\\Users\\chris\\OneDrive\\Documents\\projects\\ai-chatbot\\.next\\dev\\server\\chunks\\c12c0_ai_dist_index_mjs_b0a8d498._.js:6362:45)\n' +
+      '    at async C:\\Users\\chris\\OneDrive\\Documents\\projects\\ai-chatbot\\.next\\dev\\server\\chunks\\c12c0_ai_dist_index_mjs_b0a8d498._.js:2114:28\n' +
+      '    at async _retryWithExponentialBackoff (C:\\Users\\chris\\OneDrive\\Documents\\projects\\ai-chatbot\\.next\\dev\\server\\chunks\\c12c0_ai_dist_index_mjs_b0a8d498._.js:2321:16)\n' +
+      '    at async streamStep (C:\\Users\\chris\\OneDrive\\Documents\\projects\\ai-chatbot\\.next\\dev\\server\\chunks\\c12c0_ai_dist_index_mjs_b0a8d498._.js:6320:112)\n' +
+      '    at async fn (C:\\Users\\chris\\OneDrive\\Documents\\projects\\ai-chatbot\\.next\\dev\\server\\chunks\\c12c0_ai_dist_index_mjs_b0a8d498._.js:6686:17)\n' +
+      '    at async C:\\Users\\chris\\OneDrive\\Documents\\projects\\ai-chatbot\\.next\\dev\\server\\chunks\\c12c0_ai_dist_index_mjs_b0a8d498._.js:2114:28',
+    cause: {
+      name: 'AI_APICallError',
+      message: '[object Object]',
+      stack: 'AI_APICallError: [object Object]\n' +
+        '    at C:\\Users\\chris\\OneDrive\\Documents\\projects\\ai-chatbot\\.next\\dev\\server\\chunks\\node_modules__pnpm_6cad96f9._.js:8482:24\n' +
+        '    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\n' +
+        '    at async postToApi (C:\\Users\\chris\\OneDrive\\Documents\\projects\\ai-chatbot\\.next\\dev\\server\\chunks\\node_modules__pnpm_6cad96f9._.js:8355:36)\n' +
+        '    at async GatewayLanguageModel.doStream (C:\\Users\\chris\\OneDrive\\Documents\\projects\\ai-chatbot\\.next\\dev\\server\\chunks\\node_modules__pnpm_2b61f1bc._.js:4731:58)\n' +
+        '    at async fn (C:\\Users\\chris\\OneDrive\\Documents\\projects\\ai-chatbot\\.next\\dev\\server\\chunks\\c12c0_ai_dist_index_mjs_b0a8d498._.js:6362:45)\n' +
+        '    at async C:\\Users\\chris\\OneDrive\\Documents\\projects\\ai-chatbot\\.next\\dev\\server\\chunks\\c12c0_ai_dist_index_mjs_b0a8d498._.js:2114:28\n' +
+        '    at async _retryWithExponentialBackoff (C:\\Users\\chris\\OneDrive\\Documents\\projects\\ai-chatbot\\.next\\dev\\server\\chunks\\c12c0_ai_dist_index_mjs_b0a8d498._.js:2321:16)\n' +
+        '    at async streamStep (C:\\Users\\chris\\OneDrive\\Documents\\projects\\ai-chatbot\\.next\\dev\\server\\chunks\\c12c0_ai_dist_index_mjs_b0a8d498._.js:6320:112)\n' +
+        '    at async fn (C:\\Users\\chris\\OneDrive\\Documents\\projects\\ai-chatbot\\.next\\dev\\server\\chunks\\c12c0_ai_dist_index_mjs_b0a8d498._.js:6686:17)\n' +
+        '    at async C:\\Users\\chris\\OneDrive\\Documents\\projects\\ai-chatbot\\.next\\dev\\server\\chunks\\c12c0_ai_dist_index_mjs_b0a8d498._.js:2114:28'
+    }
+  }
+}
+Chat stream failed {
+  chatId: '3d9b81b0-18c3-4d2a-b085-c39531ebb821',
+  projectId: '7bb7bdf0-76eb-4d1b-8001-b4bb6dc1753c',
+  scope: 'stream',
+  selectedChatModel: 'google/gemini-2.5-flash-lite',
+  error: {
+    name: 'Error',
+    message: 'I ran into an issue while finishing the finance response. Here is the latest deterministic summary instead.\n' +
+      '\n' +
+      'Total monthly budget: Not set\n' +
+      'Bucket allocations: $6,252\n' +
+      'Catch-all budget: Not set\n' +
+      'Plan mode: balanced\n' +
+      'Top buckets: Other / Misc ($3,045/mo), Mortgage ($3,000/mo), Groceries ($167/mo)\n' +
+      '\n' +
+      '\n' +
+      'You can keep chatting and I will continue applying finance changes even without the model-written explanation.',
+    stack: 'Error: I ran into an issue while finishing the finance response. Here is the latest deterministic summary instead.\n' +
+      '\n' +
+      'Total monthly budget: Not set\n' +
+      'Bucket allocations: $6,252\n' +
+      'Catch-all budget: Not set\n' +
+      'Plan mode: balanced\n' +
+      'Top buckets: Other / Misc ($3,045/mo), Mortgage ($3,000/mo), Groceries ($167/mo)\n' +
+      '\n' +
+      '\n' +
+      'You can keep chatting and I will continue applying finance changes even without the model-written explanation.\n' +
+      '    at C:\\Users\\chris\\OneDrive\\Documents\\projects\\ai-chatbot\\.next\\dev\\server\\chunks\\c12c0_ai_dist_index_mjs_b0a8d498._.js:5159:64\n' +
+      '    at runUpdateMessageJob (C:\\Users\\chris\\OneDrive\\Documents\\projects\\ai-chatbot\\.next\\dev\\server\\chunks\\c12c0_ai_dist_index_mjs_b0a8d498._.js:5223:15)\n' +
+      '    at Object.transform (C:\\Users\\chris\\OneDrive\\Documents\\projects\\ai-chatbot\\.next\\dev\\server\\chunks\\c12c0_ai_dist_index_mjs_b0a8d498._.js:4693:19)\n' +
+      '    at invokePromiseCallback (node:internal/webstreams/util:172:10)\n' +
+      '    at Object.transformAlgorithm (node:internal/webstreams/util:177:23)\n' +
+      '    at transformStreamDefaultControllerPerformTransform (node:internal/webstreams/transformstream:527:37)\n' +
+      '    at transformStreamDefaultSinkWriteAlgorithm (node:internal/webstreams/transformstream:573:10)\n' +
+      '    at node:internal/webstreams/transformstream:378:16\n' +
+      '    at writableStreamDefaultControllerProcessWrite (node:internal/webstreams/writablestream:1139:5)\n' +
+      '    at writableStreamDefaultControllerAdvanceQueueIfNeeded (node:internal/webstreams/writablestream:1265:5)\n' +
+      '    at writableStreamDefaultControllerWrite (node:internal/webstreams/writablestream:1128:3)\n' +
+      '    at writableStreamDefaultWriterWrite (node:internal/webstreams/writablestream:1018:3)\n' +
+      '    at [kChunk] (node:internal/webstreams/readablestream:1587:31)\n' +
+      '    at readableStreamFulfillReadRequest (node:internal/webstreams/readablestream:2120:24)\n' +
+      '    at readableStreamDefaultControllerEnqueue (node:internal/webstreams/readablestream:2312:5)\n' +
+      '    at transformStreamDefaultControllerEnqueue (node:internal/webstreams/transformstream:508:5)\n' +
+      '    at TransformStreamDefaultController.enqueue (node:internal/webstreams/transformstream:324:5)\n' +
+      '    at Object.transform (C:\\Users\\chris\\OneDrive\\Documents\\projects\\ai-chatbot\\.next\\dev\\server\\chunks\\c12c0_ai_dist_index_mjs_b0a8d498._.js:5212:24)\n' +
+      '    at invokePromiseCallback (node:internal/webstreams/util:172:10)\n' +
+      '    at Object.transformAlgorithm (node:internal/webstreams/util:177:23)\n' +
+      '    at transformStreamDefaultControllerPerformTransform (node:internal/webstreams/transformstream:527:37)\n' +
+      '    at transformStreamDefaultSinkWriteAlgorithm (node:internal/webstreams/transformstream:573:10)\n' +
+      '    at node:internal/webstreams/transformstream:378:16\n' +
+      '    at writableStreamDefaultControllerProcessWrite (node:internal/webstreams/writablestream:1139:5)\n' +
+      '    at writableStreamDefaultControllerAdvanceQueueIfNeeded (node:internal/webstreams/writablestream:1265:5)\n' +
+      '    at writableStreamDefaultControllerWrite (node:internal/webstreams/writablestream:1128:3)\n' +
+      '    at writableStreamDefaultWriterWrite (node:internal/webstreams/writablestream:1018:3)\n' +
+      '    at [kChunk] (node:internal/webstreams/readablestream:1587:31)\n' +
+      '    at readableStreamFulfillReadRequest (node:internal/webstreams/readablestream:2120:24)\n' +
+      '    at readableStreamDefaultControllerEnqueue (node:internal/webstreams/readablestream:2312:5)\n' +
+      '    at ReadableStreamDefaultController.enqueue (node:internal/webstreams/readablestream:1078:5)\n' +
+      '    at safeEnqueue (C:\\Users\\chris\\OneDrive\\Documents\\projects\\ai-chatbot\\.next\\dev\\server\\chunks\\c12c0_ai_dist_index_mjs_b0a8d498._.js:7298:24)\n' +
+      '    at C:\\Users\\chris\\OneDrive\\Documents\\projects\\ai-chatbot\\.next\\dev\\server\\chunks\\c12c0_ai_dist_index_mjs_b0a8d498._.js:7313:29\n' +
+      '    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\n' +
+      '    at async C:\\Users\\chris\\OneDrive\\Documents\\projects\\ai-chatbot\\.next\\dev\\server\\chunks\\c12c0_ai_dist_index_mjs_b0a8d498._.js:7341:13',
+    cause: undefined
+  }
+}

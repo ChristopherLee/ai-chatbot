@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { buildFinanceActionKey } from "@/lib/finance/action-keys";
+import { FINANCE_RECOMMENDATION_LOOKBACK_MONTHS } from "@/lib/finance/config";
 import type {
   FinanceAction,
   FinanceTransactionMatch,
@@ -21,6 +22,15 @@ function formatCurrency(value: number | null) {
     currency: "USD",
     maximumFractionDigits: 0,
   }).format(value);
+}
+
+function formatOptionalSignedCurrency(value: number | null) {
+  if (value === null) {
+    return "-";
+  }
+
+  const formatted = formatCurrency(Math.abs(value));
+  return value < 0 ? `-${formatted}` : formatted;
 }
 
 function describeMatch(match: FinanceTransactionMatch) {
@@ -46,14 +56,12 @@ export function describeFinanceAction(action: FinanceAction) {
       return `Map raw category ${action.from} to ${action.to}`;
     case "exclude_transactions":
       return `Exclude transactions where ${describeMatch(action.match)}`;
-    case "include_transactions":
-      return `Include transactions where ${describeMatch(action.match)}`;
     case "merge_buckets":
       return `Merge ${action.from.join(", ")} into ${action.to}`;
     case "rename_bucket":
       return `Rename ${action.from} to ${action.to}`;
     case "set_bucket_monthly_target":
-      return `Set ${action.bucket} monthly budget to ${formatCurrency(action.amount)}${action.effectiveMonth ? ` starting ${action.effectiveMonth}` : ""}`;
+      return `Set ${action.bucket} category budget to ${formatCurrency(action.amount)}${action.effectiveMonth ? ` starting ${action.effectiveMonth}` : ""}`;
     case "set_plan_mode":
       return `Switch plan mode to ${action.mode}`;
     default:
@@ -99,14 +107,13 @@ export function FinanceActionApprovalRequest({
   const actionKeys = actions.map((action, index) =>
     buildSelectableActionKey(action, index)
   );
-  const selectionSeed = actionKeys.join("|");
   const [selectedActionKeys, setSelectedActionKeys] = useState(
     () => new Set(actionKeys)
   );
 
   useEffect(() => {
     setSelectedActionKeys(new Set(actionKeys));
-  }, [selectionSeed]);
+  }, [actionKeys]);
 
   const selectedActions = actions.filter((action, index) =>
     selectedActionKeys.has(buildSelectableActionKey(action, index))
@@ -156,7 +163,9 @@ export function FinanceActionApprovalRequest({
             >
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div className="space-y-1">
-                  <div className="font-medium">{describeFinanceAction(action)}</div>
+                  <div className="font-medium">
+                    {describeFinanceAction(action)}
+                  </div>
                   <div className="flex flex-wrap gap-2 text-muted-foreground text-xs">
                     <Badge variant="secondary">{action.type}</Badge>
                     {!isSelected && <Badge variant="outline">Skipped</Badge>}
@@ -232,7 +241,13 @@ function SnapshotSummary({
   summary: {
     status: string;
     includedOutflow: number | null;
-    totalMonthlyTarget: number | null;
+    totalMonthlyBudgetTarget: number | null;
+    totalMonthlyIncomeTarget: number | null;
+    categoryBudgetTotal: number;
+    suggestedMonthlyTarget: number | null;
+    catchAllBudget: number | null;
+    historicalAverageMonthlyIncome: number | null;
+    historicalAverageMonthlySpend: number | null;
     trailingAverageSpend: number | null;
     topBuckets: Array<{
       bucket: string;
@@ -259,15 +274,69 @@ function SnapshotSummary({
         </div>
         <div>
           <div className="text-muted-foreground text-xs uppercase tracking-wide">
-            Monthly Target
+            Total Budget
           </div>
           <div className="font-medium text-sm">
-            {formatCurrency(summary.totalMonthlyTarget)}
+            {formatCurrency(summary.totalMonthlyBudgetTarget)}
           </div>
         </div>
         <div>
           <div className="text-muted-foreground text-xs uppercase tracking-wide">
-            Trailing Spend
+            Category Budgets
+          </div>
+          <div className="font-medium text-sm">
+            {formatCurrency(summary.categoryBudgetTotal)}
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-2 sm:grid-cols-3">
+        <div>
+          <div className="text-muted-foreground text-xs uppercase tracking-wide">
+            Catch-all Budget
+          </div>
+          <div className="font-medium text-sm">
+            {formatOptionalSignedCurrency(summary.catchAllBudget)}
+          </div>
+        </div>
+        <div>
+          <div className="text-muted-foreground text-xs uppercase tracking-wide">
+            Total Income
+          </div>
+          <div className="font-medium text-sm">
+            {formatCurrency(summary.totalMonthlyIncomeTarget)}
+          </div>
+        </div>
+        <div>
+          <div className="text-muted-foreground text-xs uppercase tracking-wide">
+            {FINANCE_RECOMMENDATION_LOOKBACK_MONTHS}-Mo Suggested Pace
+          </div>
+          <div className="font-medium text-sm">
+            {formatCurrency(summary.suggestedMonthlyTarget)}
+          </div>
+        </div>
+      </div>
+
+      <div className="grid gap-2 sm:grid-cols-3">
+        <div>
+          <div className="text-muted-foreground text-xs uppercase tracking-wide">
+            Historical Spend
+          </div>
+          <div className="font-medium text-sm">
+            {formatCurrency(summary.historicalAverageMonthlySpend)}
+          </div>
+        </div>
+        <div>
+          <div className="text-muted-foreground text-xs uppercase tracking-wide">
+            Historical Income
+          </div>
+          <div className="font-medium text-sm">
+            {formatCurrency(summary.historicalAverageMonthlyIncome)}
+          </div>
+        </div>
+        <div>
+          <div className="text-muted-foreground text-xs uppercase tracking-wide">
+            {FINANCE_RECOMMENDATION_LOOKBACK_MONTHS}-Mo Avg Spend
           </div>
           <div className="font-medium text-sm">
             {formatCurrency(summary.trailingAverageSpend)}

@@ -226,17 +226,6 @@ export function buildFinanceRulePresentation(
         ],
         ...preview,
       };
-    case "include_transactions":
-      return {
-        details: [
-          ...buildMatchRuleDetails(action.match),
-          {
-            label: "Then",
-            value: "Include matching transactions in the plan",
-          },
-        ],
-        ...preview,
-      };
     case "merge_buckets":
       return {
         details: [
@@ -273,7 +262,7 @@ export function buildFinanceRulePresentation(
             value: action.bucket,
           },
           {
-            label: "Monthly target",
+            label: "Category budget",
             value: formatCurrency(action.amount),
           },
           ...(action.effectiveMonth
@@ -390,7 +379,6 @@ function getAffectedTransactionsForAction(
   switch (action.type) {
     case "categorize_transactions":
     case "exclude_transactions":
-    case "include_transactions":
       return transactions.filter(
         (transaction) =>
           !excludeTransactionIds?.has(transaction.id) &&
@@ -461,6 +449,16 @@ function refreshBucketGroup(transaction: FinanceTransaction) {
   });
 }
 
+function applyCategorization(
+  transaction: FinanceTransaction,
+  destinationBucket: string
+) {
+  transaction.mappedBucket = destinationBucket;
+  transaction.includeFlag = true;
+  transaction.exclusionReason = null;
+  refreshBucketGroup(transaction);
+}
+
 function applyFinanceActionToTransactions(
   transactions: FinanceTransaction[],
   action: FinanceAction,
@@ -488,8 +486,7 @@ function applyFinanceActionToTransactions(
         }
 
         if (safeLower(transaction.rawCategory) === safeLower(action.from)) {
-          transaction.mappedBucket = action.to;
-          refreshBucketGroup(transaction);
+          applyCategorization(transaction, action.to);
         }
       }
       break;
@@ -501,8 +498,7 @@ function applyFinanceActionToTransactions(
         }
 
         if (transactionMatches(transaction, action.match)) {
-          transaction.mappedBucket = action.to;
-          refreshBucketGroup(transaction);
+          applyCategorization(transaction, action.to);
         }
       }
       break;
@@ -510,8 +506,7 @@ function applyFinanceActionToTransactions(
     case "categorize_transaction": {
       for (const transaction of transactions) {
         if (transaction.id === action.transactionId) {
-          transaction.mappedBucket = action.to;
-          refreshBucketGroup(transaction);
+          applyCategorization(transaction, action.to);
         }
       }
       break;
@@ -530,16 +525,6 @@ function applyFinanceActionToTransactions(
         if (transactionMatches(transaction, action.match)) {
           transaction.includeFlag = false;
           transaction.exclusionReason = "Manual exclusion";
-          refreshBucketGroup(transaction);
-        }
-      }
-      break;
-    }
-    case "include_transactions": {
-      for (const transaction of transactions) {
-        if (transactionMatches(transaction, action.match)) {
-          transaction.includeFlag = true;
-          transaction.exclusionReason = null;
           refreshBucketGroup(transaction);
         }
       }
@@ -611,12 +596,10 @@ export function summarizeFinanceAction(action: FinanceAction) {
       return `Categorized one transaction as ${action.to}`;
     case "exclude_transactions":
       return "Excluded matching transactions";
-    case "include_transactions":
-      return "Included matching transactions";
     case "rename_bucket":
       return `Renamed ${action.from} to ${action.to}`;
     case "set_bucket_monthly_target":
-      return `Set ${action.bucket} monthly budget to $${action.amount.toFixed(0)}`;
+      return `Set ${action.bucket} category budget to $${action.amount.toFixed(0)}`;
     case "set_plan_mode":
       return `Switched plan mode to ${action.mode}`;
     default:

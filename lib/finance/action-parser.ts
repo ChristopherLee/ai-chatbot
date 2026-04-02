@@ -247,12 +247,9 @@ export function buildHeuristicActions({
       rawCategories
     );
 
-    if (rawCategory) {
+    if (rawCategory && safeLower(categoryDirectiveMatch[1]) === "exclude") {
       actions.push({
-        type:
-          safeLower(categoryDirectiveMatch[1]) === "exclude"
-            ? "exclude_transactions"
-            : "include_transactions",
+        type: "exclude_transactions",
         match: {
           rawCategory,
         },
@@ -282,21 +279,6 @@ export function buildHeuristicActions({
     if (isPlausibleDescriptionMatch(descriptionContains)) {
       actions.push({
         type: "exclude_transactions",
-        match: {
-          descriptionContains,
-        },
-      });
-    }
-  }
-
-  const includeMatch = text.match(/include\s+(.+?)(?:\.|$)/i);
-
-  if (includeMatch && !lower.startsWith("include the")) {
-    const descriptionContains = normalizeMatchPhrase(includeMatch[1]);
-
-    if (isPlausibleDescriptionMatch(descriptionContains)) {
-      actions.push({
-        type: "include_transactions",
         match: {
           descriptionContains,
         },
@@ -347,7 +329,6 @@ Only return actions when the user clearly asks for one of these supported operat
 - remap_raw_category
 - categorize_transactions
 - exclude_transactions
-- include_transactions
 - rename_bucket
 - set_bucket_monthly_target
 - set_plan_mode

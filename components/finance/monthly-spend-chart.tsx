@@ -4,6 +4,7 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
+  Cell,
   Legend,
   Line,
   ResponsiveContainer,
@@ -11,41 +12,73 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import type { FinanceMonthlyChartPoint } from "@/lib/finance/types";
 
 export function MonthlySpendChart({
+  comparisonBudget,
+  comparisonLabel,
   data,
+  selectedMonth,
 }: {
+  comparisonBudget?: number;
+  comparisonLabel?: string;
   data: FinanceMonthlyChartPoint[];
+  selectedMonth?: string;
 }) {
+  const resolvedSelectedMonth = selectedMonth ?? data.at(-1)?.month ?? "";
+  const resolvedComparisonLabel = comparisonLabel ?? "Target pace";
+  const chartData = data.map((entry) => ({
+    ...entry,
+    comparisonBudget: comparisonBudget ?? entry.target,
+  }));
+
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>Monthly actual vs target</CardTitle>
+      <CardHeader className="space-y-1">
+        <CardTitle>Monthly spend trend</CardTitle>
+        <CardDescription>
+          Compare each month&apos;s spend against the{" "}
+          {resolvedComparisonLabel.toLowerCase()}.
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <div className="h-72 w-full">
           <ResponsiveContainer height="100%" width="100%">
-            <BarChart data={data}>
+            <BarChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} />
               <XAxis dataKey="label" minTickGap={24} />
               <YAxis tickFormatter={(value) => `$${value}`} width={72} />
               <Tooltip
-                formatter={(value) => `$${Number(value ?? 0).toLocaleString()}`}
+                formatter={(value, name) => [
+                  `$${Number(value ?? 0).toLocaleString()}`,
+                  name === "actual" ? "Actual spend" : resolvedComparisonLabel,
+                ]}
               />
               <Legend />
-              <Bar
-                dataKey="actual"
-                fill="#0f766e"
-                name="Actual spend"
-                radius={6}
-              />
+              <Bar dataKey="actual" name="Actual spend" radius={6}>
+                {chartData.map((entry) => (
+                  <Cell
+                    fill={
+                      entry.month === resolvedSelectedMonth
+                        ? "#0f766e"
+                        : "#cbd5e1"
+                    }
+                    key={entry.month}
+                  />
+                ))}
+              </Bar>
               <Line
-                dataKey="target"
+                dataKey="comparisonBudget"
                 dot={false}
-                name="Monthly target"
-                stroke="#b45309"
+                name={resolvedComparisonLabel}
+                stroke="#334155"
                 strokeWidth={3}
                 type="monotone"
               />

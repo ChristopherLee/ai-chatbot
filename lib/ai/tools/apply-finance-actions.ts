@@ -15,12 +15,12 @@ export const applyFinanceActions = ({ projectId }: { projectId: string }) =>
     description: `Apply one or more finance plan changes for the current project.
 
 Use this when the user clearly asks to change the plan, such as:
-- excluding or including transactions
+- excluding transactions from the budget
 - remapping categories
 - categorizing matching transactions into a bucket
 - categorizing a specific transaction into a bucket
 - merging or renaming buckets
-- changing a bucket monthly budget
+- changing a bucket category budget
 - switching plan mode
 
 You can also use this to present strong categorization suggestions for user approval.

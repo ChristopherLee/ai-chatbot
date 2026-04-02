@@ -60,11 +60,6 @@ export const excludeTransactionsActionSchema = z.object({
   match: transactionMatchSchema,
 });
 
-export const includeTransactionsActionSchema = z.object({
-  type: z.literal("include_transactions"),
-  match: transactionMatchSchema,
-});
-
 export const renameBucketActionSchema = z.object({
   type: z.literal("rename_bucket"),
   from: z.string().min(1),
@@ -92,7 +87,6 @@ export const financeActionSchema = z.discriminatedUnion("type", [
   categorizeTransactionsActionSchema,
   categorizeTransactionActionSchema,
   excludeTransactionsActionSchema,
-  includeTransactionsActionSchema,
   renameBucketActionSchema,
   setBucketMonthlyTargetActionSchema,
   setPlanModeActionSchema,
@@ -101,6 +95,18 @@ export const financeActionSchema = z.discriminatedUnion("type", [
 export const financeActionsSchema = z.array(financeActionSchema).max(6);
 
 export type FinanceAction = z.infer<typeof financeActionSchema>;
+
+export const categorizationRuleTypes = [
+  "categorize_transaction",
+  "categorize_transactions",
+  "remap_raw_category",
+  "merge_buckets",
+  "rename_bucket",
+] as const satisfies FinanceAction["type"][];
+
+export const budgetExclusionRuleTypes = [
+  "exclude_transactions",
+] as const satisfies FinanceAction["type"][];
 
 export type FinanceTransaction = {
   id: string;
@@ -299,6 +305,40 @@ export type FinancePlanSummary = {
   }>;
 };
 
+export type FinanceCashFlowSummary = {
+  totalMonthlyBudgetTarget: number | null;
+  totalMonthlyIncomeTarget: number | null;
+  categoryBudgetTotal: number;
+  catchAllBudget: number | null;
+  historicalAverageMonthlyIncome: number;
+  historicalAverageMonthlySpend: number;
+};
+
+export type FinanceTargetsCategoryBudget = {
+  bucket: string;
+  group: BucketGroup;
+  amount: number;
+  overrideId: string | null;
+  lastMonthActual: number;
+};
+
+export type FinanceTargetsCategoryBudgetSuggestion = {
+  bucket: string;
+  group: BucketGroup;
+  suggestedAmount: number;
+  lastMonthActual: number;
+};
+
+export type FinanceTargetsResponse = {
+  projectId: string;
+  projectTitle: string;
+  snapshotStatus: FinanceSnapshotStatus;
+  cashFlowSummary: FinanceCashFlowSummary;
+  suggestedCategoryBudgetTotal: number | null;
+  categoryBudgets: FinanceTargetsCategoryBudget[];
+  suggestedCategoryBudgets: FinanceTargetsCategoryBudgetSuggestion[];
+};
+
 export type FinanceAppliedOverrideDetail = {
   label: string;
   value: string;
@@ -355,6 +395,7 @@ export type FinanceRulePreview = {
 
 export type FinanceSnapshot = {
   status: FinanceSnapshotStatus;
+  cashFlowSummary: FinanceCashFlowSummary;
   datasetSummary: FinanceDatasetSummary | null;
   planSummary: FinancePlanSummary | null;
   monthlyChart: FinanceMonthlyChartPoint[];

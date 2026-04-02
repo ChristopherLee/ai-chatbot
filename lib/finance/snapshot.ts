@@ -5,11 +5,14 @@ import {
   getUploadedFileByProjectId,
   replaceFinancePlan,
 } from "@/lib/db/finance-queries";
+import { getProjectById } from "@/lib/db/queries";
 import type { UploadedFile as UploadedFileRecord } from "@/lib/db/schema";
+import { buildFinanceCashFlowSummary } from "./cash-flow";
 import {
-  buildBaseFinanceTransaction,
+  buildInitialFinanceTransactions,
   categorizeTransactions,
 } from "./categorize";
+import { getCurrentCategoryBudgetTotal } from "./category-budgets";
 import { EXPECTED_TRANSACTION_HEADERS } from "./config";
 import {
   buildAppliedOverrides,
@@ -107,6 +110,14 @@ function buildDatasetSummary({
 function emptySnapshot(status: FinanceSnapshot["status"]): FinanceSnapshot {
   return {
     status,
+    cashFlowSummary: {
+      totalMonthlyBudgetTarget: null,
+      totalMonthlyIncomeTarget: null,
+      categoryBudgetTotal: 0,
+      catchAllBudget: null,
+      historicalAverageMonthlyIncome: 0,
+      historicalAverageMonthlySpend: 0,
+    },
     datasetSummary: null,
     planSummary: null,
     monthlyChart: [],
@@ -130,6 +141,49 @@ function snapshotNeedsOverrideRefresh(snapshot: FinanceSnapshot) {
   );
 }
 
+function snapshotNeedsCashFlowRefresh({
+  currentCategoryBudgetTotal,
+  projectTargets,
+  snapshot,
+}: {
+  currentCategoryBudgetTotal: number;
+  projectTargets: {
+    totalMonthlyBudgetTarget: number | null;
+    totalMonthlyIncomeTarget: number | null;
+  };
+  snapshot: FinanceSnapshot;
+}) {
+  const cashFlowSummary = (snapshot as { cashFlowSummary?: unknown })
+    .cashFlowSummary;
+
+  if (!cashFlowSummary || typeof cashFlowSummary !== "object") {
+    return true;
+  }
+
+  const summary = cashFlowSummary as Partial<
+    FinanceSnapshot["cashFlowSummary"]
+  >;
+  const expectedCategoryBudgetTotal = currentCategoryBudgetTotal;
+  const expectedCatchAllBudget =
+    projectTargets.totalMonthlyBudgetTarget === null
+      ? null
+      : roundCurrency(
+          projectTargets.totalMonthlyBudgetTarget - expectedCategoryBudgetTotal
+        );
+
+  return (
+    typeof summary.historicalAverageMonthlySpend !== "number" ||
+    typeof summary.historicalAverageMonthlyIncome !== "number" ||
+    typeof summary.categoryBudgetTotal !== "number" ||
+    (summary.totalMonthlyBudgetTarget ?? null) !==
+      projectTargets.totalMonthlyBudgetTarget ||
+    (summary.totalMonthlyIncomeTarget ?? null) !==
+      projectTargets.totalMonthlyIncomeTarget ||
+    summary.categoryBudgetTotal !== expectedCategoryBudgetTotal ||
+    (summary.catchAllBudget ?? null) !== expectedCatchAllBudget
+  );
+}
+
 async function loadFinanceContext(projectId: string) {
   const [file, transactions, overrides] = await Promise.all([
     getUploadedFileByProjectId({ projectId }),
@@ -142,7 +196,7 @@ async function loadFinanceContext(projectId: string) {
   }
 
   const actions = getFinanceActionsFromOverrides(overrides);
-  const baseTransactions = transactions.map(buildBaseFinanceTransaction);
+  const baseTransactions = buildInitialFinanceTransactions(transactions);
   const categorizedTransactions = categorizeTransactions({
     transactions,
     actions,
@@ -163,14 +217,40 @@ export async function buildNeedsOnboardingSnapshot({
 }: {
   projectId: string;
 }) {
+  const project = await getProjectById({ id: projectId });
   const context = await loadFinanceContext(projectId);
 
   if (!context) {
-    return emptySnapshot("needs-upload");
+    const snapshot = emptySnapshot("needs-upload");
+
+    if (project) {
+      const categoryBudgetTotal = getCurrentCategoryBudgetTotal(
+        await getFinanceOverridesByProjectId({ projectId })
+      );
+
+      snapshot.cashFlowSummary = buildFinanceCashFlowSummary({
+        categoryBudgetTotal,
+        targets: {
+          totalMonthlyBudgetTarget: project.totalMonthlyBudgetTarget,
+          totalMonthlyIncomeTarget: project.totalMonthlyIncomeTarget,
+        },
+        transactions: [],
+      });
+    }
+
+    return snapshot;
   }
 
   return {
     status: "needs-onboarding",
+    cashFlowSummary: buildFinanceCashFlowSummary({
+      categoryBudgetTotal: getCurrentCategoryBudgetTotal(context.overrides),
+      targets: {
+        totalMonthlyBudgetTarget: project?.totalMonthlyBudgetTarget ?? null,
+        totalMonthlyIncomeTarget: project?.totalMonthlyIncomeTarget ?? null,
+      },
+      transactions: context.categorizedTransactions,
+    }),
     datasetSummary: buildDatasetSummary({
       file: context.file,
       transactions: context.transactions,
@@ -208,10 +288,28 @@ export async function recomputeFinanceSnapshot({
 }: {
   projectId: string;
 }) {
+  const project = await getProjectById({ id: projectId });
   const context = await loadFinanceContext(projectId);
 
   if (!context) {
-    return emptySnapshot("needs-upload");
+    const snapshot = emptySnapshot("needs-upload");
+
+    if (project) {
+      const categoryBudgetTotal = getCurrentCategoryBudgetTotal(
+        await getFinanceOverridesByProjectId({ projectId })
+      );
+
+      snapshot.cashFlowSummary = buildFinanceCashFlowSummary({
+        categoryBudgetTotal,
+        targets: {
+          totalMonthlyBudgetTarget: project.totalMonthlyBudgetTarget,
+          totalMonthlyIncomeTarget: project.totalMonthlyIncomeTarget,
+        },
+        transactions: [],
+      });
+    }
+
+    return snapshot;
   }
 
   const plan = buildFinancePlan({
@@ -221,6 +319,14 @@ export async function recomputeFinanceSnapshot({
 
   const snapshot = {
     status: "ready",
+    cashFlowSummary: buildFinanceCashFlowSummary({
+      categoryBudgetTotal: getCurrentCategoryBudgetTotal(context.overrides),
+      targets: {
+        totalMonthlyBudgetTarget: project?.totalMonthlyBudgetTarget ?? null,
+        totalMonthlyIncomeTarget: project?.totalMonthlyIncomeTarget ?? null,
+      },
+      transactions: context.categorizedTransactions,
+    }),
     datasetSummary: buildDatasetSummary({
       file: context.file,
       transactions: context.transactions,
@@ -247,12 +353,26 @@ export async function getFinanceSnapshot({
 }: {
   projectId: string;
 }): Promise<FinanceSnapshot> {
-  const storedPlan = await getLatestFinancePlanByProjectId({ projectId });
+  const [project, storedPlan, overrides] = await Promise.all([
+    getProjectById({ id: projectId }),
+    getLatestFinancePlanByProjectId({ projectId }),
+    getFinanceOverridesByProjectId({ projectId }),
+  ]);
 
   if (storedPlan) {
     const snapshot = storedPlan.planJson as FinanceSnapshot;
 
-    if (snapshotNeedsOverrideRefresh(snapshot)) {
+    if (
+      snapshotNeedsOverrideRefresh(snapshot) ||
+      snapshotNeedsCashFlowRefresh({
+        currentCategoryBudgetTotal: getCurrentCategoryBudgetTotal(overrides),
+        projectTargets: {
+          totalMonthlyBudgetTarget: project?.totalMonthlyBudgetTarget ?? null,
+          totalMonthlyIncomeTarget: project?.totalMonthlyIncomeTarget ?? null,
+        },
+        snapshot,
+      })
+    ) {
       return recomputeFinanceSnapshot({ projectId });
     }
 

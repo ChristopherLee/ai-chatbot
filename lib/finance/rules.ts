@@ -2,7 +2,7 @@ import {
   getFinanceOverridesByProjectId,
   getTransactionsByProjectId,
 } from "@/lib/db/finance-queries";
-import { buildBaseFinanceTransaction } from "./categorize";
+import { buildInitialFinanceTransactions } from "./categorize";
 import {
   applyFinanceOverrides,
   buildFinanceRuleRecords,
@@ -75,7 +75,7 @@ export async function getFinanceRulesViewData({
     getTransactionsByProjectId({ projectId }),
     getFinanceOverridesByProjectId({ projectId }),
   ]);
-  const baseTransactions = transactions.map(buildBaseFinanceTransaction);
+  const baseTransactions = buildInitialFinanceTransactions(transactions);
   const actions = getFinanceActionsFromOverrides(overrides);
   const finalTransactions = applyFinanceOverrides(baseTransactions, actions);
 
@@ -108,7 +108,7 @@ export async function previewFinanceRule({
   ]);
 
   return previewFinanceRuleInSequence({
-    baseTransactions: transactions.map(buildBaseFinanceTransaction),
+    baseTransactions: buildInitialFinanceTransactions(transactions),
     overrides,
     draftAction: action,
     replaceRuleId,
