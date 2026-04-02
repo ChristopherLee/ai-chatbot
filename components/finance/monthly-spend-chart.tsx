@@ -23,20 +23,28 @@ import type { FinanceMonthlyChartPoint } from "@/lib/finance/types";
 
 export function MonthlySpendChart({
   comparisonBudget,
+  comparisonBudgetsByMonth,
   comparisonLabel,
   data,
+  highlightedMonths,
   selectedMonth,
 }: {
   comparisonBudget?: number;
+  comparisonBudgetsByMonth?: Partial<Record<string, number | null>>;
   comparisonLabel?: string;
   data: FinanceMonthlyChartPoint[];
+  highlightedMonths?: string[];
   selectedMonth?: string;
 }) {
   const resolvedSelectedMonth = selectedMonth ?? data.at(-1)?.month ?? "";
   const resolvedComparisonLabel = comparisonLabel ?? "Target pace";
+  const highlightedMonthSet = new Set(highlightedMonths ?? []);
   const chartData = data.map((entry) => ({
     ...entry,
-    comparisonBudget: comparisonBudget ?? entry.target,
+    comparisonBudget:
+      comparisonBudgetsByMonth?.[entry.month] ??
+      comparisonBudget ??
+      entry.target,
   }));
 
   return (
@@ -57,18 +65,27 @@ export function MonthlySpendChart({
               <YAxis tickFormatter={(value) => `$${value}`} width={72} />
               <Tooltip
                 formatter={(value, name) => [
-                  `$${Number(value ?? 0).toLocaleString()}`,
+                  value === null || value === undefined
+                    ? "Not set"
+                    : `$${Number(value).toLocaleString()}`,
                   name === "actual" ? "Actual spend" : resolvedComparisonLabel,
                 ]}
               />
               <Legend />
-              <Bar dataKey="actual" name="Actual spend" radius={6}>
+              <Bar
+                dataKey="actual"
+                isAnimationActive={false}
+                name="Actual spend"
+                radius={6}
+              >
                 {chartData.map((entry) => (
                   <Cell
                     fill={
                       entry.month === resolvedSelectedMonth
                         ? "#0f766e"
-                        : "#cbd5e1"
+                        : highlightedMonthSet.has(entry.month)
+                          ? "#2dd4bf"
+                          : "#cbd5e1"
                     }
                     key={entry.month}
                   />
@@ -77,6 +94,7 @@ export function MonthlySpendChart({
               <Line
                 dataKey="comparisonBudget"
                 dot={false}
+                isAnimationActive={false}
                 name={resolvedComparisonLabel}
                 stroke="#334155"
                 strokeWidth={3}

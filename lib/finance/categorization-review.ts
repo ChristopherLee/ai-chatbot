@@ -7,13 +7,14 @@ import {
   getFinanceOverridesByProjectId,
   getTransactionsByProjectId,
   saveFinanceCategorizationDenials,
+  updateFinanceOverrideById,
 } from "@/lib/db/finance-queries";
 import type {
   FinanceCategorizationDenial,
   FinanceOverride,
 } from "@/lib/db/schema";
 import {
-  buildAcceptedActionsFromReviewSelections,
+  buildAcceptedSelectionPlan,
   buildFinanceActionReviewKey,
   buildRuleSuggestionKey,
   buildTransactionSuggestionKey,
@@ -34,13 +35,14 @@ import {
   getFinanceActionsFromOverrides,
   summarizeFinanceAction,
 } from "./overrides";
-import { getFinanceSnapshot } from "./snapshot";
+import { getFinanceSnapshot, recomputeFinanceSnapshot } from "./snapshot";
 import { applyFinanceActionsForChat } from "./tool-execution";
 import {
   categorizeTransactionsActionSchema,
   type FinanceAction,
   type FinanceTransaction,
   type FinanceTransactionMatch,
+  financeActionSchema,
 } from "./types";
 import { roundCurrency, safeLower, uniqueBy } from "./utils";
 
@@ -74,6 +76,11 @@ type ReviewCandidateTransaction = Pick<
 >;
 
 type MemoryItem = FinanceCategorizationMemoryItem;
+type ExistingCategorizationRule = {
+  id: string;
+  summary: string;
+  action: z.infer<typeof categorizeTransactionsActionSchema>;
+};
 
 const AMBIGUOUS_RAW_CATEGORIES = new Set([
   "Other Expenses",
@@ -113,6 +120,57 @@ function buildAvailableBuckets(transactions: ReviewCandidateTransaction[]) {
       ...transactions.map((transaction) => transaction.mappedBucket),
     ])
   ).sort((first, second) => first.localeCompare(second));
+}
+
+function buildCategorizationRuleMatchKey(match: FinanceTransactionMatch) {
+  return JSON.stringify({
+    account: match.account ? safeLower(match.account.trim()) : null,
+    descriptionContains: match.descriptionContains
+      ? safeLower(match.descriptionContains.trim())
+      : null,
+    merchant: match.merchant ? safeLower(match.merchant.trim()) : null,
+    rawCategory: match.rawCategory ? safeLower(match.rawCategory.trim()) : null,
+  });
+}
+
+function buildExistingCategorizationRules(
+  overrides: FinanceOverride[]
+): ExistingCategorizationRule[] {
+  return overrides
+    .map((override) => {
+      const parsed = categorizeTransactionsActionSchema.safeParse(
+        override.valueJson
+      );
+
+      if (!parsed.success) {
+        return null;
+      }
+
+      return {
+        id: override.id,
+        summary: summarizeFinanceAction(parsed.data),
+        action: parsed.data,
+      } satisfies ExistingCategorizationRule;
+    })
+    .filter((rule): rule is ExistingCategorizationRule => rule !== null);
+}
+
+function findSuggestedRuleReplacement({
+  action,
+  existingCategorizationRules,
+}: {
+  action: z.infer<typeof categorizeTransactionsActionSchema>;
+  existingCategorizationRules: ExistingCategorizationRule[];
+}) {
+  const nextMatchKey = buildCategorizationRuleMatchKey(action.match);
+
+  return (
+    existingCategorizationRules.find(
+      (rule) =>
+        buildCategorizationRuleMatchKey(rule.action.match) === nextMatchKey &&
+        safeLower(rule.action.to) !== safeLower(action.to)
+    ) ?? null
+  );
 }
 
 function transactionMatchesReviewMatch(
@@ -415,12 +473,14 @@ function enrichRuleSuggestion({
   action,
   availableBuckets,
   categorizedTransactions,
+  existingCategorizationRules,
   index,
   rationale,
 }: {
   action: z.infer<typeof categorizeTransactionsActionSchema>;
   availableBuckets: string[];
   categorizedTransactions: ReviewCandidateTransaction[];
+  existingCategorizationRules: ExistingCategorizationRule[];
   index: number;
   rationale: string;
 }): FinanceCategorizationRuleSuggestion | null {
@@ -451,6 +511,11 @@ function enrichRuleSuggestion({
     return null;
   }
 
+  const replacementRule = findSuggestedRuleReplacement({
+    action: resolvedAction,
+    existingCategorizationRules,
+  });
+
   return {
     id: `rule-${index + 1}`,
     key: buildRuleSuggestionKey(resolvedAction),
@@ -467,6 +532,8 @@ function enrichRuleSuggestion({
         0
       )
     ),
+    replaceRuleId: replacementRule?.id,
+    replaceRuleSummary: replacementRule?.summary,
   } satisfies FinanceCategorizationRuleSuggestion;
 }
 
@@ -617,6 +684,8 @@ export async function findMiscategorizedTransactions({
     transactions,
     actions,
   });
+  const existingCategorizationRules =
+    buildExistingCategorizationRules(overrides);
   const candidateTransactions = buildReviewCandidateTransactions(
     categorizedTransactions
   );
@@ -657,6 +726,7 @@ Only suggest rules that can be safely saved going forward.
 - Never suggest a rule or transaction if it is already accepted or explicitly denied.
 - Use only the allowed bucket names.
 - Favor high-confidence suggestions and keep the list short.
+- If an existing categorization rule has the right match pattern but the wrong destination bucket, suggest the corrected rule using the same stable match so it can replace the outdated rule.
 - Never suggest changing a transaction to its current bucket.`,
             prompt: JSON.stringify({
               allowedBuckets: availableBuckets,
@@ -691,6 +761,14 @@ Only suggest rules that can be safely saved going forward.
                   summary: item.summary,
                 })
               ),
+              existingCategorizationRules: existingCategorizationRules.map(
+                (rule) => ({
+                  id: rule.id,
+                  match: rule.action.match,
+                  summary: rule.summary,
+                  to: rule.action.to,
+                })
+              ),
               merchantSummaries,
             }),
           });
@@ -710,6 +788,7 @@ Only suggest rules that can be safely saved going forward.
         action: suggestion.action,
         availableBuckets,
         categorizedTransactions,
+        existingCategorizationRules,
         index,
         rationale: suggestion.rationale,
       })
@@ -774,6 +853,21 @@ export async function persistFinanceCategorizationSelections({
     getFinanceCategorizationMemory({ projectId }),
     getFinanceOverridesByProjectId({ projectId }),
   ]);
+  const existingOverrideActionsById = new Map(
+    overrides
+      .map((override) => {
+        const parsed = financeActionSchema.safeParse(override.valueJson);
+
+        if (!parsed.success) {
+          return null;
+        }
+
+        return [override.id, parsed.data] as const;
+      })
+      .filter(
+        (entry): entry is readonly [string, FinanceAction] => entry !== null
+      )
+  );
   const existingAcceptedKeys = new Set(
     getFinanceActionsFromOverrides(overrides)
       .filter(
@@ -796,18 +890,56 @@ export async function persistFinanceCategorizationSelections({
       (item) => item.key
     )
   );
-
-  const actionsToApply = buildAcceptedActionsFromReviewSelections({
+  const acceptedSelectionPlan = buildAcceptedSelectionPlan({
     acceptedRules,
     acceptedTransactions,
-  }).filter((action) => {
-    const key =
-      action.type === "categorize_transaction"
-        ? buildTransactionSuggestionKey(action)
-        : buildRuleSuggestionKey(action);
-
-    return !existingAcceptedKeys.has(key);
   });
+  const reservedActionKeys = new Set(existingAcceptedKeys);
+  const ruleUpdatesToApply = acceptedSelectionPlan.ruleUpdates.filter(
+    (ruleUpdate) => {
+      const currentAction = existingOverrideActionsById.get(ruleUpdate.ruleId);
+
+      if (!currentAction || currentAction.type !== "categorize_transactions") {
+        return false;
+      }
+
+      const currentKey = buildRuleSuggestionKey(
+        currentAction as z.infer<typeof categorizeTransactionsActionSchema>
+      );
+      const nextKey = buildRuleSuggestionKey(ruleUpdate.action);
+
+      if (currentKey === nextKey) {
+        return false;
+      }
+
+      reservedActionKeys.delete(currentKey);
+
+      if (reservedActionKeys.has(nextKey)) {
+        reservedActionKeys.add(currentKey);
+        return false;
+      }
+
+      reservedActionKeys.add(nextKey);
+      return true;
+    }
+  );
+  const actionsToApply = acceptedSelectionPlan.createActions.filter(
+    (action) => {
+      const key =
+        action.type === "categorize_transaction"
+          ? buildTransactionSuggestionKey(action)
+          : buildRuleSuggestionKey(
+              action as z.infer<typeof categorizeTransactionsActionSchema>
+            );
+
+      if (reservedActionKeys.has(key)) {
+        return false;
+      }
+
+      reservedActionKeys.add(key);
+      return true;
+    }
+  );
 
   const denialsToSave = uniqueBy(
     [
@@ -833,6 +965,31 @@ export async function persistFinanceCategorizationSelections({
   let applyResult: Awaited<
     ReturnType<typeof applyFinanceActionsForChat>
   > | null = null;
+  const updatedRuleActions: Array<{
+    action: FinanceAction;
+    summary: string;
+    matchedTransactions: number | null;
+    affectedOutflow: number | null;
+  }> = [];
+
+  for (const ruleUpdate of ruleUpdatesToApply) {
+    const updatedOverride = await updateFinanceOverrideById({
+      id: ruleUpdate.ruleId,
+      projectId,
+      action: ruleUpdate.action,
+    });
+
+    if (!updatedOverride) {
+      continue;
+    }
+
+    updatedRuleActions.push({
+      action: ruleUpdate.action,
+      summary: summarizeFinanceAction(ruleUpdate.action),
+      matchedTransactions: null,
+      affectedOutflow: null,
+    });
+  }
 
   if (actionsToApply.length > 0) {
     applyResult = await applyFinanceActionsForChat({
@@ -849,13 +1006,19 @@ export async function persistFinanceCategorizationSelections({
   }
 
   return {
-    appliedActions: applyResult?.appliedActions ?? [],
+    appliedActions: [
+      ...updatedRuleActions,
+      ...(applyResult?.appliedActions ?? []),
+    ],
     deniedSuggestions: denialsToSave.map((denial) => ({
       key: denial.key,
       kind: denial.kind,
       summary: denial.summary,
     })),
     snapshot:
-      applyResult?.snapshot ?? (await getFinanceSnapshot({ projectId })),
+      applyResult?.snapshot ??
+      (updatedRuleActions.length > 0
+        ? await recomputeFinanceSnapshot({ projectId })
+        : await getFinanceSnapshot({ projectId })),
   };
 }

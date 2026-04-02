@@ -25,12 +25,12 @@ export function buildTransactionDuplicateKey(
   ].join("|");
 }
 
-export function filterNewTransactions({
+export function filterNewTransactions<T extends TransactionForDuplicateCheck>({
   existingTransactions,
   candidateTransactions,
 }: {
   existingTransactions: TransactionForDuplicateCheck[];
-  candidateTransactions: TransactionForDuplicateCheck[];
+  candidateTransactions: T[];
 }) {
   const existingKeys = new Set(
     existingTransactions.map(buildTransactionDuplicateKey)

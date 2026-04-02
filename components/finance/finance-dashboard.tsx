@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import useSWR from "swr";
 import { Card, CardContent } from "@/components/ui/card";
 import type {
@@ -10,7 +11,7 @@ import { fetcher } from "@/lib/utils";
 import { DatasetSummaryEmptyState } from "./dataset-summary-empty-state";
 import { MonthlyBudgetDashboard } from "./monthly-budget-dashboard";
 
-export function FinanceDashboard({
+function PureFinanceDashboard({
   projectId,
   initialSnapshot,
 }: {
@@ -69,3 +70,10 @@ export function FinanceDashboard({
     </div>
   );
 }
+
+export const FinanceDashboard = memo(
+  PureFinanceDashboard,
+  (prevProps, nextProps) =>
+    prevProps.projectId === nextProps.projectId &&
+    prevProps.initialSnapshot === nextProps.initialSnapshot
+);

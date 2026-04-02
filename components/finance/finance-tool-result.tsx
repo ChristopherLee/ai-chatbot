@@ -362,7 +362,7 @@ export function FinanceToolResult({
   type,
 }: {
   result: any;
-  type: "apply" | "refresh" | "snapshot";
+  type: "apply" | "snapshot";
 }) {
   return (
     <div className="space-y-4 p-4 text-sm">

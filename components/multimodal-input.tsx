@@ -446,7 +446,7 @@ function PureMultimodalInput({
             onChange={handleInput}
             placeholder={
               hasFinanceDataset
-                ? "Answer the onboarding questions or ask for a plan change..."
+                ? "Ask about your plan or request a finance change..."
                 : "Ask anything, or upload a CSV to build a finance plan..."
             }
             ref={textareaRef}

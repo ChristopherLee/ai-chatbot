@@ -16,7 +16,7 @@ async function uploadFinanceCsv(page: Page) {
 
   await expect(page).toHaveURL(CHAT_URL_REGEX, { timeout: 30_000 });
   await expect(
-    page.getByText("Before I generate your first spending control plan")
+    page.getByText("Your starting spending control plan is ready now.")
   ).toBeVisible({ timeout: 30_000 });
 }
 

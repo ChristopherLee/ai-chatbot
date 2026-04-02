@@ -16,6 +16,8 @@ export const financeCategorizationRuleSuggestionSchema = z.object({
   matchedTransactionIds: z.array(z.string().uuid()),
   matchedTransactionCount: z.number().int().nonnegative(),
   affectedOutflow: z.number().finite().nonnegative(),
+  replaceRuleId: z.string().uuid().optional(),
+  replaceRuleSummary: z.string().min(1).optional(),
 });
 
 export const financeCategorizationTransactionSuggestionSchema = z.object({
@@ -93,6 +95,13 @@ export type FinanceCategorizationMemoryItem = z.infer<
 export type FinanceCategorizationMemory = z.infer<
   typeof financeCategorizationMemorySchema
 >;
+export type FinanceCategorizationAcceptedSelectionPlan = {
+  ruleUpdates: Array<{
+    ruleId: string;
+    action: FinanceCategorizationRuleSuggestion["action"];
+  }>;
+  createActions: FinanceAction[];
+};
 
 type ReviewableCategorizationAction = Extract<
   FinanceAction,
@@ -126,9 +135,39 @@ export function buildAcceptedActionsFromReviewSelections({
   acceptedRules: FinanceCategorizationRuleSuggestion[];
   acceptedTransactions: FinanceCategorizationTransactionSuggestion[];
 }) {
+  return buildAcceptedSelectionPlan({
+    acceptedRules,
+    acceptedTransactions,
+  }).createActions;
+}
+
+export function buildAcceptedSelectionPlan({
+  acceptedRules,
+  acceptedTransactions,
+}: {
+  acceptedRules: FinanceCategorizationRuleSuggestion[];
+  acceptedTransactions: FinanceCategorizationTransactionSuggestion[];
+}): FinanceCategorizationAcceptedSelectionPlan {
   const acceptedRuleIds = new Set(acceptedRules.map((rule) => rule.id));
-  const actions = [
-    ...acceptedRules.map((rule) => rule.action),
+  const ruleUpdates = uniqueBy(
+    acceptedRules
+      .filter(
+        (
+          rule
+        ): rule is FinanceCategorizationRuleSuggestion & {
+          replaceRuleId: string;
+        } => typeof rule.replaceRuleId === "string"
+      )
+      .map((rule) => ({
+        ruleId: rule.replaceRuleId,
+        action: rule.action,
+      })),
+    (update) => update.ruleId
+  );
+  const createActions = [
+    ...acceptedRules
+      .filter((rule) => typeof rule.replaceRuleId !== "string")
+      .map((rule) => rule.action),
     ...acceptedTransactions
       .filter(
         (transaction) =>
@@ -139,9 +178,12 @@ export function buildAcceptedActionsFromReviewSelections({
       .map((transaction) => transaction.action),
   ];
 
-  return uniqueBy(actions, (action) =>
-    action.type === "categorize_transaction"
-      ? buildTransactionSuggestionKey(action)
-      : buildRuleSuggestionKey(action)
-  );
+  return {
+    ruleUpdates,
+    createActions: uniqueBy(createActions, (action) =>
+      action.type === "categorize_transaction"
+        ? buildTransactionSuggestionKey(action)
+        : buildRuleSuggestionKey(action)
+    ),
+  };
 }

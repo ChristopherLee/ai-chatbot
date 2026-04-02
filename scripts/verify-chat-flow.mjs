@@ -52,7 +52,7 @@ async function main() {
     await page.waitForFunction(
       () =>
         document.body.innerText.includes(
-          "Before I generate your first spending control plan"
+          "Your starting spending control plan is ready now."
         ),
       null,
       { timeout: 120_000 }
@@ -60,18 +60,23 @@ async function main() {
 
     const input = page.getByTestId("multimodal-input").first();
     const sendButton = page.getByTestId("send-button").first();
+    const initialAssistantMessageCount = await page
+      .locator(
+        '[data-testid="message-assistant"] [data-testid="message-content"]'
+      )
+      .count();
 
     await input.fill(prompt);
     await sendButton.click();
 
     await page.waitForFunction(
-      () =>
+      (expectedCount) =>
         Array.from(
           document.querySelectorAll(
             '[data-testid="message-assistant"] [data-testid="message-content"]'
           )
-        ).length >= 2,
-      null,
+        ).length >= expectedCount,
+      initialAssistantMessageCount + 1,
       { timeout: 180_000 }
     );
 

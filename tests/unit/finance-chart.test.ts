@@ -230,7 +230,7 @@ test("monthly spend chart uses the latest observed month for its summary", () =>
   );
 });
 
-test("chart requests return a clear unavailable state before finance onboarding is complete", () => {
+test("chart requests return a clear unavailable state while the finance plan is not ready", () => {
   const result = buildFinanceChart({
     snapshot: {
       ...readySnapshot,
@@ -250,6 +250,6 @@ test("chart requests return a clear unavailable state before finance onboarding 
     status: "unavailable",
     snapshotStatus: "needs-onboarding",
     chartType: "monthly-spend",
-    message: "Finish finance onboarding before asking for charts.",
+    message: "The finance plan is still being prepared. Try again in a moment.",
   });
 });

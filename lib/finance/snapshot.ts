@@ -141,6 +141,14 @@ function snapshotNeedsOverrideRefresh(snapshot: FinanceSnapshot) {
   );
 }
 
+function snapshotNeedsDerivedPlanRefresh(snapshot: FinanceSnapshot) {
+  return (
+    snapshot.status !== "ready" ||
+    !snapshot.planSummary ||
+    !snapshot.datasetSummary
+  );
+}
+
 function snapshotNeedsCashFlowRefresh({
   currentCategoryBudgetTotal,
   projectTargets,
@@ -353,17 +361,27 @@ export async function getFinanceSnapshot({
 }: {
   projectId: string;
 }): Promise<FinanceSnapshot> {
-  const [project, storedPlan, overrides] = await Promise.all([
+  const [project, storedPlan, overrides, file] = await Promise.all([
     getProjectById({ id: projectId }),
     getLatestFinancePlanByProjectId({ projectId }),
     getFinanceOverridesByProjectId({ projectId }),
+    getUploadedFileByProjectId({ projectId }),
   ]);
 
   if (storedPlan) {
     const snapshot = storedPlan.planJson as FinanceSnapshot;
+    const planCreatedAt = storedPlan.createdAt.getTime();
+    const overrideUpdatedAfterPlan = overrides.some(
+      (override) => override.createdAt.getTime() > planCreatedAt
+    );
+    const uploadUpdatedAfterPlan =
+      file !== null && file.uploadedAt.getTime() > planCreatedAt;
 
     if (
+      snapshotNeedsDerivedPlanRefresh(snapshot) ||
       snapshotNeedsOverrideRefresh(snapshot) ||
+      overrideUpdatedAfterPlan ||
+      uploadUpdatedAfterPlan ||
       snapshotNeedsCashFlowRefresh({
         currentCategoryBudgetTotal: getCurrentCategoryBudgetTotal(overrides),
         projectTargets: {
@@ -379,5 +397,5 @@ export async function getFinanceSnapshot({
     return snapshot;
   }
 
-  return buildNeedsOnboardingSnapshot({ projectId });
+  return recomputeFinanceSnapshot({ projectId });
 }

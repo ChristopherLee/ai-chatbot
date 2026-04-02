@@ -69,12 +69,14 @@ function MonthOverMonthChart({
           <Bar
             dataKey="previousMonth"
             fill="#94a3b8"
+            isAnimationActive={false}
             name="Previous month"
             radius={6}
           />
           <Bar
             dataKey="currentMonth"
             fill="#1d4ed8"
+            isAnimationActive={false}
             name="Current month"
             radius={6}
           />
@@ -104,6 +106,7 @@ function SpendingBreakdownChart({
               data={data}
               dataKey="amount"
               innerRadius={62}
+              isAnimationActive={false}
               nameKey="bucket"
               outerRadius={104}
               paddingAngle={2}

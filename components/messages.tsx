@@ -1,5 +1,6 @@
 import type { UseChatHelpers } from "@ai-sdk/react";
 import { ArrowDownIcon } from "lucide-react";
+import { memo } from "react";
 import { useMessages } from "@/hooks/use-messages";
 import type { Vote } from "@/lib/db/schema";
 import type { ChatMessage } from "@/lib/types";
@@ -139,4 +140,19 @@ function PureMessages({
   );
 }
 
-export const Messages = PureMessages;
+export const Messages = memo(PureMessages, (prevProps, nextProps) => {
+  return (
+    prevProps.addToolApprovalResponse === nextProps.addToolApprovalResponse &&
+    prevProps.chatId === nextProps.chatId &&
+    prevProps.hasFinanceDataset === nextProps.hasFinanceDataset &&
+    prevProps.status === nextProps.status &&
+    prevProps.votes === nextProps.votes &&
+    prevProps.messages === nextProps.messages &&
+    prevProps.setMessages === nextProps.setMessages &&
+    prevProps.regenerate === nextProps.regenerate &&
+    prevProps.retryIncompleteResponse === nextProps.retryIncompleteResponse &&
+    prevProps.isReadonly === nextProps.isReadonly &&
+    prevProps.isArtifactVisible === nextProps.isArtifactVisible &&
+    prevProps.selectedModelId === nextProps.selectedModelId
+  );
+});

@@ -19,13 +19,16 @@ import {
 } from "@/lib/ai/message-history";
 import { type RequestHints, systemPrompt } from "@/lib/ai/prompts";
 import { getLanguageModel } from "@/lib/ai/providers";
+import {
+  createStreamTimeout,
+  isStreamTimeoutError,
+} from "@/lib/ai/stream-timeout";
 import { applyFinanceActions } from "@/lib/ai/tools/apply-finance-actions";
 import { createDocument } from "@/lib/ai/tools/create-document";
 import { getFinanceCategorizationMemoryTool } from "@/lib/ai/tools/get-finance-categorization-memory";
 import { getFinanceSnapshotTool } from "@/lib/ai/tools/get-finance-snapshot";
 import { getWeather } from "@/lib/ai/tools/get-weather";
 import { queryFinanceTransactions } from "@/lib/ai/tools/query-finance-transactions";
-import { refreshFinancePlan } from "@/lib/ai/tools/refresh-finance-plan";
 import { requestSuggestions } from "@/lib/ai/tools/request-suggestions";
 import { showFinanceChart } from "@/lib/ai/tools/show-finance-chart";
 import { updateDocument } from "@/lib/ai/tools/update-document";
@@ -89,7 +92,9 @@ function buildFinanceFallbackMessage({
 }) {
   const intro = isGatewayActivationError(error)
     ? "The finance response is unavailable until AI Gateway is activated."
-    : "I ran into an issue while finishing the finance response. Here is the latest deterministic summary instead.";
+    : isStreamTimeoutError(error)
+      ? "The finance response took too long, so here is the latest deterministic summary instead."
+      : "I ran into an issue while finishing the finance response. Here is the latest deterministic summary instead.";
 
   if (!snapshot || snapshot.status === "needs-upload") {
     return `${intro}\n\nUpload a transaction CSV to begin.`;
@@ -133,6 +138,10 @@ You can keep chatting and I will continue applying finance changes even without 
 function buildStreamErrorMessage(error: unknown) {
   if (isGatewayActivationError(error)) {
     return "The model could not respond because AI Gateway is not activated for this project yet. Once it is activated, you can retry this message.";
+  }
+
+  if (isStreamTimeoutError(error)) {
+    return "That reply took too long to finish, so I stopped the request. Please try again.";
   }
 
   return "I ran into a model error while finishing that response. Please try again.";
@@ -334,6 +343,7 @@ export async function POST(request: Request) {
 
           const resolvedFinanceSnapshot =
             financeSnapshot ?? (await getFinanceSnapshot({ projectId }));
+          const streamTimeout = createStreamTimeout();
           const result = streamText({
             model: getLanguageModel(selectedChatModel),
             system: `You are a helpful finance planning assistant inside a budgeting app.
@@ -376,6 +386,7 @@ Rules:
 Finance snapshot:
 ${JSON.stringify(resolvedFinanceSnapshot)}`,
             messages: modelMessages,
+            abortSignal: streamTimeout.signal,
             stopWhen: stepCountIs(6),
             experimental_activeTools: [
               "getFinanceCategorizationMemory",
@@ -409,6 +420,15 @@ ${JSON.stringify(resolvedFinanceSnapshot)}`,
               isEnabled: isProductionEnvironment,
               functionId: "finance-stream-text",
             },
+            onAbort: async () => {
+              streamTimeout.clear();
+            },
+            onError: async () => {
+              streamTimeout.clear();
+            },
+            onFinish: async () => {
+              streamTimeout.clear();
+            },
           });
 
           dataStream.merge(
@@ -434,10 +454,12 @@ ${JSON.stringify(resolvedFinanceSnapshot)}`,
           return;
         }
 
+        const streamTimeout = createStreamTimeout();
         const result = streamText({
           model: getLanguageModel(selectedChatModel),
           system: systemPrompt({ selectedChatModel, requestHints }),
           messages: modelMessages,
+          abortSignal: streamTimeout.signal,
           stopWhen: stepCountIs(5),
           experimental_activeTools: isReasoningModel
             ? []
@@ -463,6 +485,15 @@ ${JSON.stringify(resolvedFinanceSnapshot)}`,
           experimental_telemetry: {
             isEnabled: isProductionEnvironment,
             functionId: "stream-text",
+          },
+          onAbort: async () => {
+            streamTimeout.clear();
+          },
+          onError: async () => {
+            streamTimeout.clear();
+          },
+          onFinish: async () => {
+            streamTimeout.clear();
           },
         });
 

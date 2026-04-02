@@ -37,6 +37,7 @@ export function CumulativePaceChart({
               <Line
                 dataKey="actualCumulative"
                 dot={false}
+                isAnimationActive={false}
                 name="Actual cumulative"
                 stroke="#1d4ed8"
                 strokeWidth={3}
@@ -45,6 +46,7 @@ export function CumulativePaceChart({
               <Line
                 dataKey="paceCumulative"
                 dot={false}
+                isAnimationActive={false}
                 name="Target pace"
                 stroke="#dc2626"
                 strokeDasharray="6 4"

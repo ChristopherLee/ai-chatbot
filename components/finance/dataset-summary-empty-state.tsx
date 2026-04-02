@@ -52,17 +52,17 @@ export function DatasetSummaryEmptyState({
         <CardContent className="space-y-3 text-sm">
           <p className="text-muted-foreground">
             Reply in the chat with your goals, priorities, and any special
-            cases. I’ll generate the first plan from there.
+            cases. I'll use that context once the finance plan is ready.
           </p>
           <div className="flex flex-wrap gap-2">
             <span className="rounded-full bg-muted px-2 py-1">
-              “We want to save more this year.”
+              "We want to save more this year."
             </span>
             <span className="rounded-full bg-muted px-2 py-1">
-              “Exclude the refinance fee.”
+              "Exclude the refinance fee."
             </span>
             <span className="rounded-full bg-muted px-2 py-1">
-              “Make this more conservative.”
+              "Make this more conservative."
             </span>
           </div>
         </CardContent>

@@ -8,7 +8,6 @@ import type { getFinanceCategorizationMemoryTool } from "./ai/tools/get-finance-
 import type { getFinanceSnapshotTool } from "./ai/tools/get-finance-snapshot";
 import type { getWeather } from "./ai/tools/get-weather";
 import type { queryFinanceTransactions } from "./ai/tools/query-finance-transactions";
-import type { refreshFinancePlan } from "./ai/tools/refresh-finance-plan";
 import type { requestSuggestions } from "./ai/tools/request-suggestions";
 import type { showFinanceChart } from "./ai/tools/show-finance-chart";
 import type { updateDocument } from "./ai/tools/update-document";
@@ -39,9 +38,6 @@ type getFinanceSnapshotUiTool = InferUITool<
 type queryFinanceTransactionsTool = InferUITool<
   ReturnType<typeof queryFinanceTransactions>
 >;
-type refreshFinancePlanTool = InferUITool<
-  ReturnType<typeof refreshFinancePlan>
->;
 type showFinanceChartTool = InferUITool<ReturnType<typeof showFinanceChart>>;
 type updateDocumentTool = InferUITool<ReturnType<typeof updateDocument>>;
 type requestSuggestionsTool = InferUITool<
@@ -56,7 +52,6 @@ export type ChatTools = {
   getFinanceCategorizationMemory: getFinanceCategorizationMemoryUiTool;
   getFinanceSnapshot: getFinanceSnapshotUiTool;
   queryFinanceTransactions: queryFinanceTransactionsTool;
-  refreshFinancePlan: refreshFinancePlanTool;
   showFinanceChart: showFinanceChartTool;
   updateDocument: updateDocumentTool;
   requestSuggestions: requestSuggestionsTool;

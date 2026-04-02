@@ -358,8 +358,7 @@ const PurePreviewMessage = ({
               type === "tool-getFinanceSnapshot" ||
               type === "tool-queryFinanceTransactions" ||
               type === "tool-showFinanceChart" ||
-              type === "tool-applyFinanceActions" ||
-              type === "tool-refreshFinancePlan"
+              type === "tool-applyFinanceActions"
             ) {
               const { toolCallId, state } = part;
               const hasInput =
@@ -515,9 +514,7 @@ const PurePreviewMessage = ({
                               type={
                                 type === "tool-getFinanceSnapshot"
                                   ? "snapshot"
-                                  : type === "tool-applyFinanceActions"
-                                    ? "apply"
-                                    : "refresh"
+                                  : "apply"
                               }
                             />
                           )

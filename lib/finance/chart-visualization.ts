@@ -348,7 +348,7 @@ export function buildFinanceChart({
     const message =
       snapshot.status === "needs-upload"
         ? "Upload a transaction file before asking for charts."
-        : "Finish finance onboarding before asking for charts.";
+        : "The finance plan is still being prepared. Try again in a moment.";
 
     return buildUnavailableResult({
       snapshot,

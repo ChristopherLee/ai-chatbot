@@ -1,6 +1,7 @@
 import { put } from "@vercel/blob";
 import { NextResponse } from "next/server";
 import { auth } from "@/app/(auth)/auth";
+import { DEFAULT_CHAT_MODEL } from "@/lib/ai/models";
 import {
   getTransactionsByProjectId,
   getUploadedFileByProjectId,
@@ -17,11 +18,15 @@ import {
   updateProjectTitleById,
 } from "@/lib/db/queries";
 import { ChatSDKError } from "@/lib/errors";
+import { findMiscategorizedTransactions } from "@/lib/finance/categorization-review";
+import type { FinanceCategorizationReview } from "@/lib/finance/categorization-review-shared";
 import {
   buildFinanceChatTitle,
   parseTransactionsCsv,
 } from "@/lib/finance/csv-ingest";
+import { recomputeFinanceSnapshot } from "@/lib/finance/snapshot";
 import { filterNewTransactions } from "@/lib/finance/transaction-dedupe";
+import type { ChatMessage } from "@/lib/types";
 import { generateUUID } from "@/lib/utils";
 
 function buildOnboardingMessage({
@@ -33,11 +38,13 @@ function buildOnboardingMessage({
 }) {
   return `I loaded ${rowCount} transactions from ${filename}.
 
-Before I generate your first spending control plan, tell me:
-1. What are your top financial goals right now?
-2. What matters most in your monthly spending?
-3. Are there any upcoming life changes or expense changes I should reflect?
-4. Is there anything you want excluded or treated specially?`;
+Your starting spending control plan is ready now.
+
+Tell me what you want to change next:
+1. Make the plan more conservative or more balanced.
+2. Adjust a budget, bill, or income target.
+3. Exclude or recategorize transactions.
+4. Share any upcoming life or expense changes to reflect.`;
 }
 
 function buildFallbackStoragePath({
@@ -48,6 +55,68 @@ function buildFallbackStoragePath({
   filename: string;
 }) {
   return `local://finance/${projectId}/${filename}`;
+}
+
+function pluralize(count: number, noun: string) {
+  return `${count} ${noun}${count === 1 ? "" : "s"}`;
+}
+
+function joinSummaryParts(parts: string[]) {
+  if (parts.length === 0) {
+    return "";
+  }
+
+  if (parts.length === 1) {
+    return parts[0] ?? "";
+  }
+
+  if (parts.length === 2) {
+    return `${parts[0]} and ${parts[1]}`;
+  }
+
+  return `${parts.slice(0, -1).join(", ")}, and ${parts.at(-1)}`;
+}
+
+function buildCategorizationReviewMessage(review: FinanceCategorizationReview) {
+  const updateCount = review.suggestedRules.filter(
+    (rule) => typeof rule.replaceRuleId === "string"
+  ).length;
+  const newRuleCount = review.suggestedRules.length - updateCount;
+  const oneOffCount = review.suggestedTransactions.length;
+  const summaryParts = [
+    newRuleCount > 0 ? pluralize(newRuleCount, "new rule") : null,
+    updateCount > 0 ? pluralize(updateCount, "rule update") : null,
+    oneOffCount > 0 ? pluralize(oneOffCount, "one-off transaction fix") : null,
+  ].filter((value): value is string => Boolean(value));
+
+  if (summaryParts.length === 0) {
+    return "I also reviewed the dataset for categorization cleanup after this upload and did not find any new high-confidence rule additions or rule updates.";
+  }
+
+  return `I also reviewed the dataset for categorization cleanup after this upload and found ${joinSummaryParts(
+    summaryParts
+  )}. Save the ones that look right below.${updateCount > 0 ? " Suggestions marked as rule updates will replace an existing rule instead of creating a duplicate." : ""}`;
+}
+
+function buildCategorizationReviewParts(
+  review: FinanceCategorizationReview
+): ChatMessage["parts"] {
+  return [
+    {
+      type: "text",
+      text: buildCategorizationReviewMessage(review),
+    },
+    {
+      type: "tool-findMiscategorizedTransactions",
+      toolCallId: `upload-review-${generateUUID()}`,
+      state: "output-available",
+      input: {
+        maxRules: 6,
+        maxTransactions: 12,
+      },
+      output: review,
+    },
+  ];
 }
 
 async function storeUploadedCsv({
@@ -208,26 +277,65 @@ export async function POST(request: Request) {
     await saveTransactions({
       transactions: newTransactions,
     });
+    const categorizationReviewPromise =
+      newTransactions.length > 0
+        ? findMiscategorizedTransactions({
+            projectId,
+            selectedChatModel: DEFAULT_CHAT_MODEL,
+          }).catch((error) => {
+            console.warn(
+              "Finance categorization review failed after upload; continuing without review suggestions.",
+              error
+            );
+
+            return null;
+          })
+        : Promise.resolve(null);
+
+    const [, categorizationReview] = await Promise.all([
+      recomputeFinanceSnapshot({ projectId }),
+      categorizationReviewPromise,
+    ]);
+    const onboardingCreatedAt = new Date();
+    const uploadMessages: Array<{
+      id: string;
+      chatId: string;
+      role: "assistant";
+      parts: ChatMessage["parts"];
+      attachments: [];
+      createdAt: Date;
+    }> = [
+      {
+        id: generateUUID(),
+        chatId,
+        role: "assistant",
+        parts: [
+          {
+            type: "text",
+            text: buildOnboardingMessage({
+              filename: file.name,
+              rowCount: newTransactions.length,
+            }),
+          },
+        ],
+        attachments: [],
+        createdAt: onboardingCreatedAt,
+      },
+    ];
+
+    if (categorizationReview) {
+      uploadMessages.push({
+        id: generateUUID(),
+        chatId,
+        role: "assistant",
+        parts: buildCategorizationReviewParts(categorizationReview),
+        attachments: [],
+        createdAt: new Date(onboardingCreatedAt.getTime() + 1),
+      });
+    }
 
     await saveMessages({
-      messages: [
-        {
-          id: generateUUID(),
-          chatId,
-          role: "assistant",
-          parts: [
-            {
-              type: "text",
-              text: buildOnboardingMessage({
-                filename: file.name,
-                rowCount: newTransactions.length,
-              }),
-            },
-          ],
-          attachments: [],
-          createdAt: new Date(),
-        },
-      ],
+      messages: uploadMessages,
     });
 
     return NextResponse.json({

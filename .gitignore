@@ -46,3 +46,4 @@ yarn-error.log*
 codex-dev.*.log
 
 data/*
+artifacts/*.log

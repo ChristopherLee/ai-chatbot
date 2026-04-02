@@ -250,6 +250,11 @@ export function FinanceCategorizationReviewResult({
                     <div className="text-muted-foreground">
                       {rule.rationale}
                     </div>
+                    {rule.replaceRuleSummary ? (
+                      <div className="text-muted-foreground">
+                        Updates existing rule: {rule.replaceRuleSummary}
+                      </div>
+                    ) : null}
                   </div>
                   <div className="flex items-center gap-2">
                     <StatusBadge status={savedStatus} />
@@ -282,6 +287,9 @@ export function FinanceCategorizationReviewResult({
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-2 text-xs">
+                  <Badge variant="outline">
+                    {rule.replaceRuleId ? "Rule update" : "New rule"}
+                  </Badge>
                   <Badge variant="secondary">
                     {rule.matchedTransactionCount} matched
                   </Badge>

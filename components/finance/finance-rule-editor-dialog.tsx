@@ -31,18 +31,11 @@ import type {
   FinanceTransactionMatch,
   PlanMode,
 } from "@/lib/finance/types";
+import {
+  describeFinanceRuleAction,
+  financeRuleTypeLabels,
+} from "@/lib/finance/rule-display";
 import { FinanceRulesTransactionTable } from "./finance-rules-transaction-table";
-
-const ruleTypeLabels: Record<FinanceAction["type"], string> = {
-  categorize_transaction: "Single transaction",
-  categorize_transactions: "Categorization rule",
-  exclude_transactions: "Exclusion rule",
-  merge_buckets: "Bucket merge",
-  remap_raw_category: "Raw category rule",
-  rename_bucket: "Bucket rename",
-  set_bucket_monthly_target: "Category budget",
-  set_plan_mode: "Plan mode",
-};
 
 const creatableRuleTypes: Exclude<
   FinanceAction["type"],
@@ -62,7 +55,7 @@ const defaultDialogCopy = {
   createSuccess: "Finance rule added.",
   createTitle: "Add finance rule",
   description:
-    "Preview the current impact before saving so you can verify which transactions are affected.",
+    "Save categorization logic here, then preview the current impact before you apply it.",
   editSubmitLabel: "Save changes",
   editSuccess: "Finance rule updated.",
   editTitle: "Edit finance rule",
@@ -211,7 +204,7 @@ function buildAction(form: RuleFormState) {
       if (!match || !form.destinationBucket.trim()) {
         return {
           action: null,
-          error: "Add at least one match and a destination bucket.",
+          error: "Add at least one match and a destination category.",
         };
       }
 
@@ -242,7 +235,7 @@ function buildAction(form: RuleFormState) {
       if (!form.rawCategory.trim() || !form.destinationBucket.trim()) {
         return {
           action: null,
-          error: "Choose the raw category and destination bucket.",
+          error: "Choose the raw category and destination category.",
         };
       }
 
@@ -259,7 +252,7 @@ function buildAction(form: RuleFormState) {
         return {
           action: null,
           error:
-            "This one-off rule needs a transaction and destination bucket.",
+            "This transaction override needs a transaction and destination category.",
         };
       }
 
@@ -280,7 +273,7 @@ function buildAction(form: RuleFormState) {
       if (from.length === 0 || !form.destinationBucket.trim()) {
         return {
           action: null,
-          error: "Add at least one source bucket and a destination bucket.",
+          error: "Add at least one source category and a destination category.",
         };
       }
 
@@ -297,7 +290,7 @@ function buildAction(form: RuleFormState) {
       if (!form.renameFrom.trim() || !form.destinationBucket.trim()) {
         return {
           action: null,
-          error: "Choose both bucket names.",
+          error: "Choose both category names.",
         };
       }
 
@@ -315,7 +308,7 @@ function buildAction(form: RuleFormState) {
       if (!form.targetBucket.trim() || !Number.isFinite(amount) || amount < 0) {
         return {
           action: null,
-          error: "Choose a bucket and a valid non-negative category budget.",
+          error: "Choose a category and a valid non-negative category budget.",
         };
       }
 
@@ -385,6 +378,7 @@ export function FinanceRuleEditorDialog({
         : [...normalizedAllowedTypes],
     [form.type, normalizedAllowedTypes]
   );
+  const draftActionResult = useMemo(() => buildAction(form), [form]);
   const showTypeSelector = editableTypes.length > 1;
 
   useEffect(() => {
@@ -415,7 +409,7 @@ export function FinanceRuleEditorDialog({
   };
 
   const handlePreview = async () => {
-    const { action, error } = buildAction(form);
+    const { action, error } = draftActionResult;
 
     if (!action) {
       toast({
@@ -462,7 +456,7 @@ export function FinanceRuleEditorDialog({
   };
 
   const handleSave = async () => {
-    const { action, error } = buildAction(form);
+    const { action, error } = draftActionResult;
 
     if (!action) {
       toast({
@@ -525,7 +519,7 @@ export function FinanceRuleEditorDialog({
         <div className="space-y-4">
           {showTypeSelector ? (
             <div className="space-y-2">
-              <Label htmlFor="finance-rule-type">Rule type</Label>
+              <Label htmlFor="finance-rule-type">Rule format</Label>
               <Select
                 onValueChange={(value) =>
                   updateForm({
@@ -540,12 +534,12 @@ export function FinanceRuleEditorDialog({
                 value={form.type}
               >
                 <SelectTrigger id="finance-rule-type">
-                  <SelectValue placeholder="Select a rule type" />
+                  <SelectValue placeholder="Select how this rule should work" />
                 </SelectTrigger>
                 <SelectContent>
                   {editableTypes.map((type) => (
                     <SelectItem key={type} value={type}>
-                      {ruleTypeLabels[type]}
+                      {financeRuleTypeLabels[type]}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -607,7 +601,7 @@ export function FinanceRuleEditorDialog({
               {form.type === "categorize_transactions" ? (
                 <div className="space-y-2 sm:col-span-2">
                   <Label htmlFor="finance-rule-destination">
-                    Destination bucket
+                    Destination category
                   </Label>
                   <Input
                     id="finance-rule-destination"
@@ -639,7 +633,7 @@ export function FinanceRuleEditorDialog({
               </div>
               <div className="space-y-2">
                 <Label htmlFor="finance-rule-remap-to">
-                  Destination bucket
+                  Destination category
                 </Label>
                 <Input
                   id="finance-rule-remap-to"
@@ -667,14 +661,14 @@ export function FinanceRuleEditorDialog({
                   value={form.transactionId}
                 />
                 <div className="text-muted-foreground text-xs">
-                  One-off transaction rules can be retargeted here. Creating
-                  brand-new one-off rules manually is not wired yet, so this
-                  transaction stays read-only.
+                  Transaction-specific overrides can be retargeted here.
+                  Creating brand-new one-off overrides manually is still read
+                  only for now.
                 </div>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="finance-rule-single-to">
-                  Destination bucket
+                  Destination category
                 </Label>
                 <Input
                   id="finance-rule-single-to"
@@ -692,7 +686,9 @@ export function FinanceRuleEditorDialog({
           {form.type === "merge_buckets" ? (
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="finance-rule-merge-from">Source buckets</Label>
+                <Label htmlFor="finance-rule-merge-from">
+                  Source categories
+                </Label>
                 <Textarea
                   id="finance-rule-merge-from"
                   onChange={(event) =>
@@ -702,12 +698,12 @@ export function FinanceRuleEditorDialog({
                   value={form.mergeFrom}
                 />
                 <div className="text-muted-foreground text-xs">
-                  Separate multiple buckets with commas or new lines.
+                  Separate multiple categories with commas or new lines.
                 </div>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="finance-rule-merge-to">
-                  Destination bucket
+                  Destination category
                 </Label>
                 <Input
                   id="finance-rule-merge-to"
@@ -725,7 +721,9 @@ export function FinanceRuleEditorDialog({
           {form.type === "rename_bucket" ? (
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="finance-rule-rename-from">Current bucket</Label>
+                <Label htmlFor="finance-rule-rename-from">
+                  Current category
+                </Label>
                 <Input
                   id="finance-rule-rename-from"
                   list="finance-rule-buckets"
@@ -737,7 +735,7 @@ export function FinanceRuleEditorDialog({
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="finance-rule-rename-to">New bucket</Label>
+                <Label htmlFor="finance-rule-rename-to">New category</Label>
                 <Input
                   id="finance-rule-rename-to"
                   list="finance-rule-buckets"
@@ -829,7 +827,7 @@ export function FinanceRuleEditorDialog({
               ) : (
                 <Eye className="size-4" />
               )}
-              {isPreviewing ? "Previewing..." : "Preview affected transactions"}
+              {isPreviewing ? "Previewing..." : "Preview impact"}
             </Button>
           </div>
 
@@ -850,18 +848,25 @@ export function FinanceRuleEditorDialog({
 
             {preview ? (
               <>
-                <div className="font-medium">{preview.summary}</div>
+                <div className="font-medium">
+                  {draftActionResult.action
+                    ? describeFinanceRuleAction(
+                        draftActionResult.action,
+                        preview.details
+                      )
+                    : preview.summary}
+                </div>
                 {preview.details.length > 0 ? (
-                  <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="flex flex-wrap gap-2">
                     {preview.details.map((detail) => (
                       <div
-                        className="rounded-lg border bg-background p-3"
-                        key={detail.label}
+                        className="rounded-full border bg-background px-3 py-1.5 text-xs"
+                        key={`${detail.label}-${detail.value}`}
                       >
-                        <div className="text-muted-foreground text-xs uppercase tracking-wide">
-                          {detail.label}
-                        </div>
-                        <div className="mt-1 font-medium">{detail.value}</div>
+                        <span className="text-muted-foreground">
+                          {detail.label}:
+                        </span>{" "}
+                        <span className="font-medium">{detail.value}</span>
                       </div>
                     ))}
                   </div>

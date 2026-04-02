@@ -1026,7 +1026,7 @@ export function ProjectBudgetSettings({
                   <div className="rounded-2xl border border-dashed bg-background/70 px-4 py-6 text-muted-foreground text-sm">
                     {data.snapshotStatus === "ready"
                       ? "All current category suggestions are already in the budget."
-                      : "Suggestions will appear after finance onboarding has enough spending history."}
+                      : "Suggestions will appear once the finance plan is ready."}
                   </div>
                 ) : (
                   <div className="space-y-3">

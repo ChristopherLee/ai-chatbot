@@ -171,21 +171,6 @@ export async function applyFinanceActionsForChat({
   };
 }
 
-export async function refreshFinancePlanForChat({
-  projectId,
-}: {
-  projectId: string;
-}) {
-  const beforeSnapshot = await getFinanceSnapshot({ projectId });
-  const afterSnapshot = await recomputeFinanceSnapshot({ projectId });
-
-  return {
-    before: buildSnapshotSummary(beforeSnapshot),
-    after: buildSnapshotSummary(afterSnapshot),
-    snapshot: afterSnapshot,
-  };
-}
-
 export async function getFinanceSnapshotForChat({
   projectId,
 }: {
