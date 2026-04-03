@@ -33,7 +33,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { FINANCE_RECOMMENDATION_LOOKBACK_MONTHS } from "@/lib/finance/config";
 import type {
-  BucketGroup,
+  CategoryGroup,
   FinanceRuleRecord,
   FinanceRulesViewData,
   FinanceTargetsCategoryBudget,
@@ -49,8 +49,8 @@ import { fetcher } from "@/lib/utils";
 import { FinanceRuleEditorDialog } from "./finance-rule-editor-dialog";
 
 type EditableCategoryBudget = {
-  bucket: string;
-  group: BucketGroup;
+  category: string;
+  group: CategoryGroup;
   amount: string;
   lastMonthActual: number;
   overrideId: string | null;
@@ -81,11 +81,11 @@ function toInputValue(value: number | null) {
   return value === null ? "" : value.toString();
 }
 
-function normalizeBucketName(value: string) {
+function normalizeCategoryName(value: string) {
   return value.replace(/\s+/g, " ").trim();
 }
 
-function getGroupLabel(group: BucketGroup) {
+function getGroupLabel(group: CategoryGroup) {
   switch (group) {
     case "fixed":
       return "Fixed";
@@ -98,7 +98,7 @@ function getGroupLabel(group: BucketGroup) {
   }
 }
 
-function getGroupBadgeClass(group: BucketGroup) {
+function getGroupBadgeClass(group: CategoryGroup) {
   switch (group) {
     case "fixed":
       return "border-sky-200 bg-sky-50 text-sky-700";
@@ -115,7 +115,7 @@ function buildEditableCategoryBudgets(
   categoryBudgets: FinanceTargetsCategoryBudget[]
 ): EditableCategoryBudget[] {
   return categoryBudgets.map((budget) => ({
-    bucket: budget.bucket,
+    category: budget.category,
     group: budget.group,
     amount: budget.amount.toString(),
     lastMonthActual: budget.lastMonthActual,
@@ -127,15 +127,15 @@ function buildSuggestionPool(data: FinanceTargetsResponse) {
   const suggestions = new Map<string, FinanceTargetsCategoryBudgetSuggestion>();
 
   for (const suggestion of data.suggestedCategoryBudgets) {
-    suggestions.set(safeLower(suggestion.bucket), suggestion);
+    suggestions.set(safeLower(suggestion.category), suggestion);
   }
 
   for (const budget of data.categoryBudgets) {
-    const bucketKey = safeLower(budget.bucket);
+    const categoryKey = safeLower(budget.category);
 
-    if (!suggestions.has(bucketKey)) {
-      suggestions.set(bucketKey, {
-        bucket: budget.bucket,
+    if (!suggestions.has(categoryKey)) {
+      suggestions.set(categoryKey, {
+        category: budget.category,
         group: budget.group,
         suggestedAmount: budget.amount,
         lastMonthActual: budget.lastMonthActual,
@@ -146,7 +146,7 @@ function buildSuggestionPool(data: FinanceTargetsResponse) {
   return [...suggestions.values()].sort(
     (left, right) =>
       right.suggestedAmount - left.suggestedAmount ||
-      left.bucket.localeCompare(right.bucket)
+      left.category.localeCompare(right.category)
   );
 }
 
@@ -222,10 +222,7 @@ function BudgetExclusionsManager({
       setRulePendingDelete(null);
       toast({
         type: "success",
-        description:
-          rulePendingDelete.type === "include_transactions"
-            ? "Legacy inclusion removed."
-            : "Budget exclusion removed.",
+        description: "Budget exclusion removed.",
       });
     } catch (deleteError) {
       toast({
@@ -423,9 +420,7 @@ function BudgetExclusionsManager({
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {rulePendingDelete?.type === "include_transactions"
-                ? "Remove legacy inclusion?"
-                : "Delete budget exclusion?"}
+              Delete budget exclusion?
             </AlertDialogTitle>
             <AlertDialogDescription>
               {rulePendingDelete
@@ -505,7 +500,7 @@ export function ProjectBudgetSettings({
     !hasValidBudgetTarget || !hasValidIncomeTarget;
 
   const normalizedCategoryBudgets = categoryBudgets.map((budget) => {
-    const normalizedBucket = normalizeBucketName(budget.bucket);
+    const normalizedCategory = normalizeCategoryName(budget.category);
     const parsedAmount =
       budget.amount.trim() === "" ? null : Number(budget.amount);
     const isValidAmount =
@@ -515,31 +510,31 @@ export function ProjectBudgetSettings({
 
     return {
       ...budget,
-      normalizedBucket,
+      normalizedCategory,
       parsedAmount,
       isValidAmount,
     };
   });
-  const seenBuckets = new Set<string>();
+  const seenCategories = new Set<string>();
   let duplicateCategoryBudget = false;
 
   for (const budget of normalizedCategoryBudgets) {
-    const bucketKey = safeLower(budget.normalizedBucket);
+    const categoryKey = safeLower(budget.normalizedCategory);
 
-    if (!bucketKey) {
+    if (!categoryKey) {
       continue;
     }
 
-    if (seenBuckets.has(bucketKey)) {
+    if (seenCategories.has(categoryKey)) {
       duplicateCategoryBudget = true;
       break;
     }
 
-    seenBuckets.add(bucketKey);
+    seenCategories.add(categoryKey);
   }
 
   const invalidCategoryBudget = normalizedCategoryBudgets.some(
-    (budget) => budget.normalizedBucket.length === 0 || !budget.isValidAmount
+    (budget) => budget.normalizedCategory.length === 0 || !budget.isValidAmount
   );
   const categoryBudgetValidationError =
     invalidCategoryBudget || duplicateCategoryBudget;
@@ -564,7 +559,7 @@ export function ProjectBudgetSettings({
     hasValidIncomeTarget
       ? roundCurrency(parsedIncome - parsedBudget)
       : null;
-  const addCategoryName = normalizeBucketName(newCategoryName);
+  const addCategoryName = normalizeCategoryName(newCategoryName);
   const parsedNewCategoryAmount =
     newCategoryAmount.trim() === "" ? null : Number(newCategoryAmount);
   const addCategoryDisabled =
@@ -574,15 +569,15 @@ export function ProjectBudgetSettings({
     parsedNewCategoryAmount < 0 ||
     normalizedCategoryBudgets.some(
       (budget) =>
-        safeLower(budget.normalizedBucket) === safeLower(addCategoryName)
+        safeLower(budget.normalizedCategory) === safeLower(addCategoryName)
     );
   const activeBudgetKeys = new Set(
     normalizedCategoryBudgets.map((budget) =>
-      safeLower(budget.normalizedBucket)
+      safeLower(budget.normalizedCategory)
     )
   );
   const availableSuggestions = buildSuggestionPool(data).filter(
-    (suggestion) => !activeBudgetKeys.has(safeLower(suggestion.bucket))
+    (suggestion) => !activeBudgetKeys.has(safeLower(suggestion.category))
   );
   const hasValidationError =
     topLevelValidationError || categoryBudgetValidationError;
@@ -609,7 +604,7 @@ export function ProjectBudgetSettings({
           totalMonthlyBudgetTarget: parsedBudget,
           totalMonthlyIncomeTarget: parsedIncome,
           categoryBudgets: normalizedCategoryBudgets.map((budget) => ({
-            bucket: budget.normalizedBucket,
+            category: budget.normalizedCategory,
             amount: roundCurrency(budget.parsedAmount ?? 0),
           })),
         }),
@@ -648,7 +643,7 @@ export function ProjectBudgetSettings({
       [
         ...current,
         {
-          bucket: addCategoryName,
+          category: addCategoryName,
           group: "flexible" as const,
           amount: roundCurrency(parsedNewCategoryAmount).toString(),
           lastMonthActual: 0,
@@ -657,7 +652,7 @@ export function ProjectBudgetSettings({
       ].sort(
         (left, right) =>
           Number(right.amount) - Number(left.amount) ||
-          left.bucket.localeCompare(right.bucket)
+          left.category.localeCompare(right.category)
       )
     );
     setNewCategoryName("");
@@ -671,7 +666,7 @@ export function ProjectBudgetSettings({
       [
         ...current,
         {
-          bucket: suggestion.bucket,
+          category: suggestion.category,
           group: suggestion.group,
           amount: suggestion.suggestedAmount.toString(),
           lastMonthActual: suggestion.lastMonthActual,
@@ -680,7 +675,7 @@ export function ProjectBudgetSettings({
       ].sort(
         (left, right) =>
           Number(right.amount) - Number(left.amount) ||
-          left.bucket.localeCompare(right.bucket)
+          left.category.localeCompare(right.category)
       )
     );
   };
@@ -907,12 +902,12 @@ export function ProjectBudgetSettings({
                   categoryBudgets.map((budget) => (
                     <div
                       className="grid gap-3 rounded-2xl border bg-background/80 p-4 md:grid-cols-[minmax(0,1fr)_160px_auto]"
-                      key={`${budget.bucket}-${budget.overrideId ?? "draft"}`}
+                      key={`${budget.category}-${budget.overrideId ?? "draft"}`}
                     >
                       <div className="space-y-2">
                         <div className="flex flex-wrap items-center gap-2">
                           <div className="font-medium text-base">
-                            {budget.bucket}
+                            {budget.category}
                           </div>
                           <Badge
                             className={getGroupBadgeClass(budget.group)}
@@ -929,17 +924,17 @@ export function ProjectBudgetSettings({
                       <div className="space-y-2">
                         <Label
                           className="text-muted-foreground text-xs uppercase tracking-[0.2em]"
-                          htmlFor={`category-budget-${budget.bucket}`}
+                          htmlFor={`category-budget-${budget.category}`}
                         >
                           Monthly budget
                         </Label>
                         <Input
-                          id={`category-budget-${budget.bucket}`}
+                          id={`category-budget-${budget.category}`}
                           min="0"
                           onChange={(event) =>
                             setCategoryBudgets((current) =>
                               current.map((item) =>
-                                item.bucket === budget.bucket
+                                item.category === budget.category
                                   ? {
                                       ...item,
                                       amount: event.target.value,
@@ -959,7 +954,7 @@ export function ProjectBudgetSettings({
                           onClick={() =>
                             setCategoryBudgets((current) =>
                               current.filter(
-                                (item) => item.bucket !== budget.bucket
+                                (item) => item.category !== budget.category
                               )
                             )
                           }
@@ -1033,12 +1028,12 @@ export function ProjectBudgetSettings({
                     {availableSuggestions.map((suggestion) => (
                       <div
                         className="grid gap-3 rounded-2xl border bg-background/80 p-4 md:grid-cols-[minmax(0,1fr)_140px_auto]"
-                        key={suggestion.bucket}
+                        key={suggestion.category}
                       >
                         <div className="space-y-2">
                           <div className="flex flex-wrap items-center gap-2">
                             <div className="font-medium">
-                              {suggestion.bucket}
+                              {suggestion.category}
                             </div>
                             <Badge
                               className={getGroupBadgeClass(suggestion.group)}
@@ -1118,3 +1113,4 @@ export function ProjectBudgetSettings({
     </div>
   );
 }
+

@@ -22,7 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
 import type {
   FinanceAction,
   FinanceRulePreview,
@@ -33,6 +33,7 @@ import type {
 } from "@/lib/finance/types";
 import {
   describeFinanceRuleAction,
+  financeRuleTypeMetadata,
   financeRuleTypeLabels,
 } from "@/lib/finance/rule-display";
 import { FinanceRulesTransactionTable } from "./finance-rules-transaction-table";
@@ -43,10 +44,7 @@ const creatableRuleTypes: Exclude<
 >[] = [
   "categorize_transactions",
   "exclude_transactions",
-  "remap_raw_category",
-  "merge_buckets",
-  "rename_bucket",
-  "set_bucket_monthly_target",
+  "set_category_monthly_target",
   "set_plan_mode",
 ];
 
@@ -67,11 +65,9 @@ type RuleFormState = {
   descriptionContains: string;
   rawCategory: string;
   account: string;
-  destinationBucket: string;
+  destinationCategory: string;
   transactionId: string;
-  mergeFrom: string;
-  renameFrom: string;
-  targetBucket: string;
+  targetCategory: string;
   amount: string;
   effectiveMonth: string;
   planMode: PlanMode;
@@ -94,11 +90,9 @@ function emptyFormState(
     descriptionContains: "",
     rawCategory: "",
     account: "",
-    destinationBucket: "",
+    destinationCategory: "",
     transactionId: "",
-    mergeFrom: "",
-    renameFrom: "",
-    targetBucket: "",
+    targetCategory: "",
     amount: "",
     effectiveMonth: "",
     planMode: "balanced",
@@ -128,7 +122,13 @@ function createFormStateFromRule(rule: FinanceRuleRecord): RuleFormState {
         descriptionContains: action.match.descriptionContains ?? "",
         rawCategory: action.match.rawCategory ?? "",
         account: action.match.account ?? "",
-        destinationBucket: action.to,
+        destinationCategory: action.to,
+      };
+    case "categorize_transaction":
+      return {
+        ...emptyFormState(action.type),
+        transactionId: action.transactionId,
+        destinationCategory: action.to,
       };
     case "exclude_transactions":
       return {
@@ -138,34 +138,10 @@ function createFormStateFromRule(rule: FinanceRuleRecord): RuleFormState {
         rawCategory: action.match.rawCategory ?? "",
         account: action.match.account ?? "",
       };
-    case "remap_raw_category":
+    case "set_category_monthly_target":
       return {
         ...emptyFormState(action.type),
-        rawCategory: action.from,
-        destinationBucket: action.to,
-      };
-    case "categorize_transaction":
-      return {
-        ...emptyFormState(action.type),
-        transactionId: action.transactionId,
-        destinationBucket: action.to,
-      };
-    case "merge_buckets":
-      return {
-        ...emptyFormState(action.type),
-        mergeFrom: action.from.join(", "),
-        destinationBucket: action.to,
-      };
-    case "rename_bucket":
-      return {
-        ...emptyFormState(action.type),
-        renameFrom: action.from,
-        destinationBucket: action.to,
-      };
-    case "set_bucket_monthly_target":
-      return {
-        ...emptyFormState(action.type),
-        targetBucket: action.bucket,
+        targetCategory: action.category,
         amount: action.amount.toString(),
         effectiveMonth: action.effectiveMonth ?? "",
       };
@@ -201,7 +177,7 @@ function buildAction(form: RuleFormState) {
 
   switch (form.type) {
     case "categorize_transactions":
-      if (!match || !form.destinationBucket.trim()) {
+      if (!match || !form.destinationCategory.trim()) {
         return {
           action: null,
           error: "Add at least one match and a destination category.",
@@ -212,7 +188,7 @@ function buildAction(form: RuleFormState) {
         action: {
           type: "categorize_transactions",
           match,
-          to: form.destinationBucket.trim(),
+          to: form.destinationCategory.trim(),
         } satisfies FinanceAction,
         error: null,
       };
@@ -231,24 +207,8 @@ function buildAction(form: RuleFormState) {
         } satisfies FinanceAction,
         error: null,
       };
-    case "remap_raw_category":
-      if (!form.rawCategory.trim() || !form.destinationBucket.trim()) {
-        return {
-          action: null,
-          error: "Choose the raw category and destination category.",
-        };
-      }
-
-      return {
-        action: {
-          type: "remap_raw_category",
-          from: form.rawCategory.trim(),
-          to: form.destinationBucket.trim(),
-        } satisfies FinanceAction,
-        error: null,
-      };
     case "categorize_transaction":
-      if (!form.transactionId.trim() || !form.destinationBucket.trim()) {
+      if (!form.transactionId.trim() || !form.destinationCategory.trim()) {
         return {
           action: null,
           error:
@@ -260,52 +220,18 @@ function buildAction(form: RuleFormState) {
         action: {
           type: "categorize_transaction",
           transactionId: form.transactionId.trim(),
-          to: form.destinationBucket.trim(),
+          to: form.destinationCategory.trim(),
         } satisfies FinanceAction,
         error: null,
       };
-    case "merge_buckets": {
-      const from = form.mergeFrom
-        .split(/,|\n/g)
-        .map((value) => value.trim())
-        .filter(Boolean);
-
-      if (from.length === 0 || !form.destinationBucket.trim()) {
-        return {
-          action: null,
-          error: "Add at least one source category and a destination category.",
-        };
-      }
-
-      return {
-        action: {
-          type: "merge_buckets",
-          from,
-          to: form.destinationBucket.trim(),
-        } satisfies FinanceAction,
-        error: null,
-      };
-    }
-    case "rename_bucket":
-      if (!form.renameFrom.trim() || !form.destinationBucket.trim()) {
-        return {
-          action: null,
-          error: "Choose both category names.",
-        };
-      }
-
-      return {
-        action: {
-          type: "rename_bucket",
-          from: form.renameFrom.trim(),
-          to: form.destinationBucket.trim(),
-        } satisfies FinanceAction,
-        error: null,
-      };
-    case "set_bucket_monthly_target": {
+    case "set_category_monthly_target": {
       const amount = Number(form.amount);
 
-      if (!form.targetBucket.trim() || !Number.isFinite(amount) || amount < 0) {
+      if (
+        !form.targetCategory.trim() ||
+        !Number.isFinite(amount) ||
+        amount < 0
+      ) {
         return {
           action: null,
           error: "Choose a category and a valid non-negative category budget.",
@@ -314,8 +240,8 @@ function buildAction(form: RuleFormState) {
 
       return {
         action: {
-          type: "set_bucket_monthly_target",
-          bucket: form.targetBucket.trim(),
+          type: "set_category_monthly_target",
+          category: form.targetCategory.trim(),
           amount,
           ...(form.effectiveMonth
             ? { effectiveMonth: form.effectiveMonth }
@@ -406,6 +332,17 @@ export function FinanceRuleEditorDialog({
       ...patch,
     }));
     setPreview(null);
+  };
+
+  const setRuleType = (value: FinanceAction["type"]) => {
+    updateForm({
+      ...emptyFormState(value),
+      type: value,
+      ...(value === "categorize_transaction" &&
+      rule?.action.type === "categorize_transaction"
+        ? { transactionId: rule.action.transactionId }
+        : {}),
+    });
   };
 
   const handlePreview = async () => {
@@ -518,21 +455,9 @@ export function FinanceRuleEditorDialog({
 
         <div className="space-y-4">
           {showTypeSelector ? (
-            <div className="space-y-2">
+            <div className="space-y-3">
               <Label htmlFor="finance-rule-type">Rule format</Label>
-              <Select
-                onValueChange={(value) =>
-                  updateForm({
-                    ...emptyFormState(value as FinanceAction["type"]),
-                    type: value as FinanceAction["type"],
-                    ...(value === "categorize_transaction" &&
-                    rule?.action.type === "categorize_transaction"
-                      ? { transactionId: rule.action.transactionId }
-                      : {}),
-                  })
-                }
-                value={form.type}
-              >
+              <Select onValueChange={(value) => setRuleType(value as FinanceAction["type"])} value={form.type}>
                 <SelectTrigger id="finance-rule-type">
                   <SelectValue placeholder="Select how this rule should work" />
                 </SelectTrigger>
@@ -544,6 +469,46 @@ export function FinanceRuleEditorDialog({
                   ))}
                 </SelectContent>
               </Select>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                {editableTypes.map((type) => {
+                  const metadata = financeRuleTypeMetadata[type];
+                  const isSelected = form.type === type;
+
+                  return (
+                    <button
+                      className={cn(
+                        "rounded-xl border p-4 text-left transition-colors",
+                        isSelected
+                          ? "border-foreground/40 bg-muted/40"
+                          : "bg-background hover:border-foreground/20 hover:bg-muted/20"
+                      )}
+                      key={type}
+                      onClick={() => setRuleType(type)}
+                      type="button"
+                    >
+                      <div className="font-medium text-sm">
+                        {financeRuleTypeLabels[type]}
+                      </div>
+                      <p className="mt-2 text-muted-foreground text-sm leading-6">
+                        {metadata.definition}
+                      </p>
+                      <p className="mt-2 text-muted-foreground text-xs leading-5">
+                        Why we need it: {metadata.why}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="rounded-xl border bg-muted/20 p-3 text-muted-foreground text-xs leading-6">
+                <span className="font-medium text-foreground">
+                  Why these rule formats exist:
+                </span>{" "}
+                categorization rules handle recurring transaction patterns,
+                exclusions keep non-spend out of the budget, category budgets
+                set targets, and plan mode adjusts the overall posture.
+              </div>
             </div>
           ) : null}
 
@@ -605,46 +570,15 @@ export function FinanceRuleEditorDialog({
                   </Label>
                   <Input
                     id="finance-rule-destination"
-                    list="finance-rule-buckets"
+                    list="finance-rule-categories"
                     onChange={(event) =>
-                      updateForm({ destinationBucket: event.target.value })
+                      updateForm({ destinationCategory: event.target.value })
                     }
                     placeholder="Mortgage"
-                    value={form.destinationBucket}
+                    value={form.destinationCategory}
                   />
                 </div>
               ) : null}
-            </div>
-          ) : null}
-
-          {form.type === "remap_raw_category" ? (
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="finance-rule-remap-from">Raw category</Label>
-                <Input
-                  id="finance-rule-remap-from"
-                  list="finance-rule-raw-categories"
-                  onChange={(event) =>
-                    updateForm({ rawCategory: event.target.value })
-                  }
-                  placeholder="Restaurants"
-                  value={form.rawCategory}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="finance-rule-remap-to">
-                  Destination category
-                </Label>
-                <Input
-                  id="finance-rule-remap-to"
-                  list="finance-rule-buckets"
-                  onChange={(event) =>
-                    updateForm({ destinationBucket: event.target.value })
-                  }
-                  placeholder="Dining"
-                  value={form.destinationBucket}
-                />
-              </div>
             </div>
           ) : null}
 
@@ -672,95 +606,29 @@ export function FinanceRuleEditorDialog({
                 </Label>
                 <Input
                   id="finance-rule-single-to"
-                  list="finance-rule-buckets"
+                  list="finance-rule-categories"
                   onChange={(event) =>
-                    updateForm({ destinationBucket: event.target.value })
+                    updateForm({ destinationCategory: event.target.value })
                   }
                   placeholder="Mortgage"
-                  value={form.destinationBucket}
+                  value={form.destinationCategory}
                 />
               </div>
             </div>
           ) : null}
 
-          {form.type === "merge_buckets" ? (
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="finance-rule-merge-from">
-                  Source categories
-                </Label>
-                <Textarea
-                  id="finance-rule-merge-from"
-                  onChange={(event) =>
-                    updateForm({ mergeFrom: event.target.value })
-                  }
-                  placeholder="Dining, Restaurants"
-                  value={form.mergeFrom}
-                />
-                <div className="text-muted-foreground text-xs">
-                  Separate multiple categories with commas or new lines.
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="finance-rule-merge-to">
-                  Destination category
-                </Label>
-                <Input
-                  id="finance-rule-merge-to"
-                  list="finance-rule-buckets"
-                  onChange={(event) =>
-                    updateForm({ destinationBucket: event.target.value })
-                  }
-                  placeholder="Dining"
-                  value={form.destinationBucket}
-                />
-              </div>
-            </div>
-          ) : null}
-
-          {form.type === "rename_bucket" ? (
+          {form.type === "set_category_monthly_target" ? (
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="finance-rule-rename-from">
-                  Current category
-                </Label>
+                <Label htmlFor="finance-rule-target-category">Category</Label>
                 <Input
-                  id="finance-rule-rename-from"
-                  list="finance-rule-buckets"
+                  id="finance-rule-target-category"
+                  list="finance-rule-categories"
                   onChange={(event) =>
-                    updateForm({ renameFrom: event.target.value })
-                  }
-                  placeholder="Other / Misc"
-                  value={form.renameFrom}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="finance-rule-rename-to">New category</Label>
-                <Input
-                  id="finance-rule-rename-to"
-                  list="finance-rule-buckets"
-                  onChange={(event) =>
-                    updateForm({ destinationBucket: event.target.value })
-                  }
-                  placeholder="Household"
-                  value={form.destinationBucket}
-                />
-              </div>
-            </div>
-          ) : null}
-
-          {form.type === "set_bucket_monthly_target" ? (
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="finance-rule-target-bucket">Bucket</Label>
-                <Input
-                  id="finance-rule-target-bucket"
-                  list="finance-rule-buckets"
-                  onChange={(event) =>
-                    updateForm({ targetBucket: event.target.value })
+                    updateForm({ targetCategory: event.target.value })
                   }
                   placeholder="Groceries"
-                  value={form.targetBucket}
+                  value={form.targetCategory}
                 />
               </div>
               <div className="space-y-2">
@@ -917,12 +785,13 @@ export function FinanceRuleEditorDialog({
             <option key={rawCategory} value={rawCategory} />
           ))}
         </datalist>
-        <datalist id="finance-rule-buckets">
-          {(options?.buckets ?? []).map((bucket) => (
-            <option key={bucket} value={bucket} />
+        <datalist id="finance-rule-categories">
+          {(options?.categories ?? []).map((category) => (
+            <option key={category} value={category} />
           ))}
         </datalist>
       </DialogContent>
     </Dialog>
   );
 }
+

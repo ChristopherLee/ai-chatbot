@@ -2,8 +2,10 @@ import type { UseChatHelpers } from "@ai-sdk/react";
 import { ArrowDownIcon } from "lucide-react";
 import { memo } from "react";
 import { useMessages } from "@/hooks/use-messages";
+import { getRetryableChatHistory } from "@/lib/ai/message-history";
 import type { Vote } from "@/lib/db/schema";
 import type { ChatMessage } from "@/lib/types";
+import { cn } from "@/lib/utils";
 import { useDataStream } from "./data-stream-provider";
 import { Greeting } from "./greeting";
 import { PreviewMessage, ThinkingMessage } from "./message";
@@ -13,6 +15,7 @@ type MessagesProps = {
   chatId: string;
   hasFinanceDataset: boolean;
   status: UseChatHelpers<ChatMessage>["status"];
+  errorMessage: string | null;
   votes: Vote[] | undefined;
   messages: ChatMessage[];
   setMessages: UseChatHelpers<ChatMessage>["setMessages"];
@@ -28,6 +31,7 @@ function PureMessages({
   chatId,
   hasFinanceDataset,
   status,
+  errorMessage,
   votes,
   messages,
   setMessages,
@@ -49,10 +53,20 @@ function PureMessages({
   useDataStream();
 
   const lastMessage = messages.at(-1);
-  const shouldShowIncompleteResponseNotice =
+  const retryableHistory = getRetryableChatHistory(messages);
+  const canRetryResponse = Boolean(retryableHistory);
+  const hasApprovalContinuation = messages.some((msg) =>
+    msg.parts?.some(
+      (part) => "state" in part && part.state === "approval-responded"
+    )
+  );
+  const shouldShowThinkingMessage =
+    !hasApprovalContinuation &&
+    (status === "submitted" ||
+      (status === "streaming" && lastMessage?.role !== "assistant"));
+  const shouldShowChatIssueNotice =
     !isReadonly &&
-    lastMessage?.role === "user" &&
-    (status === "ready" || status === "error");
+    (status === "error" || (canRetryResponse && status === "ready"));
 
   return (
     <div className="relative flex-1">
@@ -88,32 +102,55 @@ function PureMessages({
             />
           ))}
 
-          {status === "submitted" &&
-            !messages.some((msg) =>
-              msg.parts?.some(
-                (part) => "state" in part && part.state === "approval-responded"
-              )
-            ) && <ThinkingMessage />}
+          {shouldShowThinkingMessage && <ThinkingMessage />}
 
-          {shouldShowIncompleteResponseNotice && (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-amber-950 text-sm">
+          {shouldShowChatIssueNotice && (
+            <div
+              className={cn(
+                "rounded-lg border px-4 py-3 text-sm",
+                status === "error"
+                  ? "border-red-200 bg-red-50 text-red-950"
+                  : "border-amber-200 bg-amber-50 text-amber-950"
+              )}
+              data-testid="chat-issue-banner"
+            >
               <div className="font-medium">
                 {status === "error"
                   ? "The previous reply failed before it finished."
-                  : "The previous reply did not finish."}
+                  : lastMessage?.role === "assistant"
+                    ? "The previous reply was interrupted mid-response."
+                    : "The previous reply did not finish."}
               </div>
-              <div className="mt-1 text-amber-900/80">
-                Retry the last response to continue from the saved chat history.
-              </div>
-              <button
-                className="mt-3 inline-flex items-center rounded-md bg-amber-900 px-3 py-1.5 font-medium text-amber-50 transition-colors hover:bg-amber-950"
-                onClick={() => {
-                  retryIncompleteResponse().catch(() => undefined);
-                }}
-                type="button"
+              <div
+                className={cn(
+                  "mt-1",
+                  status === "error" ? "text-red-900/80" : "text-amber-900/80"
+                )}
               >
-                Retry response
-              </button>
+                {status === "error"
+                  ? errorMessage ??
+                    "We couldn't finish that reply. Please try again."
+                  : "Retry the last response to continue from the saved chat history."}
+                {status === "error" && canRetryResponse
+                  ? " Retry the last response to continue from the saved chat history."
+                  : ""}
+              </div>
+              {canRetryResponse && (
+                <button
+                  className={cn(
+                    "mt-3 inline-flex items-center rounded-md px-3 py-1.5 font-medium transition-colors",
+                    status === "error"
+                      ? "bg-red-900 text-red-50 hover:bg-red-950"
+                      : "bg-amber-900 text-amber-50 hover:bg-amber-950"
+                  )}
+                  onClick={() => {
+                    retryIncompleteResponse().catch(() => undefined);
+                  }}
+                  type="button"
+                >
+                  Retry response
+                </button>
+              )}
             </div>
           )}
 
@@ -146,6 +183,7 @@ export const Messages = memo(PureMessages, (prevProps, nextProps) => {
     prevProps.chatId === nextProps.chatId &&
     prevProps.hasFinanceDataset === nextProps.hasFinanceDataset &&
     prevProps.status === nextProps.status &&
+    prevProps.errorMessage === nextProps.errorMessage &&
     prevProps.votes === nextProps.votes &&
     prevProps.messages === nextProps.messages &&
     prevProps.setMessages === nextProps.setMessages &&

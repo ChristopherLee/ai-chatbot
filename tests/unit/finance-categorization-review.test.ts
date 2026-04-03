@@ -38,9 +38,9 @@ test("accepted review selections skip transaction actions already covered by acc
         merchant: "Direct Debit Crosscountry",
         account: "Checking",
         amount: 12_364.71,
-        currentBucket: "Other / Misc",
+        currentCategory: "Other / Misc",
         rawCategory: "Other Expenses",
-        suggestedBucket: "Mortgage",
+        suggestedCategory: "Mortgage",
         matchingRuleIds: ["rule-1"],
         action: {
           type: "categorize_transaction",
@@ -59,9 +59,9 @@ test("accepted review selections skip transaction actions already covered by acc
         merchant: "Eversource",
         account: "Checking",
         amount: 245.5,
-        currentBucket: "Other / Misc",
+        currentCategory: "Other / Misc",
         rawCategory: "Other Expenses",
-        suggestedBucket: "Utilities",
+        suggestedCategory: "Utilities",
         matchingRuleIds: [],
         action: {
           type: "categorize_transaction",
@@ -123,9 +123,9 @@ test("accepted review selections keep rule updates separate from new actions", (
         merchant: "Direct Debit Crosscountry",
         account: "Checking",
         amount: 12_364.71,
-        currentBucket: "Other / Misc",
+        currentCategory: "Other / Misc",
         rawCategory: "Other Expenses",
-        suggestedBucket: "Mortgage",
+        suggestedCategory: "Mortgage",
         matchingRuleIds: ["rule-1"],
         action: {
           type: "categorize_transaction",
@@ -152,3 +152,4 @@ test("accepted review selections keep rule updates separate from new actions", (
     createActions: [],
   });
 });
+

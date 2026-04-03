@@ -11,6 +11,7 @@ import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import useSWR, { useSWRConfig } from "swr";
 import { unstable_serialize } from "swr/infinite";
 import { useWindowSize } from "usehooks-ts";
+import { deleteTrailingMessages } from "@/app/(chat)/actions";
 import { ChatHeader } from "@/components/chat-header";
 import { FinanceDashboard } from "@/components/finance/finance-dashboard";
 import { FinanceRulesView } from "@/components/finance/finance-rules-view";
@@ -27,7 +28,11 @@ import {
 import { useArtifactSelector } from "@/hooks/use-artifact";
 import { useAutoResume } from "@/hooks/use-auto-resume";
 import { useChatVisibility } from "@/hooks/use-chat-visibility";
-import { autoDenyPendingToolApprovals } from "@/lib/ai/message-history";
+import { buildChatTransportBody } from "@/lib/ai/chat-request";
+import {
+  autoDenyPendingToolApprovals,
+  getRetryableChatHistory,
+} from "@/lib/ai/message-history";
 import type { Vote } from "@/lib/db/schema";
 import { ChatSDKError } from "@/lib/errors";
 import type { FinanceSnapshot } from "@/lib/finance/types";
@@ -41,6 +46,22 @@ import { getChatHistoryPaginationKey } from "./sidebar-history";
 import { toast } from "./toast";
 import type { VisibilityType } from "./visibility-selector";
 
+function getRequestErrorMessage(error: unknown) {
+  if (error instanceof ChatSDKError) {
+    return error.message;
+  }
+
+  if (error instanceof Error) {
+    const message = error.message.trim();
+
+    if (message.length > 0) {
+      return message;
+    }
+  }
+
+  return "We couldn't finish that reply. Please try again.";
+}
+
 export function Chat({
   id,
   projectId,
@@ -52,6 +73,7 @@ export function Chat({
   autoResume,
   initialHasFinanceDataset,
   initialFinanceSnapshot,
+  showModelPicker,
 }: {
   id: string;
   projectId: string | null;
@@ -63,6 +85,7 @@ export function Chat({
   autoResume: boolean;
   initialHasFinanceDataset: boolean;
   initialFinanceSnapshot: FinanceSnapshot | null;
+  showModelPicker: boolean;
 }) {
   const router = useRouter();
   const { width } = useWindowSize();
@@ -88,6 +111,9 @@ export function Chat({
 
   const [input, setInput] = useState<string>("");
   const [showCreditCardAlert, setShowCreditCardAlert] = useState(false);
+  const [requestErrorMessage, setRequestErrorMessage] = useState<string | null>(
+    null
+  );
   const [currentModelId, setCurrentModelId] = useState(initialChatModel);
   const [currentProjectTitle, setCurrentProjectTitle] = useState(projectTitle);
   const [hasFinanceDataset, setHasFinanceDataset] = useState(
@@ -137,29 +163,15 @@ export function Chat({
       api: "/api/chat",
       fetch: fetchWithErrorHandlers,
       prepareSendMessagesRequest(request) {
-        const lastMessage = request.messages.at(-1);
-        const isToolApprovalContinuation =
-          lastMessage?.role !== "user" ||
-          request.messages.some((msg) =>
-            msg.parts?.some((part) => {
-              const state = (part as { state?: string }).state;
-              return (
-                state === "approval-responded" || state === "output-denied"
-              );
-            })
-          );
-
         return {
-          body: {
+          body: buildChatTransportBody({
             id: request.id,
-            ...(projectId ? { projectId } : {}),
-            ...(isToolApprovalContinuation
-              ? { messages: request.messages }
-              : { message: lastMessage }),
+            projectId,
+            requestMessages: request.messages,
+            requestBody: request.body,
             selectedChatModel: currentModelIdRef.current,
             selectedVisibilityType: visibilityType,
-            ...request.body,
-          },
+          }),
         };
       },
     }),
@@ -170,12 +182,16 @@ export function Chat({
       setDataStream((ds) => (ds ? [...ds, dataPart] : []));
     },
     onFinish: () => {
+      setRequestErrorMessage(null);
       mutate(unstable_serialize(getChatHistoryPaginationKey));
       if (financeSnapshotKey) {
         mutate(financeSnapshotKey);
       }
     },
     onError: (error) => {
+      const description = getRequestErrorMessage(error);
+      setRequestErrorMessage(description);
+
       if (error instanceof ChatSDKError) {
         if (
           error.message?.includes("AI Gateway requires a valid credit card")
@@ -184,10 +200,17 @@ export function Chat({
         } else {
           toast({
             type: "error",
-            description: error.message,
+            description,
           });
         }
+
+        return;
       }
+
+      toast({
+        type: "error",
+        description,
+      });
     },
   });
 
@@ -195,6 +218,8 @@ export function Chat({
     typeof sendMessage
   >(
     async (message, options) => {
+      setRequestErrorMessage(null);
+
       if (message) {
         const nextMessages = autoDenyPendingToolApprovals(messages);
 
@@ -209,18 +234,27 @@ export function Chat({
   );
 
   const retryIncompleteResponse = useCallback(async () => {
-    const lastMessage = messages.at(-1);
+    const retryableHistory = getRetryableChatHistory(messages);
 
-    if (!lastMessage || lastMessage.role !== "user") {
+    if (!retryableHistory) {
       return;
     }
 
+    if (retryableHistory.trailingMessageIdToDelete) {
+      await deleteTrailingMessages({
+        id: retryableHistory.trailingMessageIdToDelete,
+      });
+
+      setMessages(retryableHistory.messages);
+    }
+
+    setRequestErrorMessage(null);
     await sendMessage(undefined, {
       body: {
-        messages,
+        messages: retryableHistory.messages,
       },
     });
-  }, [messages, sendMessage]);
+  }, [messages, sendMessage, setMessages]);
 
   const searchParams = useSearchParams();
   const query = searchParams.get("query");
@@ -315,13 +349,14 @@ export function Chat({
       <Messages
         addToolApprovalResponse={addToolApprovalResponse}
         chatId={id}
+        errorMessage={status === "error" ? requestErrorMessage : null}
         hasFinanceDataset={hasFinanceDataset}
         isArtifactVisible={isArtifactVisible}
         isReadonly={isReadonly}
         messages={messages}
         regenerate={regenerate}
         retryIncompleteResponse={retryIncompleteResponse}
-        selectedModelId={initialChatModel}
+        selectedModelId={currentModelId}
         setMessages={setMessages}
         status={status}
         votes={votes}
@@ -349,6 +384,7 @@ export function Chat({
             setAttachments={setAttachments}
             setInput={setInput}
             setMessages={setMessages}
+            showModelSelector={showModelPicker}
             status={status}
             stop={stop}
           />
@@ -404,6 +440,7 @@ export function Chat({
         input={input}
         isReadonly={isReadonly}
         messages={messages}
+        onModelChange={setCurrentModelId}
         regenerate={regenerate}
         selectedModelId={currentModelId}
         selectedVisibilityType={visibilityType}
@@ -411,6 +448,7 @@ export function Chat({
         setAttachments={setAttachments}
         setInput={setInput}
         setMessages={setMessages}
+        showModelSelector={showModelPicker}
         status={status}
         stop={stop}
         votes={votes}

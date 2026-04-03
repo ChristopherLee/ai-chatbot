@@ -36,15 +36,22 @@
 
 ## Model Providers
 
-This template uses the [Vercel AI Gateway](https://vercel.com/docs/ai-gateway) to access multiple AI models through a unified interface. The default configuration includes [xAI](https://x.ai) models (`grok-2-vision-1212`, `grok-3-mini`) routed through the gateway.
+This repo now defaults to [OpenRouter](https://openrouter.ai/) for model access. The chat UI sends a stable backend-owned alias (`auto`), and the server resolves that alias to whichever OpenRouter model you configure in `.env.local`.
 
-### AI Gateway Authentication
+### OpenRouter Configuration
 
-**For Vercel deployments**: Authentication is handled automatically via OIDC tokens.
+Set `LLM_BACKEND=openrouter` and provide `OPENROUTER_API_KEY`. You can then configure the backend-owned model routes:
 
-**For non-Vercel deployments**: You need to provide an AI Gateway API key by setting the `AI_GATEWAY_API_KEY` environment variable in your `.env.local` file.
+- `OPENROUTER_CHAT_MODEL`
+- `OPENROUTER_TITLE_MODEL`
+- `OPENROUTER_ARTIFACT_MODEL`
+- `OPENROUTER_REASONING_MODEL`
 
-With the [AI SDK](https://ai-sdk.dev/docs/introduction), you can also switch to direct LLM providers like [OpenAI](https://openai.com), [Anthropic](https://anthropic.com), [Cohere](https://cohere.com/), and [many more](https://ai-sdk.dev/providers/ai-sdk-providers) with just a few lines of code.
+If you want OpenRouter to target specific upstream providers or use provider-specific API keys without adding separate provider implementations in the app, use the routing envs in `.env.example`, especially `OPENROUTER_PROVIDER_ORDER` and `OPENROUTER_PROVIDER_API_KEYS`.
+
+### Legacy Vercel Gateway Path
+
+The old Vercel Gateway implementation is still in the codebase. Set `LLM_BACKEND=gateway` and provide `AI_GATEWAY_API_KEY` if you want to keep using that path.
 
 ## Deploy Your Own
 

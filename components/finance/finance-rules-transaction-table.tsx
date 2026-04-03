@@ -56,7 +56,7 @@ export function FinanceRulesTransactionTable({
               <th className="px-3 py-2 font-medium">Date</th>
               <th className="px-3 py-2 font-medium">Description</th>
               <th className="px-3 py-2 font-medium">Account</th>
-              <th className="px-3 py-2 font-medium">Bucket</th>
+              <th className="px-3 py-2 font-medium">Category</th>
               <th className="px-3 py-2 font-medium">Included</th>
               <th className="px-3 py-2 font-medium">Amount</th>
             </tr>
@@ -72,7 +72,7 @@ export function FinanceRulesTransactionTable({
                   </div>
                 </td>
                 <td className="px-3 py-2">{transaction.account}</td>
-                <td className="px-3 py-2">{transaction.bucket}</td>
+                <td className="px-3 py-2">{transaction.category}</td>
                 <td className="px-3 py-2">
                   {transaction.includeFlag ? "Yes" : "No"}
                 </td>

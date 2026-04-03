@@ -8,15 +8,15 @@ import { TransactionTable } from "./transaction-table";
 
 export function CategoryDrilldown({
   categories,
-  budgetBuckets,
+  budgetCategories,
 }: {
   categories: FinanceCategoryCard[];
-  budgetBuckets: FinancePlanSummary["bucketTargets"];
+  budgetCategories: FinancePlanSummary["categoryTargets"];
 }) {
-  const categoryByBucket = new Map<string, FinanceCategoryCard>(
-    categories.map((category) => [category.bucket, category])
+  const categoryByCategory = new Map<string, FinanceCategoryCard>(
+    categories.map((category) => [category.category, category])
   );
-  const visibleBuckets = budgetBuckets.slice(0, 10);
+  const visibleCategories = budgetCategories.slice(0, 10);
 
   return (
     <Card>
@@ -24,27 +24,27 @@ export function CategoryDrilldown({
         <CardTitle>Categories & budgets</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        {visibleBuckets.length === 0 && (
+        {visibleCategories.length === 0 && (
           <div className="text-muted-foreground text-sm">
             No budget categories available yet.
           </div>
         )}
-        {visibleBuckets.map((bucket) => {
-          const category = categoryByBucket.get(bucket.bucket);
-          const recentMonths = category?.monthly.slice(-4) ?? [];
+        {visibleCategories.map((category) => {
+          const categoryCard = categoryByCategory.get(category.category);
+          const recentMonths = categoryCard?.monthly.slice(-4) ?? [];
 
           return (
             <details
               className="rounded-xl border bg-background p-3"
-              key={bucket.bucket}
+              key={category.category}
             >
               <summary className="cursor-pointer list-none">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <div className="font-medium">{bucket.bucket}</div>
+                    <div className="font-medium">{category.category}</div>
                     <div className="text-muted-foreground text-sm">
-                      {bucket.group} | target $
-                      {bucket.monthlyTarget.toLocaleString()}
+                      {category.group} | target $
+                      {category.monthlyTarget.toLocaleString()}
                     </div>
                   </div>
                   <div className="grid gap-1 text-right text-sm">
@@ -53,7 +53,7 @@ export function CategoryDrilldown({
                         {FINANCE_RECOMMENDATION_LOOKBACK_MONTHS}-mo avg
                       </div>
                       <div className="font-semibold">
-                        ${bucket.trailingAverage.toLocaleString()}
+                        ${category.trailingAverage.toLocaleString()}
                       </div>
                     </div>
                     <div>
@@ -61,7 +61,7 @@ export function CategoryDrilldown({
                         {FINANCE_RECOMMENDATION_LOOKBACK_MONTHS}-mo total
                       </div>
                       <div className="font-semibold">
-                        ${bucket.trailingTotal.toLocaleString()}
+                        ${category.trailingTotal.toLocaleString()}
                       </div>
                     </div>
                   </div>
@@ -83,9 +83,9 @@ export function CategoryDrilldown({
                   </div>
                 )}
 
-                {category?.topMerchants.length ? (
+                {categoryCard?.topMerchants.length ? (
                   <div className="flex flex-wrap gap-2 text-xs">
-                    {category.topMerchants.map((merchant) => (
+                    {categoryCard?.topMerchants.map((merchant) => (
                       <span
                         className="rounded-full bg-muted px-2 py-1"
                         key={merchant.merchant}
@@ -97,13 +97,13 @@ export function CategoryDrilldown({
                   </div>
                 ) : null}
 
-                {category?.transactions.length ? (
+                {categoryCard?.transactions.length ? (
                   <TransactionTable
-                    transactions={category.transactions.slice(0, 12)}
+                    transactions={categoryCard.transactions.slice(0, 12)}
                   />
                 ) : (
                   <div className="text-muted-foreground text-sm">
-                    No recent transactions available for this bucket yet.
+                    No recent transactions available for this category yet.
                   </div>
                 )}
               </div>
@@ -114,3 +114,4 @@ export function CategoryDrilldown({
     </Card>
   );
 }
+

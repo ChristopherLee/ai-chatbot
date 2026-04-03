@@ -31,9 +31,9 @@ export const financeCategorizationTransactionSuggestionSchema = z.object({
   merchant: z.string().min(1),
   account: z.string().min(1),
   amount: z.number().finite().nonnegative(),
-  currentBucket: z.string().min(1),
+  currentCategory: z.string().min(1),
   rawCategory: z.string().min(1),
-  suggestedBucket: z.string().min(1),
+  suggestedCategory: z.string().min(1),
   matchingRuleIds: z.array(z.string().min(1)),
   action: categorizeTransactionActionSchema,
 });
@@ -107,7 +107,6 @@ type ReviewableCategorizationAction = Extract<
   FinanceAction,
   | { type: "categorize_transaction" }
   | { type: "categorize_transactions" }
-  | { type: "remap_raw_category" }
 >;
 
 export function buildFinanceActionReviewKey(

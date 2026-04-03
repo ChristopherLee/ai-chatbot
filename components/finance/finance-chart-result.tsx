@@ -50,7 +50,7 @@ function MonthOverMonthChart({
   data,
 }: {
   data: Array<{
-    bucket: string;
+    category: string;
     currentMonth: number;
     previousMonth: number;
   }>;
@@ -60,7 +60,7 @@ function MonthOverMonthChart({
       <ResponsiveContainer height="100%" width="100%">
         <BarChart data={data}>
           <CartesianGrid strokeDasharray="3 3" vertical={false} />
-          <XAxis dataKey="bucket" interval={0} minTickGap={16} />
+          <XAxis dataKey="category" interval={0} minTickGap={16} />
           <YAxis tickFormatter={(value) => `$${value}`} width={72} />
           <Tooltip
             formatter={(value) => formatCurrency(Number(value ?? 0))}
@@ -90,7 +90,7 @@ function SpendingBreakdownChart({
   data,
 }: {
   data: Array<{
-    bucket: string;
+    category: string;
     amount: number;
     sharePercentage: number;
   }>;
@@ -107,14 +107,14 @@ function SpendingBreakdownChart({
               dataKey="amount"
               innerRadius={62}
               isAnimationActive={false}
-              nameKey="bucket"
+              nameKey="category"
               outerRadius={104}
               paddingAngle={2}
             >
               {data.map((entry, index) => (
                 <Cell
                   fill={PIE_COLORS[index % PIE_COLORS.length]}
-                  key={`${entry.bucket}-${entry.amount}`}
+                  key={`${entry.category}-${entry.amount}`}
                 />
               ))}
             </Pie>
@@ -127,10 +127,10 @@ function SpendingBreakdownChart({
       </div>
 
       <div className="space-y-2">
-        {data.map((bucket, index) => (
+        {data.map((category, index) => (
           <div
             className="rounded-lg border bg-background px-3 py-2"
-            key={bucket.bucket}
+            key={category.category}
           >
             <div className="flex items-center gap-2">
               <span
@@ -139,11 +139,11 @@ function SpendingBreakdownChart({
                   backgroundColor: PIE_COLORS[index % PIE_COLORS.length],
                 }}
               />
-              <span className="font-medium">{bucket.bucket}</span>
+              <span className="font-medium">{category.category}</span>
             </div>
             <div className="mt-1 flex items-center justify-between gap-3 text-muted-foreground text-xs">
-              <span>{formatCurrency(bucket.amount)}</span>
-              <span>{bucket.sharePercentage.toFixed(1)}%</span>
+              <span>{formatCurrency(category.amount)}</span>
+              <span>{category.sharePercentage.toFixed(1)}%</span>
             </div>
           </div>
         ))}
@@ -244,8 +244,8 @@ export function FinanceChartResult({
             <MonthOverMonthChart data={chart.data} />
             {chart.truncated && (
               <div className="text-muted-foreground text-xs">
-                Showing the top {chart.bucketLimit} of{" "}
-                {chart.availableBucketCount} buckets.
+                Showing the top {chart.categoryLimit} of{" "}
+                {chart.availableCategoryCount} categories.
               </div>
             )}
           </CardContent>
@@ -269,7 +269,7 @@ export function FinanceChartResult({
             </Badge>
             {chart.truncated && (
               <Badge variant="outline">
-                Top {chart.bucketLimit} of {chart.availableBucketCount}
+                Top {chart.categoryLimit} of {chart.availableCategoryCount}
               </Badge>
             )}
           </div>
@@ -281,3 +281,4 @@ export function FinanceChartResult({
     </div>
   );
 }
+

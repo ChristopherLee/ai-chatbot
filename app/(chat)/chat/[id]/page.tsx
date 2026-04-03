@@ -5,7 +5,8 @@ import { Suspense } from "react";
 import { auth } from "@/app/(auth)/auth";
 import { Chat } from "@/components/chat";
 import { DataStreamHandler } from "@/components/data-stream-handler";
-import { DEFAULT_CHAT_MODEL } from "@/lib/ai/models";
+import { DEFAULT_CHAT_MODEL, getSavedChatModelId } from "@/lib/ai/models";
+import { getLlmBackend } from "@/lib/ai/providers";
 import {
   getChatById,
   getMessagesByChatId,
@@ -30,7 +31,12 @@ async function ChatPage({ params }: { params: Promise<{ id: string }> }) {
     redirect("/");
   }
 
-  const session = await auth();
+  const [session, cookieStore] = await Promise.all([auth(), cookies()]);
+  const showModelPicker = getLlmBackend() === "openrouter";
+  const initialChatModel = showModelPicker
+    ? (getSavedChatModelId(cookieStore.get("chat-model")?.value) ??
+      DEFAULT_CHAT_MODEL)
+    : DEFAULT_CHAT_MODEL;
 
   if (!session) {
     redirect("/api/auth/guest");
@@ -56,35 +62,12 @@ async function ChatPage({ params }: { params: Promise<{ id: string }> }) {
 
   const uiMessages = convertToUIMessages(messagesFromDb);
 
-  const cookieStore = await cookies();
-  const chatModelFromCookie = cookieStore.get("chat-model");
-
-  if (!chatModelFromCookie) {
-    return (
-      <>
-        <Chat
-          autoResume={true}
-          id={chat.id}
-          initialChatModel={DEFAULT_CHAT_MODEL}
-          initialFinanceSnapshot={financeSnapshot}
-          initialHasFinanceDataset={financeSnapshot.status !== "needs-upload"}
-          initialMessages={uiMessages}
-          initialVisibilityType={chat.visibility}
-          isReadonly={session?.user?.id !== chat.userId}
-          projectId={chat.projectId}
-          projectTitle={project?.title ?? null}
-        />
-        <DataStreamHandler />
-      </>
-    );
-  }
-
   return (
     <>
       <Chat
         autoResume={true}
         id={chat.id}
-        initialChatModel={chatModelFromCookie.value}
+        initialChatModel={initialChatModel}
         initialFinanceSnapshot={financeSnapshot}
         initialHasFinanceDataset={financeSnapshot.status !== "needs-upload"}
         initialMessages={uiMessages}
@@ -92,6 +75,7 @@ async function ChatPage({ params }: { params: Promise<{ id: string }> }) {
         isReadonly={session?.user?.id !== chat.userId}
         projectId={chat.projectId}
         projectTitle={project?.title ?? null}
+        showModelPicker={showModelPicker}
       />
       <DataStreamHandler />
     </>

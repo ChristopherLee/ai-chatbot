@@ -216,8 +216,8 @@ export const transaction = pgTable("Transaction", {
   tags: text("tags"),
   amountSigned: doublePrecision("amountSigned").notNull(),
   outflowAmount: doublePrecision("outflowAmount").notNull(),
-  mappedBucket: text("mappedBucket").notNull(),
-  bucketGroup: text("bucketGroup").notNull(),
+  mappedCategory: text("mappedCategory").notNull(),
+  categoryGroup: text("categoryGroup").notNull(),
   includeFlag: boolean("includeFlag").notNull().default(true),
   exclusionReason: text("exclusionReason"),
   notes: text("notes"),
@@ -268,3 +268,4 @@ export const financePlan = pgTable("FinancePlan", {
 });
 
 export type FinancePlan = InferSelectModel<typeof financePlan>;
+

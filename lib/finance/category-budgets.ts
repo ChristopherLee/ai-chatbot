@@ -1,23 +1,23 @@
 import type { FinanceOverride as StoredFinanceOverride } from "@/lib/db/schema";
-import { resolveBucketGroupFromBucket } from "./config";
+import { resolveCategoryGroupFromCategory } from "./config";
 import type { FinanceCategoryCard } from "./types";
 import { financeActionSchema } from "./types";
 import { roundCurrency, safeLower, toMonthKey } from "./utils";
 
 export type FinanceCurrentCategoryBudget = {
-  bucket: string;
+  category: string;
   amount: number;
   overrideId: string | null;
 };
 
 export type FinanceCurrentCategoryBudgetOverrideGroup =
   FinanceCurrentCategoryBudget & {
-    bucketKey: string;
+    categoryKey: string;
     overrideIds: string[];
   };
 
 export type FinanceCategoryBudgetSuggestion = {
-  bucket: string;
+  category: string;
   group: FinanceCategoryCard["group"];
   suggestedAmount: number;
   lastMonthActual: number;
@@ -26,7 +26,7 @@ export type FinanceCategoryBudgetSuggestion = {
 export function getCurrentCategoryBudgetOverrideGroups(
   overrides: StoredFinanceOverride[]
 ): FinanceCurrentCategoryBudgetOverrideGroup[] {
-  const latestByBucket = new Map<
+  const latestByCategory = new Map<
     string,
     FinanceCurrentCategoryBudgetOverrideGroup
   >();
@@ -34,7 +34,7 @@ export function getCurrentCategoryBudgetOverrideGroups(
   for (const override of overrides) {
     const parsed = financeActionSchema.safeParse(override.valueJson);
 
-    if (!parsed.success || parsed.data.type !== "set_bucket_monthly_target") {
+    if (!parsed.success || parsed.data.type !== "set_category_monthly_target") {
       continue;
     }
 
@@ -42,28 +42,28 @@ export function getCurrentCategoryBudgetOverrideGroups(
       continue;
     }
 
-    const bucketKey = safeLower(parsed.data.bucket);
-    const existing = latestByBucket.get(bucketKey);
+    const categoryKey = safeLower(parsed.data.category);
+    const existing = latestByCategory.get(categoryKey);
 
     if (existing) {
-      existing.bucket = parsed.data.bucket;
+      existing.category = parsed.data.category;
       existing.amount = roundCurrency(parsed.data.amount);
       existing.overrideId = override.id;
       existing.overrideIds.push(override.id);
       continue;
     }
 
-    latestByBucket.set(bucketKey, {
-      bucket: parsed.data.bucket,
-      bucketKey,
+    latestByCategory.set(categoryKey, {
+      category: parsed.data.category,
+      categoryKey,
       amount: roundCurrency(parsed.data.amount),
       overrideId: override.id,
       overrideIds: [override.id],
     });
   }
 
-  return [...latestByBucket.values()].sort((left, right) =>
-    left.bucket.localeCompare(right.bucket)
+  return [...latestByCategory.values()].sort((left, right) =>
+    left.category.localeCompare(right.category)
   );
 }
 
@@ -71,8 +71,8 @@ export function getCurrentCategoryBudgetOverrides(
   overrides: StoredFinanceOverride[]
 ): FinanceCurrentCategoryBudget[] {
   return getCurrentCategoryBudgetOverrideGroups(overrides).map(
-    ({ bucket, amount, overrideId }) => ({
-      bucket,
+    ({ category, amount, overrideId }) => ({
+      category,
       amount,
       overrideId,
     })
@@ -102,19 +102,19 @@ export function buildCategoryBudgetSuggestions({
   const currentMonth = latestTransactionDate
     ? toMonthKey(latestTransactionDate)
     : null;
-  const activeBuckets = new Set(
-    currentBudgets.map((budget) => safeLower(budget.bucket))
+  const activeCategories = new Set(
+    currentBudgets.map((budget) => safeLower(budget.category))
   );
 
   return categoryCards
-    .filter((card) => !activeBuckets.has(safeLower(card.bucket)))
+    .filter((card) => !activeCategories.has(safeLower(card.category)))
     .map((card) => {
       const currentMonthEntry = currentMonth
         ? card.monthly.find((entry) => entry.month === currentMonth)
         : null;
 
       return {
-        bucket: card.bucket,
+        category: card.category,
         group: card.group,
         suggestedAmount: roundCurrency(
           currentMonthEntry?.target ?? card.trailingAverage ?? 0
@@ -129,21 +129,22 @@ export function buildCategoryBudgetSuggestions({
 }
 
 export function resolveCategoryBudgetGroup({
-  bucket,
+  category,
   categoryCards,
 }: {
-  bucket: string;
+  category: string;
   categoryCards: FinanceCategoryCard[];
 }) {
   const matchingCard = categoryCards.find(
-    (card) => safeLower(card.bucket) === safeLower(bucket)
+    (card) => safeLower(card.category) === safeLower(category)
   );
 
   return (
     matchingCard?.group ??
-    resolveBucketGroupFromBucket({
-      bucket,
+    resolveCategoryGroupFromCategory({
+      category,
       includeFlag: true,
     })
   );
 }
+

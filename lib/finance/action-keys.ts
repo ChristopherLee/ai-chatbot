@@ -23,19 +23,10 @@ export function buildFinanceActionKey(action: FinanceAction) {
         match: normalizeMatchForKey(action.match),
         to: safeLower(action.to),
       })}`;
-    case "remap_raw_category":
-      return `remap_raw_category:${safeLower(action.from)}:${safeLower(action.to)}`;
     case "exclude_transactions":
       return `exclude_transactions:${JSON.stringify(normalizeMatchForKey(action.match))}`;
-    case "merge_buckets":
-      return `merge_buckets:${JSON.stringify({
-        from: action.from.map((value) => safeLower(value.trim())).sort(),
-        to: safeLower(action.to),
-      })}`;
-    case "rename_bucket":
-      return `rename_bucket:${safeLower(action.from)}:${safeLower(action.to)}`;
-    case "set_bucket_monthly_target":
-      return `set_bucket_monthly_target:${safeLower(action.bucket)}:${action.amount}:${action.effectiveMonth ?? "none"}`;
+    case "set_category_monthly_target":
+      return `set_category_monthly_target:${safeLower(action.category)}:${action.amount}:${action.effectiveMonth ?? "none"}`;
     case "set_plan_mode":
       return `set_plan_mode:${action.mode}`;
     default:

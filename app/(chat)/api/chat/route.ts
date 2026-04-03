@@ -13,12 +13,14 @@ import { auth, type UserType } from "@/app/(auth)/auth";
 import { getChatRuntimeMode } from "@/lib/ai/chat-runtime-mode";
 import { entitlementsByUserType } from "@/lib/ai/entitlements";
 import { logChatStreamFailure } from "@/lib/ai/logging";
-import {
-  filterPersistableMessages,
-  sanitizeUIMessagesForModel,
-} from "@/lib/ai/message-history";
+import { sanitizeUIMessagesForModel } from "@/lib/ai/message-history";
+import { planPersistableMessageWrites } from "@/lib/ai/message-persistence";
 import { type RequestHints, systemPrompt } from "@/lib/ai/prompts";
-import { getLanguageModel } from "@/lib/ai/providers";
+import {
+  getLanguageModel,
+  getLanguageModelProviderOptions,
+  isReasoningModelId,
+} from "@/lib/ai/providers";
 import {
   createStreamTimeout,
   isStreamTimeoutError,
@@ -29,6 +31,7 @@ import { getFinanceCategorizationMemoryTool } from "@/lib/ai/tools/get-finance-c
 import { getFinanceSnapshotTool } from "@/lib/ai/tools/get-finance-snapshot";
 import { getWeather } from "@/lib/ai/tools/get-weather";
 import { queryFinanceTransactions } from "@/lib/ai/tools/query-finance-transactions";
+import { refreshFinancePlan } from "@/lib/ai/tools/refresh-finance-plan";
 import { requestSuggestions } from "@/lib/ai/tools/request-suggestions";
 import { showFinanceChart } from "@/lib/ai/tools/show-finance-chart";
 import { updateDocument } from "@/lib/ai/tools/update-document";
@@ -71,6 +74,17 @@ function isGatewayActivationError(error: unknown) {
   );
 }
 
+function isGatewayInsufficientFundsError(error: unknown) {
+  return error instanceof Error && error.message.includes("Insufficient funds");
+}
+
+function isOpenRouterKeyLimitError(error: unknown) {
+  return (
+    error instanceof Error &&
+    error.message.includes("Key limit exceeded (total limit)")
+  );
+}
+
 function formatCurrency(value: number | null) {
   if (value === null) {
     return "Not set";
@@ -92,9 +106,13 @@ function buildFinanceFallbackMessage({
 }) {
   const intro = isGatewayActivationError(error)
     ? "The finance response is unavailable until AI Gateway is activated."
-    : isStreamTimeoutError(error)
-      ? "The finance response took too long, so here is the latest deterministic summary instead."
-      : "I ran into an issue while finishing the finance response. Here is the latest deterministic summary instead.";
+    : isGatewayInsufficientFundsError(error)
+      ? "The finance response is unavailable because AI Gateway is out of credits."
+      : isOpenRouterKeyLimitError(error)
+        ? "The finance response is unavailable because the configured OpenRouter key is over its limit."
+        : isStreamTimeoutError(error)
+          ? "The finance response took too long, so here is the latest deterministic summary instead."
+          : "I ran into an issue while finishing the finance response. Here is the latest deterministic summary instead.";
 
   if (!snapshot || snapshot.status === "needs-upload") {
     return `${intro}\n\nUpload a transaction CSV to begin.`;
@@ -110,11 +128,11 @@ function buildFinanceFallbackMessage({
     return `${intro}\n\nYour transactions are loaded, but I do not have a plan summary ready yet.`;
   }
 
-  const topBuckets = planSummary.bucketTargets
+  const topCategories = planSummary.categoryTargets
     .slice(0, 3)
     .map(
-      (bucket) =>
-        `${bucket.bucket} (${formatCurrency(bucket.monthlyTarget)}/mo)`
+      (category) =>
+        `${category.category} (${formatCurrency(category.monthlyTarget)}/mo)`
     )
     .join(", ");
 
@@ -126,10 +144,10 @@ function buildFinanceFallbackMessage({
   return `${intro}
 
 Total monthly budget: ${formatCurrency(snapshot.cashFlowSummary.totalMonthlyBudgetTarget)}
-Bucket allocations: ${formatCurrency(planSummary.totalMonthlyTarget)}
+Category allocations: ${formatCurrency(planSummary.totalMonthlyTarget)}
 Catch-all budget: ${formatCurrency(snapshot.cashFlowSummary.catchAllBudget)}
 Plan mode: ${planSummary.mode}
-Top buckets: ${topBuckets || "No included buckets yet."}
+Top categories: ${topCategories || "No included categories yet."}
 ${latestOverrides ? `Latest changes: ${latestOverrides}` : ""}
 
 You can keep chatting and I will continue applying finance changes even without the model-written explanation.`;
@@ -138,6 +156,14 @@ You can keep chatting and I will continue applying finance changes even without 
 function buildStreamErrorMessage(error: unknown) {
   if (isGatewayActivationError(error)) {
     return "The model could not respond because AI Gateway is not activated for this project yet. Once it is activated, you can retry this message.";
+  }
+
+  if (isGatewayInsufficientFundsError(error)) {
+    return "The model could not respond because AI Gateway is out of credits. Add credits in Vercel AI Gateway, then retry this message.";
+  }
+
+  if (isOpenRouterKeyLimitError(error)) {
+    return "The model could not respond because the configured OpenRouter key is over its limit. Recharge or replace that key, then retry this message.";
   }
 
   if (isStreamTimeoutError(error)) {
@@ -195,6 +221,7 @@ export async function POST(request: Request) {
     }
 
     const isToolApprovalFlow = Boolean(messages);
+    const incomingMessage = isToolApprovalFlow ? undefined : message;
 
     const chat = await getChatById({ id });
     let projectId = chat?.projectId ?? requestedProjectId ?? null;
@@ -209,7 +236,7 @@ export async function POST(request: Request) {
       if (!isToolApprovalFlow) {
         messagesFromDb = await getMessagesByChatId({ id });
       }
-    } else if (message?.role === "user") {
+    } else if (incomingMessage?.role === "user") {
       if (projectId) {
         const existingProject = await getProjectById({ id: projectId });
 
@@ -247,7 +274,7 @@ export async function POST(request: Request) {
         title: "New chat",
         visibility: selectedVisibilityType,
       });
-      titlePromise = generateTitleFromUserMessage({ message });
+      titlePromise = generateTitleFromUserMessage({ message: incomingMessage });
     } else if (projectId) {
       const existingProject = await getProjectById({ id: projectId });
 
@@ -265,7 +292,10 @@ export async function POST(request: Request) {
 
     const uiMessages = isToolApprovalFlow
       ? (messages as ChatMessage[])
-      : [...convertToUIMessages(messagesFromDb), message as ChatMessage];
+      : [
+          ...convertToUIMessages(messagesFromDb),
+          incomingMessage as ChatMessage,
+        ];
 
     const { longitude, latitude, city, country } = geolocation(request);
 
@@ -276,14 +306,14 @@ export async function POST(request: Request) {
       country,
     };
 
-    if (message?.role === "user") {
+    if (incomingMessage?.role === "user") {
       await saveMessages({
         messages: [
           {
             chatId: id,
-            id: message.id,
+            id: incomingMessage.id,
             role: "user",
-            parts: message.parts,
+            parts: incomingMessage.parts,
             attachments: [],
             createdAt: new Date(),
           },
@@ -291,9 +321,7 @@ export async function POST(request: Request) {
       });
     }
 
-    const isReasoningModel =
-      selectedChatModel.includes("reasoning") ||
-      selectedChatModel.includes("thinking");
+    const isReasoningModel = isReasoningModelId(selectedChatModel);
 
     const modelMessages = await convertToModelMessages(
       isToolApprovalFlow ? uiMessages : sanitizeUIMessagesForModel(uiMessages)
@@ -305,8 +333,7 @@ export async function POST(request: Request) {
       financeSnapshot = await getFinanceSnapshot({ projectId });
 
       if (
-        message?.role === "user" &&
-        !isToolApprovalFlow &&
+        incomingMessage?.role === "user" &&
         financeSnapshot.status === "needs-onboarding"
       ) {
         financeSnapshot = await recomputeFinanceSnapshot({ projectId });
@@ -362,26 +389,27 @@ You can use tools to inspect, visualize, or update the finance plan:
 Rules:
 - Never claim a change was applied unless you called a finance tool in this response and it succeeded.
 - Use getFinanceSnapshot whenever you need to inspect the latest full dashboard data in detail or after a tool changes the plan.
-- Use showFinanceChart when the user explicitly wants to see a visual, a trend line, a bucket comparison, or a current-month spending mix in the chat.
-- Use queryFinanceTransactions when you need transaction-level detail beyond the snapshot, such as keyword search, merchant lookups, current bucket filters, raw category filters, account filters, date windows, or amount ranges.
+- Use showFinanceChart when the user explicitly wants to see a visual, a trend line, a category comparison, or a current-month spending mix in the chat.
+- Use queryFinanceTransactions when you need transaction-level detail beyond the snapshot, such as keyword search, merchant lookups, current category filters, raw category filters, account filters, date windows, or amount ranges.
 - Use getFinanceCategorizationMemory before auditing likely miscategorizations or proposing categorization changes, so you can avoid already approved rules, one-off manual overrides, and explicitly denied guidance.
 - If the snapshot status is "needs-onboarding" and the user has provided enough context to start planning, call refreshFinancePlan before answering.
 - If the user asks for a plan change and it is specific enough to represent exactly, call applyFinanceActions.
 - If a requested change is ambiguous, ask a concise follow-up question instead of guessing.
-- For categorization and remapping requests, keep the source match and target bucket/category aligned with the user's exact request. Do not silently substitute a different merchant, raw category, or destination bucket.
+- For categorization requests, keep the source match and target category aligned with the user's exact request. Do not silently substitute a different merchant, raw category, or destination category.
+- If the user asks to rename or merge categories, explain that reusable rules now work by categorizing source transactions into the destination category instead of using separate rename or merge actions.
 - If you cannot represent the requested source or destination exactly, ask a concise clarification question instead of calling applyFinanceActions.
 - When the user refers to an entire raw category like Uncategorized, prefer an action with match.rawCategory using the exact category name from the snapshot.
 - When the user refers to a merchant or recurring transaction label like "Direct Debit Crosscountry", prefer a match-based categorization action instead of remapping the whole raw category.
 - When the user asks to review, audit, or find likely miscategorized transactions, inspect the snapshot and memory yourself instead of relying on a separate audit tool.
 - For deeper transaction investigations, prefer querying transactions directly over guessing from aggregate charts.
-- For miscategorization audits, focus on ambiguous buckets, inconsistent merchant placement, recurring merchants, and large outflows that do not fit their current bucket.
+- For miscategorization audits, focus on ambiguous categories, inconsistent merchant placement, recurring merchants, and large outflows that do not fit their current category.
 - Ignore transactions that already have one-off manual categorization overrides, and ignore rules that are already accepted.
 - Prefer categorize_transactions for stable recurring patterns. Use categorize_transaction only for isolated exceptions. Do not propose both a rule and a redundant one-off for the same transaction.
 - When you have one to four strong categorization candidates, call applyFinanceActions with those actions. The UI may ask the user to approve or deny them before anything is persisted.
 - If the user denies suggested categorization actions, use that feedback to continue the investigation, refine the proposal, or ask whether they want a deeper review.
 - After any finance tool call, summarize the result and any plan changes that occurred.
 - Do not invent transactions, categories, tool results, or chart values beyond the snapshot or tool outputs.
-- Distinguish between the user-set total monthly budget/income and the derived bucket allocations in the plan. The catch-all budget is whatever remains after bucket allocations.
+- Distinguish between the user-set total monthly budget/income and the derived category allocations in the plan. The catch-all budget is whatever remains after category allocations.
 
 Finance snapshot:
 ${JSON.stringify(resolvedFinanceSnapshot)}`,
@@ -409,24 +437,18 @@ ${JSON.stringify(resolvedFinanceSnapshot)}`,
               showFinanceChart: showFinanceChart({ projectId }),
               applyFinanceActions: applyFinanceActions({ projectId }),
             },
-            providerOptions: isReasoningModel
-              ? {
-                  anthropic: {
-                    thinking: { type: "enabled", budgetTokens: 10_000 },
-                  },
-                }
-              : undefined,
+            providerOptions: getLanguageModelProviderOptions(selectedChatModel),
             experimental_telemetry: {
               isEnabled: isProductionEnvironment,
               functionId: "finance-stream-text",
             },
-            onAbort: async () => {
+            onAbort: () => {
               streamTimeout.clear();
             },
-            onError: async () => {
+            onError: () => {
               streamTimeout.clear();
             },
-            onFinish: async () => {
+            onFinish: () => {
               streamTimeout.clear();
             },
           });
@@ -469,13 +491,7 @@ ${JSON.stringify(resolvedFinanceSnapshot)}`,
                 "updateDocument",
                 "requestSuggestions",
               ],
-          providerOptions: isReasoningModel
-            ? {
-                anthropic: {
-                  thinking: { type: "enabled", budgetTokens: 10_000 },
-                },
-              }
-            : undefined,
+          providerOptions: getLanguageModelProviderOptions(selectedChatModel),
           tools: {
             getWeather,
             createDocument: createDocument({ session, dataStream }),
@@ -486,13 +502,13 @@ ${JSON.stringify(resolvedFinanceSnapshot)}`,
             isEnabled: isProductionEnvironment,
             functionId: "stream-text",
           },
-          onAbort: async () => {
+          onAbort: () => {
             streamTimeout.clear();
           },
-          onError: async () => {
+          onError: () => {
             streamTimeout.clear();
           },
-          onFinish: async () => {
+          onFinish: () => {
             streamTimeout.clear();
           },
         });
@@ -518,36 +534,21 @@ ${JSON.stringify(resolvedFinanceSnapshot)}`,
       },
       generateId: generateUUID,
       onFinish: async ({ messages: finishedMessages }) => {
-        const persistableMessages = filterPersistableMessages(
-          finishedMessages as ChatMessage[]
-        );
+        const { inserts, updates } = planPersistableMessageWrites({
+          existingMessages: uiMessages,
+          finishedMessages: finishedMessages as ChatMessage[],
+        });
 
-        if (isToolApprovalFlow) {
-          for (const finishedMsg of persistableMessages) {
-            const existingMsg = uiMessages.find((m) => m.id === finishedMsg.id);
-            if (existingMsg) {
-              await updateMessage({
-                id: finishedMsg.id,
-                parts: finishedMsg.parts,
-              });
-            } else {
-              await saveMessages({
-                messages: [
-                  {
-                    id: finishedMsg.id,
-                    role: finishedMsg.role,
-                    parts: finishedMsg.parts,
-                    createdAt: new Date(),
-                    attachments: [],
-                    chatId: id,
-                  },
-                ],
-              });
-            }
-          }
-        } else if (persistableMessages.length > 0) {
+        for (const finishedMsg of updates) {
+          await updateMessage({
+            id: finishedMsg.id,
+            parts: finishedMsg.parts,
+          });
+        }
+
+        if (inserts.length > 0) {
           await saveMessages({
-            messages: persistableMessages.map((currentMessage) => ({
+            messages: inserts.map((currentMessage) => ({
               id: currentMessage.id,
               role: currentMessage.role,
               parts: currentMessage.parts,

@@ -281,8 +281,8 @@ export async function buildNeedsOnboardingSnapshot({
         description: transaction.description,
         merchant: transaction.normalizedMerchant,
         amount: transaction.outflowAmount,
-        bucket: transaction.mappedBucket,
-        group: transaction.bucketGroup,
+        category: transaction.mappedCategory,
+        group: transaction.categoryGroup,
       })),
     appliedOverrides: buildAppliedOverrides(
       context.overrides,

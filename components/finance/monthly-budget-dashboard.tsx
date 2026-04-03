@@ -710,7 +710,7 @@ function LargestTransactionsCard({
                   {item.merchant || item.description}
                 </div>
                 <div className="mt-1 text-slate-400 text-sm">
-                  {item.transactionDate} · {item.bucket}
+                  {item.transactionDate} · {item.category}
                 </div>
               </div>
               <div className="shrink-0 font-semibold text-white">

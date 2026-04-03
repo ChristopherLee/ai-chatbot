@@ -1,4 +1,4 @@
-import type { BucketGroup, FinanceAction } from "./types";
+import type { CategoryGroup, FinanceAction } from "./types";
 
 export const EXPECTED_TRANSACTION_HEADERS = [
   "Date",
@@ -29,7 +29,7 @@ export const NON_INCOME_RAW_CATEGORIES = new Set([
   "Securities Trades",
 ]);
 
-export const RAW_CATEGORY_BUCKET_MAP: Record<string, string> = {
+export const RAW_CATEGORY_CATEGORY_MAP: Record<string, string> = {
   Restaurants: "Dining",
   Groceries: "Groceries",
   Travel: "Transport + Travel",
@@ -46,7 +46,7 @@ export const RAW_CATEGORY_BUCKET_MAP: Record<string, string> = {
   "Service Charges/Fees": "Other / Misc",
 };
 
-export const FIXED_BUCKETS = new Set([
+export const FIXED_CATEGORIES = new Set([
   "Mortgage",
   "Utilities",
   "Insurance",
@@ -55,7 +55,7 @@ export const FIXED_BUCKETS = new Set([
   "Subscriptions",
 ]);
 
-export const FLEXIBLE_BUCKETS = new Set([
+export const FLEXIBLE_CATEGORIES = new Set([
   "Groceries",
   "Dining",
   "Household",
@@ -65,7 +65,7 @@ export const FLEXIBLE_BUCKETS = new Set([
   "Transport + Travel",
 ]);
 
-export const ANNUAL_BUCKETS = new Set([
+export const ANNUAL_CATEGORIES = new Set([
   "Travel",
   "Transport + Travel",
   "Gifts",
@@ -86,32 +86,32 @@ export function getDefaultFinanceExclusionActions(): Extract<
   }));
 }
 
-export function getDefaultMappedBucket(rawCategory: string) {
-  return RAW_CATEGORY_BUCKET_MAP[rawCategory] ?? rawCategory;
+export function getDefaultMappedCategory(rawCategory: string) {
+  return RAW_CATEGORY_CATEGORY_MAP[rawCategory] ?? rawCategory;
 }
 
-export function resolveBucketGroupFromBucket({
-  bucket,
+export function resolveCategoryGroupFromCategory({
+  category,
   includeFlag,
   activeMonths,
 }: {
-  bucket: string;
+  category: string;
   includeFlag: boolean;
   activeMonths?: number;
-}): BucketGroup {
+}): CategoryGroup {
   if (!includeFlag) {
     return "excluded";
   }
 
-  if (FIXED_BUCKETS.has(bucket)) {
+  if (FIXED_CATEGORIES.has(category)) {
     return "fixed";
   }
 
-  if (ANNUAL_BUCKETS.has(bucket)) {
+  if (ANNUAL_CATEGORIES.has(category)) {
     return "annual";
   }
 
-  if (FLEXIBLE_BUCKETS.has(bucket)) {
+  if (FLEXIBLE_CATEGORIES.has(category)) {
     return "flexible";
   }
 

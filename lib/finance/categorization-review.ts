@@ -26,10 +26,10 @@ import {
 } from "./categorization-review-shared";
 import { categorizeTransactions } from "./categorize";
 import {
-  ANNUAL_BUCKETS,
-  FIXED_BUCKETS,
-  FLEXIBLE_BUCKETS,
-  RAW_CATEGORY_BUCKET_MAP,
+  ANNUAL_CATEGORIES,
+  FIXED_CATEGORIES,
+  FLEXIBLE_CATEGORIES,
+  RAW_CATEGORY_CATEGORY_MAP,
 } from "./config";
 import {
   getFinanceActionsFromOverrides,
@@ -54,7 +54,7 @@ const reviewDraftRuleSchema = z.object({
 const reviewDraftTransactionSchema = z.object({
   transactionId: z.string().uuid(),
   rationale: z.string().min(1),
-  suggestedBucket: z.string().min(1),
+  suggestedCategory: z.string().min(1),
 });
 
 const reviewDraftSchema = z.object({
@@ -68,7 +68,7 @@ type ReviewCandidateTransaction = Pick<
   | "description"
   | "id"
   | "includeFlag"
-  | "mappedBucket"
+  | "mappedCategory"
   | "normalizedMerchant"
   | "outflowAmount"
   | "rawCategory"
@@ -89,35 +89,35 @@ const AMBIGUOUS_RAW_CATEGORIES = new Set([
   "Uncategorized",
 ]);
 
-const KEYWORD_BUCKET_HINTS = [
+const KEYWORD_CATEGORY_HINTS = [
   {
     pattern: /mortgage|crosscountry|newrez|chase ach|jpmorgan chase/i,
-    bucket: "Mortgage",
+    category: "Mortgage",
   },
-  { pattern: /insurance|geico|liberty mutual|travelers/i, bucket: "Insurance" },
+  { pattern: /insurance|geico|liberty mutual|travelers/i, category: "Insurance" },
   {
     pattern: /electric|energy|water|gas|utility|eversource|comcast|verizon/i,
-    bucket: "Utilities",
+    category: "Utilities",
   },
   {
     pattern:
       /whole foods|trader joe|market basket|stop & shop|costco|instacart/i,
-    bucket: "Groceries",
+    category: "Groceries",
   },
   {
     pattern: /restaurant|pizza|cafe|coffee|doordash|uber eats|grubhub/i,
-    bucket: "Dining",
+    category: "Dining",
   },
 ];
 
-function buildAvailableBuckets(transactions: ReviewCandidateTransaction[]) {
+function buildAvailableCategories(transactions: ReviewCandidateTransaction[]) {
   return Array.from(
     new Set([
-      ...Object.values(RAW_CATEGORY_BUCKET_MAP),
-      ...Array.from(FIXED_BUCKETS),
-      ...Array.from(FLEXIBLE_BUCKETS),
-      ...Array.from(ANNUAL_BUCKETS),
-      ...transactions.map((transaction) => transaction.mappedBucket),
+      ...Object.values(RAW_CATEGORY_CATEGORY_MAP),
+      ...Array.from(FIXED_CATEGORIES),
+      ...Array.from(FLEXIBLE_CATEGORIES),
+      ...Array.from(ANNUAL_CATEGORIES),
+      ...transactions.map((transaction) => transaction.mappedCategory),
     ])
   ).sort((first, second) => first.localeCompare(second));
 }
@@ -212,16 +212,16 @@ function transactionMatchesReviewMatch(
   return true;
 }
 
-function resolveBucketName(value: string, availableBuckets: string[]) {
+function resolveCategoryName(value: string, availableCategories: string[]) {
   const normalized = value.trim().toLowerCase();
 
   return (
-    availableBuckets.find((bucket) => bucket.toLowerCase() === normalized) ??
-    availableBuckets.find((bucket) =>
-      bucket.toLowerCase().includes(normalized)
+    availableCategories.find((category) => category.toLowerCase() === normalized) ??
+    availableCategories.find((category) =>
+      category.toLowerCase().includes(normalized)
     ) ??
-    availableBuckets.find((bucket) =>
-      normalized.includes(bucket.toLowerCase())
+    availableCategories.find((category) =>
+      normalized.includes(category.toLowerCase())
     ) ??
     value.trim()
   );
@@ -235,7 +235,7 @@ function buildReviewCandidateTransactions(
   );
   const ambiguousTransactions = includedTransactions.filter(
     (transaction) =>
-      transaction.mappedBucket === "Other / Misc" ||
+      transaction.mappedCategory === "Other / Misc" ||
       AMBIGUOUS_RAW_CATEGORIES.has(transaction.rawCategory)
   );
   const largestTransactions = [...includedTransactions]
@@ -272,16 +272,16 @@ function buildMerchantSummaries(
         const current = map.get(transaction.normalizedMerchant) ?? {
           merchant: transaction.normalizedMerchant,
           accounts: new Set<string>(),
-          buckets: new Map<string, number>(),
+          categories: new Map<string, number>(),
           descriptions: new Set<string>(),
           count: 0,
           totalOutflow: 0,
         };
 
         current.accounts.add(transaction.account);
-        current.buckets.set(
-          transaction.mappedBucket,
-          (current.buckets.get(transaction.mappedBucket) ?? 0) + 1
+        current.categories.set(
+          transaction.mappedCategory,
+          (current.categories.get(transaction.mappedCategory) ?? 0) + 1
         );
         current.descriptions.add(transaction.description);
         current.count += 1;
@@ -296,7 +296,7 @@ function buildMerchantSummaries(
         {
           merchant: string;
           accounts: Set<string>;
-          buckets: Map<string, number>;
+          categories: Map<string, number>;
           descriptions: Set<string>;
           count: number;
           totalOutflow: number;
@@ -307,8 +307,8 @@ function buildMerchantSummaries(
     .map(([, value]) => ({
       merchant: value.merchant,
       accounts: Array.from(value.accounts),
-      buckets: Array.from(value.buckets.entries())
-        .map(([bucket, count]) => ({ bucket, count }))
+      categories: Array.from(value.categories.entries())
+        .map(([category, count]) => ({ category, count }))
         .sort((first, second) => second.count - first.count),
       descriptions: Array.from(value.descriptions).slice(0, 4),
       count: value.count,
@@ -319,10 +319,10 @@ function buildMerchantSummaries(
 }
 
 function buildHeuristicReviewDraft({
-  availableBuckets,
+  availableCategories,
   candidateTransactions,
 }: {
-  availableBuckets: string[];
+  availableCategories: string[];
   candidateTransactions: ReviewCandidateTransaction[];
 }) {
   const ruleSuggestions: z.infer<typeof reviewDraftRuleSchema>[] = [];
@@ -331,7 +331,7 @@ function buildHeuristicReviewDraft({
   const seenRuleKeys = new Set<string>();
 
   for (const transaction of candidateTransactions) {
-    const matchedHint = KEYWORD_BUCKET_HINTS.find((hint) =>
+    const matchedHint = KEYWORD_CATEGORY_HINTS.find((hint) =>
       hint.pattern.test(
         `${transaction.normalizedMerchant} ${transaction.description}`
       )
@@ -341,14 +341,14 @@ function buildHeuristicReviewDraft({
       continue;
     }
 
-    const suggestedBucket = resolveBucketName(
-      matchedHint.bucket,
-      availableBuckets
+    const suggestedCategory = resolveCategoryName(
+      matchedHint.category,
+      availableCategories
     );
 
     if (
-      !suggestedBucket ||
-      safeLower(suggestedBucket) === safeLower(transaction.mappedBucket)
+      !suggestedCategory ||
+      safeLower(suggestedCategory) === safeLower(transaction.mappedCategory)
     ) {
       continue;
     }
@@ -358,13 +358,13 @@ function buildHeuristicReviewDraft({
       match: {
         merchant: transaction.normalizedMerchant,
       },
-      to: suggestedBucket,
+      to: suggestedCategory,
     };
     const key = buildFinanceActionReviewKey(action);
 
     if (!seenRuleKeys.has(key)) {
       ruleSuggestions.push({
-        rationale: `This merchant looks like it belongs under ${suggestedBucket}.`,
+        rationale: `This merchant looks like it belongs under ${suggestedCategory}.`,
         action,
       });
       seenRuleKeys.add(key);
@@ -372,8 +372,8 @@ function buildHeuristicReviewDraft({
 
     transactionSuggestions.push({
       transactionId: transaction.id,
-      rationale: `This transaction looks like ${suggestedBucket} instead of ${transaction.mappedBucket}.`,
-      suggestedBucket,
+      rationale: `This transaction looks like ${suggestedCategory} instead of ${transaction.mappedCategory}.`,
+      suggestedCategory,
     });
   }
 
@@ -411,8 +411,7 @@ function buildAcceptedMemoryItems(overrides: FinanceOverride[]) {
       if (
         !action ||
         (action.type !== "categorize_transactions" &&
-          action.type !== "categorize_transaction" &&
-          action.type !== "remap_raw_category")
+          action.type !== "categorize_transaction")
       ) {
         return null;
       }
@@ -471,14 +470,14 @@ function filterSuggestionsAgainstMemory({
 
 function enrichRuleSuggestion({
   action,
-  availableBuckets,
+  availableCategories,
   categorizedTransactions,
   existingCategorizationRules,
   index,
   rationale,
 }: {
   action: z.infer<typeof categorizeTransactionsActionSchema>;
-  availableBuckets: string[];
+  availableCategories: string[];
   categorizedTransactions: ReviewCandidateTransaction[];
   existingCategorizationRules: ExistingCategorizationRule[];
   index: number;
@@ -486,12 +485,12 @@ function enrichRuleSuggestion({
 }): FinanceCategorizationRuleSuggestion | null {
   const resolvedAction = {
     ...action,
-    to: resolveBucketName(action.to, availableBuckets),
+    to: resolveCategoryName(action.to, availableCategories),
   };
 
   if (
-    !availableBuckets.some(
-      (bucket) => safeLower(bucket) === safeLower(resolvedAction.to)
+    !availableCategories.some(
+      (category) => safeLower(category) === safeLower(resolvedAction.to)
     )
   ) {
     return null;
@@ -505,7 +504,7 @@ function enrichRuleSuggestion({
     matchedTransactions.length === 0 ||
     matchedTransactions.every(
       (transaction) =>
-        safeLower(transaction.mappedBucket) === safeLower(resolvedAction.to)
+        safeLower(transaction.mappedCategory) === safeLower(resolvedAction.to)
     )
   ) {
     return null;
@@ -538,20 +537,20 @@ function enrichRuleSuggestion({
 }
 
 function enrichTransactionSuggestion({
-  availableBuckets,
+  availableCategories,
   categorizedTransactions,
   candidateTransactions,
   index,
   rationale,
-  suggestedBucket,
+  suggestedCategory,
   transactionId,
 }: {
-  availableBuckets: string[];
+  availableCategories: string[];
   categorizedTransactions: ReviewCandidateTransaction[];
   candidateTransactions: ReviewCandidateTransaction[];
   index: number;
   rationale: string;
-  suggestedBucket: string;
+  suggestedCategory: string;
   transactionId: string;
 }): FinanceCategorizationTransactionSuggestion | null {
   const transaction = categorizedTransactions.find(
@@ -562,16 +561,16 @@ function enrichTransactionSuggestion({
     return null;
   }
 
-  const resolvedBucket = resolveBucketName(suggestedBucket, availableBuckets);
+  const resolvedCategory = resolveCategoryName(suggestedCategory, availableCategories);
 
   if (
-    !availableBuckets.some(
-      (bucket) => safeLower(bucket) === safeLower(resolvedBucket)
+    !availableCategories.some(
+      (category) => safeLower(category) === safeLower(resolvedCategory)
     ) ||
     !candidateTransactions.some(
       (candidateTransaction) => candidateTransaction.id === transactionId
     ) ||
-    safeLower(transaction.mappedBucket) === safeLower(resolvedBucket)
+    safeLower(transaction.mappedCategory) === safeLower(resolvedCategory)
   ) {
     return null;
   }
@@ -579,13 +578,13 @@ function enrichTransactionSuggestion({
   const action = {
     type: "categorize_transaction" as const,
     transactionId: transaction.id,
-    to: resolvedBucket,
+    to: resolvedCategory,
   };
 
   return {
     id: `transaction-${index + 1}`,
     key: buildTransactionSuggestionKey(action),
-    summary: `Categorize ${transaction.normalizedMerchant} on ${transaction.transactionDate} as ${resolvedBucket}`,
+    summary: `Categorize ${transaction.normalizedMerchant} on ${transaction.transactionDate} as ${resolvedCategory}`,
     rationale,
     transactionId: transaction.id,
     transactionDate: transaction.transactionDate,
@@ -593,9 +592,9 @@ function enrichTransactionSuggestion({
     merchant: transaction.normalizedMerchant,
     account: transaction.account,
     amount: transaction.outflowAmount,
-    currentBucket: transaction.mappedBucket,
+    currentCategory: transaction.mappedCategory,
     rawCategory: transaction.rawCategory,
-    suggestedBucket: resolvedBucket,
+    suggestedCategory: resolvedCategory,
     matchingRuleIds: [] as string[],
     action,
   } satisfies FinanceCategorizationTransactionSuggestion;
@@ -613,14 +612,14 @@ function attachMatchingRules({
     matchingRuleIds: suggestedRules
       .filter(
         (rule) =>
-          safeLower(rule.action.to) === safeLower(suggestion.suggestedBucket) &&
+          safeLower(rule.action.to) === safeLower(suggestion.suggestedCategory) &&
           transactionMatchesReviewMatch(
             {
               account: suggestion.account,
               description: suggestion.description,
               id: suggestion.transactionId,
               includeFlag: true,
-              mappedBucket: suggestion.currentBucket,
+              mappedCategory: suggestion.currentCategory,
               normalizedMerchant: suggestion.merchant,
               outflowAmount: suggestion.amount,
               rawCategory: suggestion.rawCategory,
@@ -689,7 +688,7 @@ export async function findMiscategorizedTransactions({
   const candidateTransactions = buildReviewCandidateTransactions(
     categorizedTransactions
   );
-  const availableBuckets = buildAvailableBuckets(categorizedTransactions);
+  const availableCategories = buildAvailableCategories(categorizedTransactions);
   const merchantSummaries = buildMerchantSummaries(
     categorizedTransactions,
     candidateTransactions
@@ -710,7 +709,7 @@ export async function findMiscategorizedTransactions({
 
   const draft = isTestEnvironment
     ? buildHeuristicReviewDraft({
-        availableBuckets,
+        availableCategories,
         candidateTransactions,
       })
     : await (async () => {
@@ -721,20 +720,20 @@ export async function findMiscategorizedTransactions({
             system: `You audit finance transactions for likely miscategorizations.
 
 Only suggest rules that can be safely saved going forward.
-- Use categorize_transactions only when the same merchant, description pattern, or account-scoped pattern reliably maps to one bucket.
+- Use categorize_transactions only when the same merchant, description pattern, or account-scoped pattern reliably maps to one category.
 - If a transaction looks wrong but the pattern is not stable enough for a reusable rule, suggest it only as a one-off transaction suggestion.
 - Never suggest a rule or transaction if it is already accepted or explicitly denied.
-- Use only the allowed bucket names.
+- Use only the allowed category names.
 - Favor high-confidence suggestions and keep the list short.
-- If an existing categorization rule has the right match pattern but the wrong destination bucket, suggest the corrected rule using the same stable match so it can replace the outdated rule.
-- Never suggest changing a transaction to its current bucket.`,
+- If an existing categorization rule has the right match pattern but the wrong destination category, suggest the corrected rule using the same stable match so it can replace the outdated rule.
+- Never suggest changing a transaction to its current category.`,
             prompt: JSON.stringify({
-              allowedBuckets: availableBuckets,
+              allowedCategories: availableCategories,
               candidateTransactions: candidateTransactions.map(
                 (transaction) => ({
                   account: transaction.account,
                   amount: transaction.outflowAmount,
-                  currentBucket: transaction.mappedBucket,
+                  currentCategory: transaction.mappedCategory,
                   description: transaction.description,
                   id: transaction.id,
                   merchant: transaction.normalizedMerchant,
@@ -776,7 +775,7 @@ Only suggest rules that can be safely saved going forward.
           return object;
         } catch (_error) {
           return buildHeuristicReviewDraft({
-            availableBuckets,
+            availableCategories,
             candidateTransactions,
           });
         }
@@ -786,7 +785,7 @@ Only suggest rules that can be safely saved going forward.
     .map((suggestion, index) =>
       enrichRuleSuggestion({
         action: suggestion.action,
-        availableBuckets,
+        availableCategories,
         categorizedTransactions,
         existingCategorizationRules,
         index,
@@ -802,12 +801,12 @@ Only suggest rules that can be safely saved going forward.
   const suggestedTransactions = draft.transactionSuggestions
     .map((suggestion, index) =>
       enrichTransactionSuggestion({
-        availableBuckets,
+        availableCategories,
         categorizedTransactions,
         candidateTransactions,
         index,
         rationale: suggestion.rationale,
-        suggestedBucket: suggestion.suggestedBucket,
+        suggestedCategory: suggestion.suggestedCategory,
         transactionId: suggestion.transactionId,
       })
     )
@@ -877,11 +876,9 @@ export async function persistFinanceCategorizationSelections({
           FinanceAction,
           | { type: "categorize_transaction" }
           | { type: "categorize_transactions" }
-          | { type: "remap_raw_category" }
         > =>
           action.type === "categorize_transaction" ||
-          action.type === "categorize_transactions" ||
-          action.type === "remap_raw_category"
+          action.type === "categorize_transactions"
       )
       .map((action) => buildFinanceActionReviewKey(action))
   );
@@ -1022,3 +1019,4 @@ export async function persistFinanceCategorizationSelections({
         : await getFinanceSnapshot({ projectId })),
   };
 }
+

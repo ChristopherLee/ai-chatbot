@@ -8,8 +8,8 @@ import type { Transaction } from "@/lib/db/schema";
 import { ChatSDKError } from "@/lib/errors";
 import {
   EXPECTED_TRANSACTION_HEADERS,
-  getDefaultMappedBucket,
-  resolveBucketGroupFromBucket,
+  getDefaultMappedCategory,
+  resolveCategoryGroupFromCategory,
 } from "./config";
 import {
   formatMonthForTitle,
@@ -339,7 +339,7 @@ export async function parseTransactionsCsv({
     );
     const outflowAmount =
       amountSigned < 0 ? roundCurrency(Math.abs(amountSigned)) : 0;
-    const mappedBucket = getDefaultMappedBucket(rawCategory);
+    const mappedCategory = getDefaultMappedCategory(rawCategory);
 
     return {
       projectId,
@@ -351,9 +351,9 @@ export async function parseTransactionsCsv({
       tags: tags.length > 0 ? tags : null,
       amountSigned,
       outflowAmount,
-      mappedBucket,
-      bucketGroup: resolveBucketGroupFromBucket({
-        bucket: mappedBucket,
+      mappedCategory,
+      categoryGroup: resolveCategoryGroupFromCategory({
+        category: mappedCategory,
         includeFlag: true,
       }),
       includeFlag: true,
@@ -386,3 +386,4 @@ export async function parseTransactionsCsv({
     transactions,
   };
 }
+

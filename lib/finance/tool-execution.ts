@@ -35,11 +35,11 @@ function buildSnapshotSummary(snapshot: FinanceSnapshot) {
     historicalAverageMonthlySpend:
       snapshot.cashFlowSummary.historicalAverageMonthlySpend,
     trailingAverageSpend: snapshot.planSummary?.trailingAverageSpend ?? null,
-    topBuckets:
-      snapshot.planSummary?.bucketTargets.slice(0, 5).map((bucket) => ({
-        bucket: bucket.bucket,
-        group: bucket.group,
-        monthlyTarget: bucket.monthlyTarget,
+    topCategories:
+      snapshot.planSummary?.categoryTargets.slice(0, 5).map((category) => ({
+        category: category.category,
+        group: category.group,
+        monthlyTarget: category.monthlyTarget,
       })) ?? [],
   };
 }
@@ -177,6 +177,19 @@ export async function getFinanceSnapshotForChat({
   projectId: string;
 }) {
   const snapshot = await getFinanceSnapshot({ projectId });
+
+  return {
+    current: buildSnapshotSummary(snapshot),
+    snapshot,
+  };
+}
+
+export async function refreshFinancePlanForChat({
+  projectId,
+}: {
+  projectId: string;
+}) {
+  const snapshot = await recomputeFinanceSnapshot({ projectId });
 
   return {
     current: buildSnapshotSummary(snapshot),

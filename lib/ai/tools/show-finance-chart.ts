@@ -10,13 +10,13 @@ export const showFinanceChart = ({ projectId }: { projectId: string }) =>
   tool({
     description: `Render a finance chart directly in the chat for the current project.
 
-Use this when the user asks to visualize spend over time, compare the current month to last month, or see a monthly spending breakdown by bucket.
+Use this when the user asks to visualize spend over time, compare the current month to last month, or see a monthly spending breakdown by category.
 
 Available chart types:
 - monthly-spend: monthly actual spend vs target
 - cumulative-spend: cumulative actual spend vs target pace
-- month-over-month: current month vs previous month by bucket
-- spending-breakdown: current month spending mix by bucket`,
+- month-over-month: current month vs previous month by category
+- spending-breakdown: current month spending mix by category`,
     inputSchema: financeChartInputSchema,
     execute: withToolErrorLogging({
       toolName: "showFinanceChart",

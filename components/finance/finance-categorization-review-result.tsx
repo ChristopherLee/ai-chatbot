@@ -399,7 +399,7 @@ export function FinanceCategorizationReviewResult({
                     {formatCurrency(transaction.amount)}
                   </Badge>
                   <Badge variant="outline">
-                    {transaction.currentBucket} → {transaction.suggestedBucket}
+                    {transaction.currentCategory} → {transaction.suggestedCategory}
                   </Badge>
                   {coveredBySelectedRule && (
                     <Badge
@@ -441,3 +441,4 @@ export function FinanceCategorizationReviewResult({
     </div>
   );
 }
+

@@ -55,12 +55,18 @@ test.describe("Chat API Integration", () => {
 });
 
 test.describe("Chat Error Handling", () => {
-  test("handles API error gracefully", async ({ page }) => {
+  test("shows loading and error feedback when the API request fails", async ({
+    page,
+  }) => {
     await page.route("**/api/chat", async (route) => {
+      await page.waitForTimeout(750);
       await route.fulfill({
-        status: 500,
+        status: 503,
         contentType: "application/json",
-        body: JSON.stringify({ error: "Internal server error" }),
+        body: JSON.stringify({
+          code: "offline:chat",
+          cause: "Mock chat failure",
+        }),
       });
     });
 
@@ -69,10 +75,17 @@ test.describe("Chat Error Handling", () => {
     await input.fill("Test error");
     await page.getByTestId("send-button").click();
 
-    // Should show error toast or message
-    await expect(page.getByText(ERROR_TEXT_REGEX).first()).toBeVisible({
+    await expect(page.getByTestId("stop-button")).toBeVisible({
       timeout: 5000,
     });
+
+    await expect(page.getByTestId("message-assistant-loading")).toBeVisible({
+      timeout: 5000,
+    });
+
+    const issueBanner = page.getByTestId("chat-issue-banner");
+    await expect(issueBanner).toBeVisible({ timeout: 5000 });
+    await expect(issueBanner).toContainText(ERROR_TEXT_REGEX);
   });
 });
 

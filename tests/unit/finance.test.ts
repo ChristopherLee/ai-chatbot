@@ -78,10 +78,10 @@ test("Default categorization excludes transfer-like rows and maps common categor
 
   assert.ok(transfer);
   assert.equal(transfer.includeFlag, false);
-  assert.equal(transfer.bucketGroup, "excluded");
+  assert.equal(transfer.categoryGroup, "excluded");
 
   assert.ok(restaurant);
-  assert.equal(restaurant.mappedBucket, "Dining");
+  assert.equal(restaurant.mappedCategory, "Dining");
   assert.equal(restaurant.includeFlag, true);
 });
 
@@ -175,9 +175,9 @@ test("Heuristic actions prefer match-based categorization for merchant labels", 
         flexible: 0,
         annual: 0,
       },
-      bucketTargets: [
+      categoryTargets: [
         {
-          bucket: "Mortgage",
+          category: "Mortgage",
           group: "fixed",
           monthlyTarget: 3000,
           trailingAverage: 3000,
@@ -209,7 +209,7 @@ test("Heuristic actions prefer match-based categorization for merchant labels", 
   ]);
 });
 
-test("Heuristic actions preserve the user's requested destination bucket name", () => {
+test("Heuristic actions preserve the user's requested destination category name", () => {
   const snapshot: FinanceSnapshot = {
     status: "ready",
     cashFlowSummary: {
@@ -262,16 +262,16 @@ test("Heuristic actions preserve the user's requested destination bucket name", 
         flexible: 1500,
         annual: 0,
       },
-      bucketTargets: [
+      categoryTargets: [
         {
-          bucket: "Household",
+          category: "Household",
           group: "flexible",
           monthlyTarget: 500,
           trailingAverage: 500,
           trailingTotal: 500,
         },
         {
-          bucket: "Electronics",
+          category: "Electronics",
           group: "flexible",
           monthlyTarget: 200,
           trailingAverage: 200,
@@ -337,12 +337,12 @@ test("Match-based categorization only updates matching transactions", async () =
   );
 
   assert.ok(crosscountry);
-  assert.equal(crosscountry.mappedBucket, "Mortgage");
-  assert.equal(crosscountry.bucketGroup, "fixed");
+  assert.equal(crosscountry.mappedCategory, "Mortgage");
+  assert.equal(crosscountry.categoryGroup, "fixed");
 
   assert.ok(otherExpense);
-  assert.equal(otherExpense.mappedBucket, "Other / Misc");
-  assert.equal(otherExpense.bucketGroup, "flexible");
+  assert.equal(otherExpense.mappedCategory, "Other / Misc");
+  assert.equal(otherExpense.categoryGroup, "flexible");
 });
 
 test("Single-transaction categorization only updates the targeted transaction", async () => {
@@ -384,11 +384,11 @@ test("Single-transaction categorization only updates the targeted transaction", 
   );
 
   assert.ok(updatedTransaction);
-  assert.equal(updatedTransaction.mappedBucket, "Mortgage");
-  assert.equal(updatedTransaction.bucketGroup, "fixed");
+  assert.equal(updatedTransaction.mappedCategory, "Mortgage");
+  assert.equal(updatedTransaction.categoryGroup, "fixed");
 
   assert.ok(unaffectedTransaction);
-  assert.equal(unaffectedTransaction.mappedBucket, "Other / Misc");
+  assert.equal(unaffectedTransaction.mappedCategory, "Other / Misc");
 });
 
 test("Single-transaction categorization clears the default exclusion state", () => {
@@ -405,8 +405,8 @@ test("Single-transaction categorization clears the default exclusion state", () 
         tags: null,
         amountSigned: -13160.01,
         outflowAmount: 13160.01,
-        mappedBucket: "Credit Card Payments",
-        bucketGroup: "excluded",
+        mappedCategory: "Credit Card Payments",
+        categoryGroup: "excluded",
         includeFlag: false,
         exclusionReason: "Excluded by default category rule",
         notes: null,
@@ -425,10 +425,10 @@ test("Single-transaction categorization clears the default exclusion state", () 
   const updatedTransaction = categorized[0];
 
   assert.ok(updatedTransaction);
-  assert.equal(updatedTransaction.mappedBucket, "Mortgage");
+  assert.equal(updatedTransaction.mappedCategory, "Mortgage");
   assert.equal(updatedTransaction.includeFlag, true);
   assert.equal(updatedTransaction.exclusionReason, null);
-  assert.equal(updatedTransaction.bucketGroup, "fixed");
+  assert.equal(updatedTransaction.categoryGroup, "fixed");
 });
 
 test("Manual transaction categorization overrides stay in place when later rules match the same merchant", () => {
@@ -444,8 +444,8 @@ test("Manual transaction categorization overrides stay in place when later rules
       tags: null,
       amountSigned: -2500,
       outflowAmount: 2500,
-      mappedBucket: "Other / Misc",
-      bucketGroup: "flexible",
+      mappedCategory: "Other / Misc",
+      categoryGroup: "flexible",
       includeFlag: true,
       exclusionReason: null,
       notes: null,
@@ -462,8 +462,8 @@ test("Manual transaction categorization overrides stay in place when later rules
       tags: null,
       amountSigned: -2600,
       outflowAmount: 2600,
-      mappedBucket: "Other / Misc",
-      bucketGroup: "flexible",
+      mappedCategory: "Other / Misc",
+      categoryGroup: "flexible",
       includeFlag: true,
       exclusionReason: null,
       notes: null,
@@ -501,8 +501,8 @@ test("Manual transaction categorization overrides stay in place when later rules
 
   assert.ok(preservedManualOverride);
   assert.ok(ruleUpdatedTransaction);
-  assert.equal(preservedManualOverride.mappedBucket, "Mortgage");
-  assert.equal(ruleUpdatedTransaction.mappedBucket, "Utilities");
+  assert.equal(preservedManualOverride.mappedCategory, "Mortgage");
+  assert.equal(ruleUpdatedTransaction.mappedCategory, "Utilities");
 });
 
 test("Applied overrides expose detailed rule context and locked transaction impact", () => {
@@ -520,8 +520,8 @@ test("Applied overrides expose detailed rule context and locked transaction impa
       tags: null,
       amountSigned: -2500,
       outflowAmount: 2500,
-      mappedBucket: "Other / Misc",
-      bucketGroup: "flexible",
+      mappedCategory: "Other / Misc",
+      categoryGroup: "flexible",
       includeFlag: true,
       exclusionReason: null,
       notes: null,
@@ -538,8 +538,8 @@ test("Applied overrides expose detailed rule context and locked transaction impa
       tags: null,
       amountSigned: -2600,
       outflowAmount: 2600,
-      mappedBucket: "Other / Misc",
-      bucketGroup: "flexible",
+      mappedCategory: "Other / Misc",
+      categoryGroup: "flexible",
       includeFlag: true,
       exclusionReason: null,
       notes: null,
@@ -620,8 +620,8 @@ test("Rule previews exclude transactions already locked by one-off overrides", (
       tags: null,
       amountSigned: -2500,
       outflowAmount: 2500,
-      mappedBucket: "Other / Misc",
-      bucketGroup: "flexible",
+      mappedCategory: "Other / Misc",
+      categoryGroup: "flexible",
       includeFlag: true,
       exclusionReason: null,
       notes: null,
@@ -638,8 +638,8 @@ test("Rule previews exclude transactions already locked by one-off overrides", (
       tags: null,
       amountSigned: -2600,
       outflowAmount: 2600,
-      mappedBucket: "Other / Misc",
-      bucketGroup: "flexible",
+      mappedCategory: "Other / Misc",
+      categoryGroup: "flexible",
       includeFlag: true,
       exclusionReason: null,
       notes: null,
@@ -696,8 +696,8 @@ test("Effective-month target overrides only affect future months", () => {
     tags: null,
     amountSigned: -amount,
     outflowAmount: amount,
-    mappedBucket: "Mortgage",
-    bucketGroup: "fixed",
+    mappedCategory: "Mortgage",
+    categoryGroup: "fixed",
     includeFlag: true,
     exclusionReason: null,
     notes: null,
@@ -706,8 +706,8 @@ test("Effective-month target overrides only affect future months", () => {
 
   const actions: FinanceAction[] = [
     {
-      type: "set_bucket_monthly_target",
-      bucket: "Mortgage",
+      type: "set_category_monthly_target",
+      category: "Mortgage",
       amount: 3200,
       effectiveMonth: "2026-04",
     },
@@ -731,16 +731,16 @@ test("Effective-month target overrides only affect future months", () => {
   assert.equal(april.target, 3200);
 });
 
-test("Current category budget helpers keep only the latest default budget per bucket", () => {
+test("Current category budget helpers keep only the latest default budget per category", () => {
   const overrides: FinanceOverride[] = [
     {
       id: "override-1",
       projectId: "project-1",
-      type: "set_bucket_monthly_target",
+      type: "set_category_monthly_target",
       key: "budget-groceries-300",
       valueJson: {
-        type: "set_bucket_monthly_target",
-        bucket: "Groceries",
+        type: "set_category_monthly_target",
+        category: "Groceries",
         amount: 300,
       },
       createdAt: new Date("2026-03-01T10:00:00.000Z"),
@@ -748,11 +748,11 @@ test("Current category budget helpers keep only the latest default budget per bu
     {
       id: "override-2",
       projectId: "project-1",
-      type: "set_bucket_monthly_target",
+      type: "set_category_monthly_target",
       key: "budget-groceries-450",
       valueJson: {
-        type: "set_bucket_monthly_target",
-        bucket: "Groceries",
+        type: "set_category_monthly_target",
+        category: "Groceries",
         amount: 450,
       },
       createdAt: new Date("2026-03-02T10:00:00.000Z"),
@@ -760,11 +760,11 @@ test("Current category budget helpers keep only the latest default budget per bu
     {
       id: "override-3",
       projectId: "project-1",
-      type: "set_bucket_monthly_target",
+      type: "set_category_monthly_target",
       key: "budget-groceries-april",
       valueJson: {
-        type: "set_bucket_monthly_target",
-        bucket: "Groceries",
+        type: "set_category_monthly_target",
+        category: "Groceries",
         amount: 500,
         effectiveMonth: "2026-04",
       },
@@ -773,11 +773,11 @@ test("Current category budget helpers keep only the latest default budget per bu
     {
       id: "override-4",
       projectId: "project-1",
-      type: "set_bucket_monthly_target",
+      type: "set_category_monthly_target",
       key: "budget-dining-200",
       valueJson: {
-        type: "set_bucket_monthly_target",
-        bucket: "Dining",
+        type: "set_category_monthly_target",
+        category: "Dining",
         amount: 200,
       },
       createdAt: new Date("2026-03-04T10:00:00.000Z"),
@@ -786,12 +786,12 @@ test("Current category budget helpers keep only the latest default budget per bu
 
   assert.deepEqual(getCurrentCategoryBudgetOverrides(overrides), [
     {
-      bucket: "Dining",
+      category: "Dining",
       amount: 200,
       overrideId: "override-4",
     },
     {
-      bucket: "Groceries",
+      category: "Groceries",
       amount: 450,
       overrideId: "override-2",
     },
@@ -799,7 +799,7 @@ test("Current category budget helpers keep only the latest default budget per bu
   assert.equal(getCurrentCategoryBudgetTotal(overrides), 650);
 });
 
-test("Planner includes buckets that only exist because of manual category budgets", () => {
+test("Planner includes categories that only exist because of manual category budgets", () => {
   const transaction = (month: string, amount: number): FinanceTransaction => ({
     id: `${month}-${amount}`,
     projectId: "project-1",
@@ -811,8 +811,8 @@ test("Planner includes buckets that only exist because of manual category budget
     tags: null,
     amountSigned: -amount,
     outflowAmount: amount,
-    mappedBucket: "Groceries",
-    bucketGroup: "flexible",
+    mappedCategory: "Groceries",
+    categoryGroup: "flexible",
     includeFlag: true,
     exclusionReason: null,
     notes: null,
@@ -827,22 +827,22 @@ test("Planner includes buckets that only exist because of manual category budget
     ],
     actions: [
       {
-        type: "set_bucket_monthly_target",
-        bucket: "Pets",
+        type: "set_category_monthly_target",
+        category: "Pets",
         amount: 150,
       },
     ],
   });
 
-  const petsBucket = plan.planSummary.bucketTargets.find(
-    (bucket) => bucket.bucket === "Pets"
+  const petsCategory = plan.planSummary.categoryTargets.find(
+    (category) => category.category === "Pets"
   );
-  const petsCard = plan.categoryCards.find((card) => card.bucket === "Pets");
+  const petsCard = plan.categoryCards.find((card) => card.category === "Pets");
 
-  assert.ok(petsBucket);
+  assert.ok(petsCategory);
   assert.ok(petsCard);
-  assert.equal(petsBucket.group, "flexible");
-  assert.equal(petsBucket.monthlyTarget, 150);
+  assert.equal(petsCategory.group, "flexible");
+  assert.equal(petsCategory.monthlyTarget, 150);
   assert.equal(petsCard.monthlyTarget, 150);
   assert.equal(petsCard.totalOutflow, 0);
 });
@@ -862,8 +862,8 @@ test("Budget recommendations use the latest six months of history", () => {
     tags: null,
     amountSigned: -amount,
     outflowAmount: amount,
-    mappedBucket: "Mortgage",
-    bucketGroup: "fixed",
+    mappedCategory: "Mortgage",
+    categoryGroup: "fixed",
     includeFlag: true,
     exclusionReason: null,
     notes: null,
@@ -884,14 +884,14 @@ test("Budget recommendations use the latest six months of history", () => {
     actions: [],
   });
 
-  const mortgageBucket = plan.planSummary.bucketTargets.find(
-    (bucket) => bucket.bucket === "Mortgage"
+  const mortgageCategory = plan.planSummary.categoryTargets.find(
+    (category) => category.category === "Mortgage"
   );
 
-  assert.ok(mortgageBucket);
-  assert.equal(mortgageBucket.monthlyTarget, 1000);
-  assert.equal(mortgageBucket.trailingAverage, 1000);
-  assert.equal(mortgageBucket.trailingTotal, 6000);
+  assert.ok(mortgageCategory);
+  assert.equal(mortgageCategory.monthlyTarget, 1000);
+  assert.equal(mortgageCategory.trailingAverage, 1000);
+  assert.equal(mortgageCategory.trailingTotal, 6000);
   assert.equal(plan.planSummary.trailingAverageSpend, 1000);
 });
 
@@ -910,8 +910,8 @@ test("Budget recommendations use available history when less than six months exi
     tags: null,
     amountSigned: -amount,
     outflowAmount: amount,
-    mappedBucket: "Mortgage",
-    bucketGroup: "fixed",
+    mappedCategory: "Mortgage",
+    categoryGroup: "fixed",
     includeFlag: true,
     exclusionReason: null,
     notes: null,
@@ -927,14 +927,14 @@ test("Budget recommendations use available history when less than six months exi
     actions: [],
   });
 
-  const mortgageBucket = plan.planSummary.bucketTargets.find(
-    (bucket) => bucket.bucket === "Mortgage"
+  const mortgageCategory = plan.planSummary.categoryTargets.find(
+    (category) => category.category === "Mortgage"
   );
 
-  assert.ok(mortgageBucket);
-  assert.equal(mortgageBucket.monthlyTarget, 3000);
-  assert.equal(mortgageBucket.trailingAverage, 3000);
-  assert.equal(mortgageBucket.trailingTotal, 9000);
+  assert.ok(mortgageCategory);
+  assert.equal(mortgageCategory.monthlyTarget, 3000);
+  assert.equal(mortgageCategory.trailingAverage, 3000);
+  assert.equal(mortgageCategory.trailingTotal, 9000);
   assert.equal(plan.planSummary.trailingAverageSpend, 3000);
   assert.deepEqual(
     plan.monthlyChart.map((entry) => entry.month),
@@ -955,8 +955,8 @@ test("Cash flow summary separates total budget from category allocations", () =>
       tags: null,
       amountSigned: -400,
       outflowAmount: 400,
-      mappedBucket: "Groceries",
-      bucketGroup: "flexible",
+      mappedCategory: "Groceries",
+      categoryGroup: "flexible",
       includeFlag: true,
       exclusionReason: null,
       notes: null,
@@ -973,8 +973,8 @@ test("Cash flow summary separates total budget from category allocations", () =>
       tags: null,
       amountSigned: 5000,
       outflowAmount: 0,
-      mappedBucket: "Paychecks/Salary",
-      bucketGroup: "excluded",
+      mappedCategory: "Paychecks/Salary",
+      categoryGroup: "excluded",
       includeFlag: false,
       exclusionReason: "Excluded by default category rule",
       notes: null,
@@ -998,3 +998,4 @@ test("Cash flow summary separates total budget from category allocations", () =>
   assert.equal(summary.historicalAverageMonthlySpend, 33.33);
   assert.equal(summary.historicalAverageMonthlyIncome, 416.67);
 });
+

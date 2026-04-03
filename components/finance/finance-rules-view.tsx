@@ -46,9 +46,6 @@ const visibleCategorizationRuleTypes = new Set<FinanceAction["type"]>(
 
 const creatableCategorizationRuleTypes = [
   "categorize_transactions",
-  "remap_raw_category",
-  "merge_buckets",
-  "rename_bucket",
 ] as const satisfies FinanceAction["type"][];
 
 function formatCurrency(value: number) {
@@ -315,10 +312,9 @@ export function FinanceRulesView({
                     Categorization rules
                   </h1>
                   <p className="max-w-3xl text-muted-foreground text-sm leading-6">
-                    One table for every saved categorization change. Merchant
-                    matches, raw category remaps, merges, renames, and
-                    transaction-specific overrides all show up as the category
-                    change they make.
+                    This page is for reusable categorization rules only. Match
+                    merchants, descriptions, raw categories, or accounts, then
+                    send every match into the right destination category.
                   </p>
                   <p className="text-muted-foreground text-xs">
                     Rules run top to bottom in the order shown.
@@ -351,8 +347,9 @@ export function FinanceRulesView({
               <CardContent className="flex flex-col items-start gap-3 p-6 text-sm">
                 <div className="font-medium">No categorization rules yet</div>
                 <div className="text-muted-foreground leading-6">
-                  Add your first saved rule to map raw categories, match
-                  merchants, merge categories, or rename a category.
+                  Add your first saved rule to match merchants, descriptions,
+                  raw categories, or accounts and categorize those transactions
+                  automatically.
                 </div>
                 <Button onClick={openAddDialog} type="button">
                   <Plus className="size-4" />

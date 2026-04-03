@@ -21,49 +21,36 @@ function uniqueSorted(values: string[]) {
   );
 }
 
-function buildBucketOptions(
+function buildCategoryOptions(
   baseTransactions: FinanceTransaction[],
   finalTransactions: FinanceTransaction[],
   actions: FinanceAction[]
 ) {
-  const buckets = new Set<string>();
+  const categories = new Set<string>();
 
   for (const transaction of baseTransactions) {
-    buckets.add(transaction.mappedBucket);
+    categories.add(transaction.mappedCategory);
   }
 
   for (const transaction of finalTransactions) {
-    buckets.add(transaction.mappedBucket);
+    categories.add(transaction.mappedCategory);
   }
 
   for (const action of actions) {
     switch (action.type) {
       case "categorize_transactions":
       case "categorize_transaction":
-      case "remap_raw_category":
-      case "merge_buckets":
-      case "rename_bucket":
-        buckets.add(action.to);
+        categories.add(action.to);
         break;
-      case "set_bucket_monthly_target":
-        buckets.add(action.bucket);
+      case "set_category_monthly_target":
+        categories.add(action.category);
         break;
       default:
         break;
     }
-
-    if (action.type === "merge_buckets") {
-      for (const bucket of action.from) {
-        buckets.add(bucket);
-      }
-    }
-
-    if (action.type === "rename_bucket") {
-      buckets.add(action.from);
-    }
   }
 
-  return uniqueSorted([...buckets]);
+  return uniqueSorted([...categories]);
 }
 
 export async function getFinanceRulesViewData({
@@ -88,7 +75,11 @@ export async function getFinanceRulesViewData({
       rawCategories: uniqueSorted(
         baseTransactions.map((transaction) => transaction.rawCategory)
       ),
-      buckets: buildBucketOptions(baseTransactions, finalTransactions, actions),
+      categories: buildCategoryOptions(
+        baseTransactions,
+        finalTransactions,
+        actions
+      ),
     },
   };
 }

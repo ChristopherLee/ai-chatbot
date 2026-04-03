@@ -29,7 +29,7 @@ import {
 } from "@/lib/finance/utils";
 
 const categoryBudgetInputSchema = z.object({
-  bucket: z.string().trim().min(1).max(80),
+  category: z.string().trim().min(1).max(80),
   amount: z.number().finite().nonnegative(),
 });
 
@@ -44,20 +44,20 @@ const updateTargetsSchema = z
       return;
     }
 
-    const seenBuckets = new Set<string>();
+    const seenCategories = new Set<string>();
 
     for (const [index, budget] of value.categoryBudgets.entries()) {
-      const bucketKey = safeLower(normalizeWhitespace(budget.bucket));
+      const categoryKey = safeLower(normalizeWhitespace(budget.category));
 
-      if (seenBuckets.has(bucketKey)) {
+      if (seenCategories.has(categoryKey)) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           message: "Duplicate category budgets are not allowed.",
-          path: ["categoryBudgets", index, "bucket"],
+          path: ["categoryBudgets", index, "category"],
         });
       }
 
-      seenBuckets.add(bucketKey);
+      seenCategories.add(categoryKey);
     }
   });
 
@@ -104,11 +104,11 @@ async function syncCurrentCategoryBudgets({
   projectId: string;
 }) {
   const normalizedBudgets = categoryBudgets.map((budget) => ({
-    bucket: normalizeWhitespace(budget.bucket),
+    category: normalizeWhitespace(budget.category),
     amount: roundCurrency(budget.amount),
   }));
-  const desiredByBucket = new Map(
-    normalizedBudgets.map((budget) => [safeLower(budget.bucket), budget])
+  const desiredByCategory = new Map(
+    normalizedBudgets.map((budget) => [safeLower(budget.category), budget])
   );
   const existingOverrides = await getFinanceOverridesByProjectId({ projectId });
   const currentOverrideGroups =
@@ -117,7 +117,7 @@ async function syncCurrentCategoryBudgets({
   const overrideUpdates: Promise<unknown>[] = [];
 
   for (const group of currentOverrideGroups) {
-    const desiredBudget = desiredByBucket.get(group.bucketKey);
+    const desiredBudget = desiredByCategory.get(group.categoryKey);
 
     if (!desiredBudget) {
       overrideIdsToDelete.push(...group.overrideIds);
@@ -126,7 +126,7 @@ async function syncCurrentCategoryBudgets({
 
     const shouldUpdate =
       group.amount !== desiredBudget.amount ||
-      group.bucket !== desiredBudget.bucket;
+      group.category !== desiredBudget.category;
 
     if (shouldUpdate && group.overrideId) {
       overrideUpdates.push(
@@ -134,8 +134,8 @@ async function syncCurrentCategoryBudgets({
           id: group.overrideId,
           projectId,
           action: {
-            type: "set_bucket_monthly_target",
-            bucket: desiredBudget.bucket,
+            type: "set_category_monthly_target",
+            category: desiredBudget.category,
             amount: desiredBudget.amount,
           },
         })
@@ -147,7 +147,7 @@ async function syncCurrentCategoryBudgets({
         (overrideId) => overrideId !== group.overrideId
       )
     );
-    desiredByBucket.delete(group.bucketKey);
+    desiredByCategory.delete(group.categoryKey);
   }
 
   if (overrideUpdates.length > 0) {
@@ -165,12 +165,12 @@ async function syncCurrentCategoryBudgets({
     );
   }
 
-  if (desiredByBucket.size > 0) {
+  if (desiredByCategory.size > 0) {
     await saveFinanceOverrides({
       projectId,
-      actions: [...desiredByBucket.values()].map((budget) => ({
-        type: "set_bucket_monthly_target" as const,
-        bucket: budget.bucket,
+      actions: [...desiredByCategory.values()].map((budget) => ({
+        type: "set_category_monthly_target" as const,
+        category: budget.category,
         amount: budget.amount,
       })),
     });
@@ -203,16 +203,16 @@ async function buildTargetsResponse({
     categoryBudgets: currentCategoryBudgets
       .map((budget) => {
         const categoryCard = snapshot.categoryCards.find(
-          (card) => safeLower(card.bucket) === safeLower(budget.bucket)
+          (card) => safeLower(card.category) === safeLower(budget.category)
         );
         const currentMonthEntry = currentMonth
           ? categoryCard?.monthly.find((entry) => entry.month === currentMonth)
           : null;
 
         return {
-          bucket: budget.bucket,
+          category: budget.category,
           group: resolveCategoryBudgetGroup({
-            bucket: budget.bucket,
+            category: budget.category,
             categoryCards: snapshot.categoryCards,
           }),
           amount: budget.amount,
@@ -224,7 +224,7 @@ async function buildTargetsResponse({
       })
       .sort(
         (left, right) =>
-          right.amount - left.amount || left.bucket.localeCompare(right.bucket)
+          right.amount - left.amount || left.category.localeCompare(right.category)
       ),
     suggestedCategoryBudgets: buildCategoryBudgetSuggestions({
       categoryCards: snapshot.categoryCards,

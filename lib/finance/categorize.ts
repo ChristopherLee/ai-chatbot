@@ -1,8 +1,8 @@
 import type { Transaction } from "@/lib/db/schema";
 import {
-  getDefaultMappedBucket,
+  getDefaultMappedCategory,
   getDefaultFinanceExclusionActions,
-  resolveBucketGroupFromBucket,
+  resolveCategoryGroupFromCategory,
 } from "./config";
 import { applyFinanceOverrides } from "./overrides";
 import type { FinanceAction, FinanceTransaction } from "./types";
@@ -10,7 +10,7 @@ import type { FinanceAction, FinanceTransaction } from "./types";
 export function buildBaseFinanceTransaction(
   transaction: Transaction
 ): FinanceTransaction {
-  const mappedBucket = getDefaultMappedBucket(transaction.rawCategory);
+  const mappedCategory = getDefaultMappedCategory(transaction.rawCategory);
 
   return {
     id: transaction.id,
@@ -23,9 +23,9 @@ export function buildBaseFinanceTransaction(
     tags: transaction.tags,
     amountSigned: transaction.amountSigned,
     outflowAmount: transaction.outflowAmount,
-    mappedBucket,
-    bucketGroup: resolveBucketGroupFromBucket({
-      bucket: mappedBucket,
+    mappedCategory,
+    categoryGroup: resolveCategoryGroupFromCategory({
+      category: mappedCategory,
       includeFlag: true,
     }),
     includeFlag: true,

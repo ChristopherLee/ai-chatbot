@@ -37,21 +37,21 @@ function stripWrappingQuotes(value: string) {
     .trim();
 }
 
-function resolveBucketName(term: string, buckets: string[]) {
+function resolveCategoryName(term: string, categories: string[]) {
   const normalized = stripWrappingQuotes(term).trim();
-  return findKnownName(normalized, buckets) ?? titleCase(normalized);
+  return findKnownName(normalized, categories) ?? titleCase(normalized);
 }
 
 function buildCategorizeTransactionsAction({
   source,
   destination,
   rawCategories,
-  buckets,
+  categories,
 }: {
   source: string;
   destination: string;
   rawCategories: string[];
-  buckets: string[];
+  categories: string[];
 }): FinanceAction | null {
   const normalizedSource = stripWrappingQuotes(normalizeMatchPhrase(source))
     .replace(
@@ -75,7 +75,7 @@ function buildCategorizeTransactionsAction({
       : {
           merchant: normalizedSource,
         },
-    to: resolveBucketName(destination, buckets),
+    to: resolveCategoryName(destination, categories),
   };
 }
 
@@ -113,8 +113,10 @@ export function buildHeuristicActions({
   const rawCategories =
     snapshot?.datasetSummary?.rawCategories.map((category) => category.name) ??
     [];
-  const buckets =
-    snapshot?.planSummary?.bucketTargets.map((bucket) => bucket.bucket) ?? [];
+  const categories =
+    snapshot?.planSummary?.categoryTargets.map(
+      (category) => category.category
+    ) ?? [];
   const referenceDate =
     snapshot?.datasetSummary?.dateRange.end ??
     new Date().toISOString().slice(0, 10);
@@ -127,41 +129,19 @@ export function buildHeuristicActions({
     actions.push({ type: "set_plan_mode", mode: "conservative" });
   }
 
-  const mergeMatch = text.match(
-    /(?:combine|merge)\s+(.+?)\s+(?:and|with)\s+(.+?)(?:\.|$)/i
-  );
-
-  if (mergeMatch) {
-    const first = titleCase(mergeMatch[1].trim());
-    const second = titleCase(mergeMatch[2].trim());
-    const knownFirst =
-      findKnownName(first, [...rawCategories, ...buckets]) ?? first;
-    const knownSecond =
-      findKnownName(second, [...rawCategories, ...buckets]) ?? second;
-    const mergedName =
-      findKnownName("transport + travel", buckets) ??
-      `${knownFirst} + ${knownSecond}`;
-
-    actions.push({
-      type: "merge_buckets",
-      from: [knownFirst, knownSecond],
-      to: mergedName,
-    });
-  }
-
   const reassignMatch = text.match(/put\s+(.+?)\s+under\s+(.+?)(?:\.|$)/i);
 
   if (reassignMatch) {
-    const from =
-      findKnownName(reassignMatch[1].trim(), rawCategories) ??
-      titleCase(reassignMatch[1].trim());
-    const to = resolveBucketName(reassignMatch[2].trim(), buckets);
-
-    actions.push({
-      type: "remap_raw_category",
-      from,
-      to,
+    const action = buildCategorizeTransactionsAction({
+      source: reassignMatch[1],
+      destination: reassignMatch[2],
+      rawCategories,
+      categories,
     });
+
+    if (action) {
+      actions.push(action);
+    }
   }
 
   const categorizeMatch = text.match(
@@ -173,7 +153,7 @@ export function buildHeuristicActions({
       source: categorizeMatch[1],
       destination: categorizeMatch[2],
       rawCategories,
-      buckets,
+      categories,
     });
 
     if (action) {
@@ -181,22 +161,15 @@ export function buildHeuristicActions({
     }
   }
 
-  const renameMatch = text.match(/rename\s+(.+?)\s+to\s+(.+?)(?:\.|$)/i);
-
-  if (renameMatch) {
-    const from =
-      findKnownName(renameMatch[1].trim(), buckets) ??
-      titleCase(renameMatch[1].trim());
-    const to = titleCase(renameMatch[2].trim());
-    actions.push({ type: "rename_bucket", from, to });
-  }
-
   const mortgageMatch = text.match(
     /([\w\s&+/]+?)\s+changes?\s+in\s+([A-Za-z]+)\s+to\s+\$?([\d,]+(?:\.\d+)?)/i
   );
 
   if (mortgageMatch) {
-    const bucket = resolveBucketName(mortgageMatch[1].trim(), buckets);
+    const category = resolveCategoryName(
+      mortgageMatch[1].trim(),
+      categories
+    );
     const effectiveMonth = resolveEffectiveMonthFromName({
       monthName: mortgageMatch[2],
       referenceDate,
@@ -205,8 +178,8 @@ export function buildHeuristicActions({
 
     if (Number.isFinite(amount)) {
       actions.push({
-        type: "set_bucket_monthly_target",
-        bucket,
+        type: "set_category_monthly_target",
+        category,
         amount,
         ...(effectiveMonth ? { effectiveMonth } : {}),
       });
@@ -218,7 +191,7 @@ export function buildHeuristicActions({
   );
 
   if (setTargetMatch) {
-    const bucket = resolveBucketName(setTargetMatch[1].trim(), buckets);
+    const category = resolveCategoryName(setTargetMatch[1].trim(), categories);
     const amount = Number.parseFloat(setTargetMatch[2].replace(/,/g, ""));
     const effectiveMonth = setTargetMatch[3]
       ? resolveEffectiveMonthFromName({
@@ -229,8 +202,8 @@ export function buildHeuristicActions({
 
     if (Number.isFinite(amount)) {
       actions.push({
-        type: "set_bucket_monthly_target",
-        bucket,
+        type: "set_category_monthly_target",
+        category,
         amount,
         ...(effectiveMonth ? { effectiveMonth } : {}),
       });
@@ -325,19 +298,17 @@ export async function extractFinanceActions({
       system: `You extract structured finance planning actions from chat messages.
 
 Only return actions when the user clearly asks for one of these supported operations:
-- merge_buckets
-- remap_raw_category
 - categorize_transactions
 - exclude_transactions
-- rename_bucket
-- set_bucket_monthly_target
+- set_category_monthly_target
 - set_plan_mode
 
 If the message only provides goals or context, return an empty array.
-Prefer exact existing raw categories and bucket names when available.
-Keep the user's requested source match and destination bucket/category exactly as stated. Never substitute a different merchant, raw category, or bucket.
+Prefer exact existing raw categories and category names when available.
+Keep the user's requested source match and destination category exactly as stated. Never substitute a different merchant, raw category, or category.
 If the source or destination is ambiguous or cannot be represented exactly from the message, return an empty array.
-When the user names a merchant or transaction label, use categorize_transactions with a precise match instead of remap_raw_category.`,
+If the user is asking to rename or merge categories, return an empty array instead of inventing a removed action type.
+When the user names a merchant, transaction label, or raw category, use categorize_transactions with a precise match.`,
       prompt: JSON.stringify({
         latestUserMessage,
         conversationMessages: conversationMessages.slice(-12),
@@ -350,9 +321,9 @@ When the user names a merchant or transaction label, use categorize_transactions
                     rawCategories: snapshot.datasetSummary.rawCategories.map(
                       (category) => category.name
                     ),
-                    buckets:
-                      snapshot.planSummary?.bucketTargets.map(
-                        (bucket) => bucket.bucket
+                    categories:
+                      snapshot.planSummary?.categoryTargets.map(
+                        (category) => category.category
                       ) ?? [],
                     endDate: snapshot.datasetSummary.dateRange.end,
                   }

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { memo } from "react";
 import { useWindowSize } from "usehooks-ts";
+import { ChatDebugPanel } from "@/components/chat-debug-panel";
 import { SidebarToggle } from "@/components/sidebar-toggle";
 import { Button } from "@/components/ui/button";
 import { PlusIcon, VercelIcon } from "./icons";
@@ -28,6 +29,8 @@ function PureChatHeader({
 
   const { width: windowWidth } = useWindowSize();
   const newChatHref = projectId ? `/?projectId=${projectId}` : "/";
+  const showDebugPanel =
+    process.env.NODE_ENV === "development" && !isReadonly;
 
   return (
     <header className="sticky top-0 flex items-center gap-2 bg-background px-2 py-1.5 md:px-2">
@@ -63,6 +66,8 @@ function PureChatHeader({
           selectedVisibilityType={selectedVisibilityType}
         />
       )}
+
+      {showDebugPanel && <ChatDebugPanel chatId={chatId} />}
 
       <Button
         asChild

@@ -1,6 +1,6 @@
 import type { FinanceOverride as StoredFinanceOverride } from "@/lib/db/schema";
 import { ChatSDKError } from "@/lib/errors";
-import { resolveBucketGroupFromBucket } from "./config";
+import { resolveCategoryGroupFromCategory } from "./config";
 import type {
   FinanceAction,
   FinanceAppliedOverride,
@@ -25,7 +25,7 @@ type MatchableTransaction = Pick<
   | "account"
   | "outflowAmount"
 > &
-  Partial<Pick<FinanceTransaction, "mappedBucket" | "includeFlag">>;
+  Partial<Pick<FinanceTransaction, "mappedCategory" | "includeFlag">>;
 
 const DEFAULT_AFFECTED_TRANSACTION_LIMIT = 12;
 
@@ -70,7 +70,7 @@ function toAffectedTransaction(
     account: transaction.account,
     rawCategory: transaction.rawCategory,
     amount: roundCurrency(transaction.outflowAmount),
-    bucket: transaction.mappedBucket ?? transaction.rawCategory,
+    category: transaction.mappedCategory ?? transaction.rawCategory,
     includeFlag: transaction.includeFlag ?? true,
   };
 }
@@ -201,20 +201,6 @@ export function buildFinanceRulePresentation(
         totalAffectedTransactions: preview.totalAffectedTransactions,
       };
     }
-    case "remap_raw_category":
-      return {
-        details: [
-          {
-            label: "When",
-            value: `Raw category is "${action.from}"`,
-          },
-          {
-            label: "Then",
-            value: `Categorize as ${action.to}`,
-          },
-        ],
-        ...preview,
-      };
     case "exclude_transactions":
       return {
         details: [
@@ -226,40 +212,12 @@ export function buildFinanceRulePresentation(
         ],
         ...preview,
       };
-    case "merge_buckets":
+    case "set_category_monthly_target":
       return {
         details: [
           {
-            label: "From",
-            value: action.from.join(", "),
-          },
-          {
-            label: "To",
-            value: action.to,
-          },
-        ],
-        ...preview,
-      };
-    case "rename_bucket":
-      return {
-        details: [
-          {
-            label: "From",
-            value: action.from,
-          },
-          {
-            label: "To",
-            value: action.to,
-          },
-        ],
-        ...preview,
-      };
-    case "set_bucket_monthly_target":
-      return {
-        details: [
-          {
-            label: "Bucket",
-            value: action.bucket,
+            label: "Category",
+            value: action.category,
           },
           {
             label: "Category budget",
@@ -388,31 +346,11 @@ function getAffectedTransactionsForAction(
       return transactions.filter(
         (transaction) => transaction.id === action.transactionId
       );
-    case "remap_raw_category":
-      return transactions.filter(
-        (transaction) =>
-          !excludeTransactionIds?.has(transaction.id) &&
-          safeLower(transaction.rawCategory) === safeLower(action.from)
-      );
-    case "merge_buckets": {
-      const from = action.from.map((value) => safeLower(value));
-
-      return transactions.filter(
-        (transaction) =>
-          from.includes(safeLower(transaction.mappedBucket)) ||
-          from.includes(safeLower(transaction.rawCategory))
-      );
-    }
-    case "rename_bucket":
-      return transactions.filter(
-        (transaction) =>
-          safeLower(transaction.mappedBucket) === safeLower(action.from)
-      );
-    case "set_bucket_monthly_target":
+    case "set_category_monthly_target":
       return transactions.filter(
         (transaction) =>
           transaction.includeFlag !== false &&
-          safeLower(transaction.mappedBucket) === safeLower(action.bucket)
+          safeLower(transaction.mappedCategory) === safeLower(action.category)
       );
     case "set_plan_mode":
       return [];
@@ -442,21 +380,21 @@ export function getTransactionMatchStats(
   };
 }
 
-function refreshBucketGroup(transaction: FinanceTransaction) {
-  transaction.bucketGroup = resolveBucketGroupFromBucket({
-    bucket: transaction.mappedBucket,
+function refreshCategoryGroup(transaction: FinanceTransaction) {
+  transaction.categoryGroup = resolveCategoryGroupFromCategory({
+    category: transaction.mappedCategory,
     includeFlag: transaction.includeFlag,
   });
 }
 
 function applyCategorization(
   transaction: FinanceTransaction,
-  destinationBucket: string
+  destinationCategory: string
 ) {
-  transaction.mappedBucket = destinationBucket;
+  transaction.mappedCategory = destinationCategory;
   transaction.includeFlag = true;
   transaction.exclusionReason = null;
-  refreshBucketGroup(transaction);
+  refreshCategoryGroup(transaction);
 }
 
 function applyFinanceActionToTransactions(
@@ -465,32 +403,6 @@ function applyFinanceActionToTransactions(
   lockedCategorizationTransactionIds: Set<string>
 ) {
   switch (action.type) {
-    case "merge_buckets": {
-      const from = action.from.map((value) => safeLower(value));
-
-      for (const transaction of transactions) {
-        if (
-          from.includes(safeLower(transaction.mappedBucket)) ||
-          from.includes(safeLower(transaction.rawCategory))
-        ) {
-          transaction.mappedBucket = action.to;
-          refreshBucketGroup(transaction);
-        }
-      }
-      break;
-    }
-    case "remap_raw_category": {
-      for (const transaction of transactions) {
-        if (lockedCategorizationTransactionIds.has(transaction.id)) {
-          continue;
-        }
-
-        if (safeLower(transaction.rawCategory) === safeLower(action.from)) {
-          applyCategorization(transaction, action.to);
-        }
-      }
-      break;
-    }
     case "categorize_transactions": {
       for (const transaction of transactions) {
         if (lockedCategorizationTransactionIds.has(transaction.id)) {
@@ -511,26 +423,17 @@ function applyFinanceActionToTransactions(
       }
       break;
     }
-    case "rename_bucket": {
-      for (const transaction of transactions) {
-        if (safeLower(transaction.mappedBucket) === safeLower(action.from)) {
-          transaction.mappedBucket = action.to;
-          refreshBucketGroup(transaction);
-        }
-      }
-      break;
-    }
     case "exclude_transactions": {
       for (const transaction of transactions) {
         if (transactionMatches(transaction, action.match)) {
           transaction.includeFlag = false;
           transaction.exclusionReason = "Manual exclusion";
-          refreshBucketGroup(transaction);
+          refreshCategoryGroup(transaction);
         }
       }
       break;
     }
-    case "set_bucket_monthly_target":
+    case "set_category_monthly_target":
     case "set_plan_mode":
       break;
     default:
@@ -573,33 +476,27 @@ export function getPlanMode(actions: FinanceAction[]): PlanMode {
   return latestAction?.mode ?? "balanced";
 }
 
-export function getBucketTargetOverrides(actions: FinanceAction[]) {
+export function getCategoryTargetOverrides(actions: FinanceAction[]) {
   return actions.filter(
     (
       action
     ): action is Extract<
       FinanceAction,
-      { type: "set_bucket_monthly_target" }
-    > => action.type === "set_bucket_monthly_target"
+      { type: "set_category_monthly_target" }
+    > => action.type === "set_category_monthly_target"
   );
 }
 
 export function summarizeFinanceAction(action: FinanceAction) {
   switch (action.type) {
-    case "merge_buckets":
-      return `Merged ${action.from.join(", ")} into ${action.to}`;
-    case "remap_raw_category":
-      return `Mapped raw category ${action.from} to ${action.to}`;
     case "categorize_transactions":
       return `Categorized matching transactions as ${action.to}`;
     case "categorize_transaction":
       return `Categorized one transaction as ${action.to}`;
     case "exclude_transactions":
       return "Excluded matching transactions";
-    case "rename_bucket":
-      return `Renamed ${action.from} to ${action.to}`;
-    case "set_bucket_monthly_target":
-      return `Set ${action.bucket} category budget to $${action.amount.toFixed(0)}`;
+    case "set_category_monthly_target":
+      return `Set ${action.category} category budget to $${action.amount.toFixed(0)}`;
     case "set_plan_mode":
       return `Switched plan mode to ${action.mode}`;
     default:

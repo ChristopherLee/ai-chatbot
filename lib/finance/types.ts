@@ -5,7 +5,7 @@ export type FinanceSnapshotStatus =
   | "needs-onboarding"
   | "ready";
 
-export type BucketGroup = "fixed" | "flexible" | "annual" | "excluded";
+export type CategoryGroup = "fixed" | "flexible" | "annual" | "excluded";
 
 export type PlanMode = "balanced" | "conservative";
 
@@ -31,18 +31,6 @@ export const transactionMatchSchema = z
 
 export type FinanceTransactionMatch = z.infer<typeof transactionMatchSchema>;
 
-export const mergeBucketsActionSchema = z.object({
-  type: z.literal("merge_buckets"),
-  from: z.array(z.string().min(1)).min(1).max(5),
-  to: z.string().min(1),
-});
-
-export const remapRawCategoryActionSchema = z.object({
-  type: z.literal("remap_raw_category"),
-  from: z.string().min(1),
-  to: z.string().min(1),
-});
-
 export const categorizeTransactionsActionSchema = z.object({
   type: z.literal("categorize_transactions"),
   match: transactionMatchSchema,
@@ -60,15 +48,9 @@ export const excludeTransactionsActionSchema = z.object({
   match: transactionMatchSchema,
 });
 
-export const renameBucketActionSchema = z.object({
-  type: z.literal("rename_bucket"),
-  from: z.string().min(1),
-  to: z.string().min(1),
-});
-
-export const setBucketMonthlyTargetActionSchema = z.object({
-  type: z.literal("set_bucket_monthly_target"),
-  bucket: z.string().min(1),
+export const setCategoryMonthlyTargetActionSchema = z.object({
+  type: z.literal("set_category_monthly_target"),
+  category: z.string().min(1),
   amount: z.number().finite().nonnegative(),
   effectiveMonth: z
     .string()
@@ -82,13 +64,10 @@ export const setPlanModeActionSchema = z.object({
 });
 
 export const financeActionSchema = z.discriminatedUnion("type", [
-  mergeBucketsActionSchema,
-  remapRawCategoryActionSchema,
   categorizeTransactionsActionSchema,
   categorizeTransactionActionSchema,
   excludeTransactionsActionSchema,
-  renameBucketActionSchema,
-  setBucketMonthlyTargetActionSchema,
+  setCategoryMonthlyTargetActionSchema,
   setPlanModeActionSchema,
 ]);
 
@@ -97,16 +76,14 @@ export const financeActionsSchema = z.array(financeActionSchema).max(6);
 export type FinanceAction = z.infer<typeof financeActionSchema>;
 
 export const categorizationRuleTypes = [
-  "categorize_transaction",
   "categorize_transactions",
-  "remap_raw_category",
-  "merge_buckets",
-  "rename_bucket",
 ] as const satisfies FinanceAction["type"][];
 
 export const budgetExclusionRuleTypes = [
   "exclude_transactions",
 ] as const satisfies FinanceAction["type"][];
+
+export const legacyFinanceRuleTypes = [] as const satisfies FinanceAction["type"][];
 
 export type FinanceTransaction = {
   id: string;
@@ -119,8 +96,8 @@ export type FinanceTransaction = {
   tags: string | null;
   amountSigned: number;
   outflowAmount: number;
-  mappedBucket: string;
-  bucketGroup: BucketGroup;
+  mappedCategory: string;
+  categoryGroup: CategoryGroup;
   includeFlag: boolean;
   exclusionReason: string | null;
   notes: string | null;
@@ -171,16 +148,16 @@ export type FinanceChartType =
   | "spending-breakdown";
 
 export type FinanceMonthOverMonthChartPoint = {
-  bucket: string;
-  group: BucketGroup;
+  category: string;
+  group: CategoryGroup;
   currentMonth: number;
   previousMonth: number;
   delta: number;
 };
 
 export type FinanceSpendingBreakdownPoint = {
-  bucket: string;
-  group: BucketGroup;
+  category: string;
+  group: CategoryGroup;
   amount: number;
   sharePercentage: number;
 };
@@ -221,8 +198,8 @@ export type FinanceMonthOverMonthChartResult = {
   currentMonthLabel: string;
   previousMonth: string;
   previousMonthLabel: string;
-  bucketLimit: number;
-  availableBucketCount: number;
+  categoryLimit: number;
+  availableCategoryCount: number;
   truncated: boolean;
   totals: {
     currentMonth: number;
@@ -238,8 +215,8 @@ export type FinanceSpendingBreakdownChartResult = {
   description: string;
   month: string;
   monthLabel: string;
-  bucketLimit: number;
-  availableBucketCount: number;
+  categoryLimit: number;
+  availableCategoryCount: number;
   truncated: boolean;
   total: number;
   data: FinanceSpendingBreakdownPoint[];
@@ -265,8 +242,8 @@ export type FinanceChartToolResult =
     };
 
 export type FinanceCategoryCard = {
-  bucket: string;
-  group: BucketGroup;
+  category: string;
+  group: CategoryGroup;
   monthlyTarget: number;
   trailingAverage: number;
   totalOutflow: number;
@@ -295,10 +272,10 @@ export type FinancePlanSummary = {
   mode: PlanMode;
   totalMonthlyTarget: number;
   trailingAverageSpend: number;
-  totalsByGroup: Record<Exclude<BucketGroup, "excluded">, number>;
-  bucketTargets: Array<{
-    bucket: string;
-    group: BucketGroup;
+  totalsByGroup: Record<Exclude<CategoryGroup, "excluded">, number>;
+  categoryTargets: Array<{
+    category: string;
+    group: CategoryGroup;
     monthlyTarget: number;
     trailingAverage: number;
     trailingTotal: number;
@@ -315,16 +292,16 @@ export type FinanceCashFlowSummary = {
 };
 
 export type FinanceTargetsCategoryBudget = {
-  bucket: string;
-  group: BucketGroup;
+  category: string;
+  group: CategoryGroup;
   amount: number;
   overrideId: string | null;
   lastMonthActual: number;
 };
 
 export type FinanceTargetsCategoryBudgetSuggestion = {
-  bucket: string;
-  group: BucketGroup;
+  category: string;
+  group: CategoryGroup;
   suggestedAmount: number;
   lastMonthActual: number;
 };
@@ -362,7 +339,7 @@ export type FinanceRuleAffectedTransaction = {
   account: string;
   rawCategory: string;
   amount: number;
-  bucket: string;
+  category: string;
   includeFlag: boolean;
 };
 
@@ -379,7 +356,7 @@ export type FinanceRulesViewData = {
   options: {
     accounts: string[];
     rawCategories: string[];
-    buckets: string[];
+    categories: string[];
   };
 };
 
@@ -407,8 +384,8 @@ export type FinanceSnapshot = {
     description: string;
     merchant: string;
     amount: number;
-    bucket: string;
-    group: BucketGroup;
+    category: string;
+    group: CategoryGroup;
   }>;
   appliedOverrides: FinanceAppliedOverride[];
 };

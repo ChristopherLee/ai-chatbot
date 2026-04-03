@@ -19,6 +19,7 @@ import { useWindowSize } from "usehooks-ts";
 import {
   ModelSelector,
   ModelSelectorContent,
+  ModelSelectorEmpty,
   ModelSelectorGroup,
   ModelSelectorInput,
   ModelSelectorItem,
@@ -30,7 +31,8 @@ import {
 import {
   chatModels,
   DEFAULT_CHAT_MODEL,
-  modelsByProvider,
+  getChatModelById,
+  modelsByGroup,
 } from "@/lib/ai/models";
 import type { Attachment, ChatMessage } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -117,6 +119,7 @@ function PureMultimodalInput({
   hasFinanceDataset,
   onFinanceUploaded,
   onModelChange,
+  showModelSelector,
 }: {
   chatId: string;
   projectId: string | null;
@@ -135,6 +138,7 @@ function PureMultimodalInput({
   hasFinanceDataset: boolean;
   onFinanceUploaded?: (chatId: string) => void;
   onModelChange?: (modelId: string) => void;
+  showModelSelector: boolean;
 }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { width } = useWindowSize();
@@ -455,14 +459,16 @@ function PureMultimodalInput({
           />
         </div>
         <PromptInputToolbar className="border-top-0! border-t-0! p-0 shadow-none dark:border-0 dark:border-transparent!">
-          <PromptInputTools className="gap-0 sm:gap-0.5">
-            <ModelSelectorCompact
-              onModelChange={onModelChange}
-              selectedModelId={selectedModelId}
-            />
-          </PromptInputTools>
+          {showModelSelector && (
+            <PromptInputTools className="gap-0 sm:gap-0.5">
+              <ModelSelectorCompact
+                onModelChange={onModelChange}
+                selectedModelId={selectedModelId}
+              />
+            </PromptInputTools>
+          )}
 
-          {status === "submitted" ? (
+          {status === "submitted" || status === "streaming" ? (
             <StopButton setMessages={setMessages} stop={stop} />
           ) : (
             <PromptInputSubmit
@@ -471,7 +477,7 @@ function PureMultimodalInput({
               disabled={!input.trim() || uploadQueue.length > 0}
               status={status}
             >
-              <ArrowUpIcon size={14} />
+              {status === "ready" ? <ArrowUpIcon size={14} /> : undefined}
             </PromptInputSubmit>
           )}
         </PromptInputToolbar>
@@ -504,6 +510,9 @@ export const MultimodalInput = memo(
     if (prevProps.projectId !== nextProps.projectId) {
       return false;
     }
+    if (prevProps.showModelSelector !== nextProps.showModelSelector) {
+      return false;
+    }
 
     return true;
   }
@@ -519,60 +528,59 @@ function PureModelSelectorCompact({
   const [open, setOpen] = useState(false);
 
   const selectedModel =
-    chatModels.find((m) => m.id === selectedModelId) ??
-    chatModels.find((m) => m.id === DEFAULT_CHAT_MODEL) ??
+    getChatModelById(selectedModelId) ??
+    getChatModelById(DEFAULT_CHAT_MODEL) ??
     chatModels[0];
-  const [provider] = selectedModel.id.split("/");
-
-  // Provider display names
-  const providerNames: Record<string, string> = {
-    anthropic: "Anthropic",
-    openai: "OpenAI",
-    google: "Google",
-    xai: "xAI",
-    reasoning: "Reasoning",
-  };
+  const logoProvider = selectedModel.logoProvider ?? selectedModel.provider;
 
   return (
     <ModelSelector onOpenChange={setOpen} open={open}>
       <ModelSelectorTrigger asChild>
-        <Button className="h-8 w-[200px] justify-between px-2" variant="ghost">
-          {provider && <ModelSelectorLogo provider={provider} />}
+        <Button
+          className="h-8 max-w-[calc(100vw-6rem)] justify-between px-2 sm:w-[240px]"
+          variant="ghost"
+        >
+          <ModelSelectorLogo provider={logoProvider} />
           <ModelSelectorName>{selectedModel.name}</ModelSelectorName>
         </Button>
       </ModelSelectorTrigger>
       <ModelSelectorContent>
         <ModelSelectorInput placeholder="Search models..." />
         <ModelSelectorList>
-          {Object.entries(modelsByProvider).map(
-            ([providerKey, providerModels]) => (
-              <ModelSelectorGroup
-                heading={providerNames[providerKey] ?? providerKey}
-                key={providerKey}
-              >
-                {providerModels.map((model) => {
-                  const logoProvider = model.id.split("/")[0];
-                  return (
-                    <ModelSelectorItem
-                      key={model.id}
-                      onSelect={() => {
-                        onModelChange?.(model.id);
-                        setCookie("chat-model", model.id);
-                        setOpen(false);
-                      }}
-                      value={model.id}
-                    >
-                      <ModelSelectorLogo provider={logoProvider} />
-                      <ModelSelectorName>{model.name}</ModelSelectorName>
-                      {model.id === selectedModel.id && (
-                        <CheckIcon className="ml-auto size-4" />
-                      )}
-                    </ModelSelectorItem>
-                  );
-                })}
-              </ModelSelectorGroup>
-            )
-          )}
+          <ModelSelectorEmpty>No matching models found.</ModelSelectorEmpty>
+
+          {Object.entries(modelsByGroup).map(([groupName, groupModels]) => (
+            <ModelSelectorGroup heading={groupName} key={groupName}>
+              {groupModels.map((model) => {
+                const itemLogoProvider = model.logoProvider ?? model.provider;
+
+                return (
+                  <ModelSelectorItem
+                    key={model.id}
+                    onSelect={() => {
+                      onModelChange?.(model.id);
+                      setCookie("chat-model", model.id);
+                      setOpen(false);
+                    }}
+                    value={`${model.name} ${model.id} ${model.description}`}
+                  >
+                    <ModelSelectorLogo provider={itemLogoProvider} />
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate font-medium text-sm">
+                        {model.name}
+                      </div>
+                      <div className="truncate text-muted-foreground text-xs">
+                        {model.description}
+                      </div>
+                    </div>
+                    {model.id === selectedModel.id && (
+                      <CheckIcon className="ml-auto size-4" />
+                    )}
+                  </ModelSelectorItem>
+                );
+              })}
+            </ModelSelectorGroup>
+          ))}
         </ModelSelectorList>
       </ModelSelectorContent>
     </ModelSelector>

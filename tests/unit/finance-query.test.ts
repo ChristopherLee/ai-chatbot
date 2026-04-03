@@ -18,8 +18,8 @@ const transactions: FinanceTransaction[] = [
     tags: null,
     amountSigned: -8.5,
     outflowAmount: 8.5,
-    mappedBucket: "Dining",
-    bucketGroup: "flexible",
+    mappedCategory: "Dining",
+    categoryGroup: "flexible",
     includeFlag: true,
     exclusionReason: null,
     notes: null,
@@ -36,8 +36,8 @@ const transactions: FinanceTransaction[] = [
     tags: null,
     amountSigned: -95,
     outflowAmount: 95,
-    mappedBucket: "Groceries",
-    bucketGroup: "flexible",
+    mappedCategory: "Groceries",
+    categoryGroup: "flexible",
     includeFlag: true,
     exclusionReason: null,
     notes: null,
@@ -54,8 +54,8 @@ const transactions: FinanceTransaction[] = [
     tags: null,
     amountSigned: -2200,
     outflowAmount: 2200,
-    mappedBucket: "Mortgage",
-    bucketGroup: "fixed",
+    mappedCategory: "Mortgage",
+    categoryGroup: "fixed",
     includeFlag: true,
     exclusionReason: null,
     notes: "Manual note",
@@ -72,8 +72,8 @@ const transactions: FinanceTransaction[] = [
     tags: null,
     amountSigned: -140,
     outflowAmount: 140,
-    mappedBucket: "Groceries",
-    bucketGroup: "flexible",
+    mappedCategory: "Groceries",
+    categoryGroup: "flexible",
     includeFlag: true,
     exclusionReason: null,
     notes: null,
@@ -90,8 +90,8 @@ const transactions: FinanceTransaction[] = [
     tags: null,
     amountSigned: -500,
     outflowAmount: 500,
-    mappedBucket: "Transfers",
-    bucketGroup: "excluded",
+    mappedCategory: "Transfers",
+    categoryGroup: "excluded",
     includeFlag: false,
     exclusionReason: "Manual exclusion",
     notes: null,
@@ -111,7 +111,7 @@ function runQuery(filters: Partial<FinanceTransactionQueryInput>) {
   });
 }
 
-test("broad keyword search matches current bucket and transaction text", () => {
+test("broad keyword search matches current category and transaction text", () => {
   const result = runQuery({ search: "mortgage" });
 
   assert.equal(result.matchedCount, 1);
@@ -134,10 +134,10 @@ test("attribute filters support merchant searches with sorting and truncation", 
   assert.equal(result.transactions[0]?.id, "tx-4");
 });
 
-test("exact filters support raw category, bucket, account, and date ranges", () => {
+test("exact filters support raw category, category, account, and date ranges", () => {
   const result = runQuery({
     rawCategory: "Other Expenses",
-    bucket: "Mortgage",
+    category: "Mortgage",
     account: "Checking",
     startDate: "2026-03-01",
     endDate: "2026-03-31",
@@ -147,3 +147,4 @@ test("exact filters support raw category, bucket, account, and date ranges", () 
   assert.equal(result.transactions[0]?.id, "tx-3");
   assert.equal(result.totalMatchedOutflow, 2200);
 });
+

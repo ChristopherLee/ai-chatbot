@@ -22,7 +22,7 @@ export const financeChartInputSchema = z.object({
     .string()
     .regex(/^\d{4}-\d{2}$/)
     .optional(),
-  bucketLimit: z.number().int().min(3).max(12).default(6),
+  categoryLimit: z.number().int().min(3).max(12).default(6),
 });
 
 export type FinanceChartInput = z.infer<typeof financeChartInputSchema>;
@@ -184,11 +184,11 @@ function buildCumulativeSpendChart(
 function buildMonthOverMonthChart({
   snapshot,
   month,
-  bucketLimit,
+  categoryLimit,
 }: {
   snapshot: FinanceSnapshot;
   month?: string;
-  bucketLimit: number;
+  categoryLimit: number;
 }): FinanceChartToolResult {
   const resolvedMonth = resolveAnchorMonth({
     snapshot,
@@ -202,13 +202,13 @@ function buildMonthOverMonthChart({
 
   const currentMonth = resolvedMonth.month;
   const previousMonth = getFutureMonth(currentMonth, -1);
-  const allBuckets = snapshot.categoryCards
+  const allCategories = snapshot.categoryCards
     .map((category) => {
       const currentValue = getMonthlyActual(category, currentMonth);
       const previousValue = getMonthlyActual(category, previousMonth);
 
       return {
-        bucket: category.bucket,
+        category: category.category,
         group: category.group,
         currentMonth: currentValue,
         previousMonth: previousValue,
@@ -230,7 +230,7 @@ function buildMonthOverMonthChart({
       return right.delta - left.delta;
     });
 
-  if (allBuckets.length === 0) {
+  if (allCategories.length === 0) {
     return buildUnavailableResult({
       snapshot,
       chartType: "month-over-month",
@@ -238,13 +238,13 @@ function buildMonthOverMonthChart({
     });
   }
 
-  const totals = allBuckets.reduce(
-    (summary, bucket) => ({
-      currentMonth: roundCurrency(summary.currentMonth + bucket.currentMonth),
+  const totals = allCategories.reduce(
+    (summary, category) => ({
+      currentMonth: roundCurrency(summary.currentMonth + category.currentMonth),
       previousMonth: roundCurrency(
-        summary.previousMonth + bucket.previousMonth
+        summary.previousMonth + category.previousMonth
       ),
-      delta: roundCurrency(summary.delta + bucket.delta),
+      delta: roundCurrency(summary.delta + category.delta),
     }),
     { currentMonth: 0, previousMonth: 0, delta: 0 }
   );
@@ -256,16 +256,16 @@ function buildMonthOverMonthChart({
       chartType: "month-over-month",
       title: "Current month vs last month",
       description:
-        "Bucket-by-bucket spending comparison for the latest selected month versus the month before it.",
+        "Category-by-category spending comparison for the latest selected month versus the month before it.",
       currentMonth,
       currentMonthLabel: getMonthLabel(currentMonth),
       previousMonth,
       previousMonthLabel: getMonthLabel(previousMonth),
-      bucketLimit,
-      availableBucketCount: allBuckets.length,
-      truncated: allBuckets.length > bucketLimit,
+      categoryLimit,
+      availableCategoryCount: allCategories.length,
+      truncated: allCategories.length > categoryLimit,
       totals,
-      data: allBuckets.slice(0, bucketLimit),
+      data: allCategories.slice(0, categoryLimit),
     },
   };
 }
@@ -273,11 +273,11 @@ function buildMonthOverMonthChart({
 function buildSpendingBreakdownChart({
   snapshot,
   month,
-  bucketLimit,
+  categoryLimit,
 }: {
   snapshot: FinanceSnapshot;
   month?: string;
-  bucketLimit: number;
+  categoryLimit: number;
 }): FinanceChartToolResult {
   const resolvedMonth = resolveAnchorMonth({
     snapshot,
@@ -290,9 +290,9 @@ function buildSpendingBreakdownChart({
   }
 
   const resolvedTargetMonth = resolvedMonth.month;
-  const allBuckets = snapshot.categoryCards
+  const allCategories = snapshot.categoryCards
     .map((category) => ({
-      bucket: category.bucket,
+      category: category.category,
       group: category.group,
       amount: getMonthlyActual(category, resolvedTargetMonth),
     }))
@@ -300,10 +300,10 @@ function buildSpendingBreakdownChart({
     .sort((left, right) => right.amount - left.amount);
 
   const total = roundCurrency(
-    allBuckets.reduce((sum, category) => sum + category.amount, 0)
+    allCategories.reduce((sum, category) => sum + category.amount, 0)
   );
 
-  if (total === 0 || allBuckets.length === 0) {
+  if (total === 0 || allCategories.length === 0) {
     return buildUnavailableResult({
       snapshot,
       chartType: "spending-breakdown",
@@ -316,18 +316,18 @@ function buildSpendingBreakdownChart({
     snapshotStatus: snapshot.status,
     chart: {
       chartType: "spending-breakdown",
-      title: "Spending mix by bucket",
+      title: "Spending mix by category",
       description:
-        "Top spending buckets for the selected month, sized by their share of total outflow.",
+        "Top spending categories for the selected month, sized by their share of total outflow.",
       month: resolvedTargetMonth,
       monthLabel: getMonthLabel(resolvedTargetMonth),
-      bucketLimit,
-      availableBucketCount: allBuckets.length,
-      truncated: allBuckets.length > bucketLimit,
+      categoryLimit,
+      availableCategoryCount: allCategories.length,
+      truncated: allCategories.length > categoryLimit,
       total,
-      data: allBuckets.slice(0, bucketLimit).map((bucket) => ({
-        ...bucket,
-        sharePercentage: roundCurrency((bucket.amount / total) * 100),
+      data: allCategories.slice(0, categoryLimit).map((category) => ({
+        ...category,
+        sharePercentage: roundCurrency((category.amount / total) * 100),
       })),
     },
   };
@@ -366,13 +366,13 @@ export function buildFinanceChart({
       return buildMonthOverMonthChart({
         snapshot,
         month: input.month,
-        bucketLimit: input.bucketLimit,
+        categoryLimit: input.categoryLimit,
       });
     case "spending-breakdown":
       return buildSpendingBreakdownChart({
         snapshot,
         month: input.month,
-        bucketLimit: input.bucketLimit,
+        categoryLimit: input.categoryLimit,
       });
     default:
       return buildUnavailableResult({
@@ -382,3 +382,4 @@ export function buildFinanceChart({
       });
   }
 }
+

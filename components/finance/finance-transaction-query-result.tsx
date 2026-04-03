@@ -21,7 +21,7 @@ function buildFilterBadges(
       ? `Description: ${filters.descriptionContains}`
       : null,
     filters.rawCategory ? `Raw category: ${filters.rawCategory}` : null,
-    filters.bucket ? `Bucket: ${filters.bucket}` : null,
+    filters.category ? `Category: ${filters.category}` : null,
     filters.account ? `Account: ${filters.account}` : null,
     typeof filters.includeFlag === "boolean"
       ? filters.includeFlag
@@ -85,7 +85,7 @@ export function FinanceTransactionQueryResult({
                 <th className="px-3 py-2 font-medium">Date</th>
                 <th className="px-3 py-2 font-medium">Description</th>
                 <th className="px-3 py-2 font-medium">Account</th>
-                <th className="px-3 py-2 font-medium">Bucket</th>
+                <th className="px-3 py-2 font-medium">Category</th>
                 <th className="px-3 py-2 font-medium">Included</th>
                 <th className="px-3 py-2 font-medium">Amount</th>
               </tr>
@@ -101,7 +101,7 @@ export function FinanceTransactionQueryResult({
                     </div>
                   </td>
                   <td className="px-3 py-2">{transaction.account}</td>
-                  <td className="px-3 py-2">{transaction.bucket}</td>
+                  <td className="px-3 py-2">{transaction.category}</td>
                   <td className="px-3 py-2">
                     {transaction.includeFlag ? "Yes" : "No"}
                   </td>

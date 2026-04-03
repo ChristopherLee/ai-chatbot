@@ -8,7 +8,7 @@ export const financeTransactionQueryInputSchema = z
     merchant: z.string().trim().min(1).optional(),
     descriptionContains: z.string().trim().min(1).optional(),
     rawCategory: z.string().trim().min(1).optional(),
-    bucket: z.string().trim().min(1).optional(),
+    category: z.string().trim().min(1).optional(),
     account: z.string().trim().min(1).optional(),
     includeFlag: z.boolean().optional(),
     minAmount: z.number().finite().nonnegative().optional(),
@@ -64,7 +64,7 @@ export type FinanceTransactionQueryResult = {
     account: string;
     amount: number;
     rawCategory: string;
-    bucket: string;
+    category: string;
     includeFlag: boolean;
   }>;
 };
@@ -81,7 +81,7 @@ function matchesBroadSearch(
     transaction.description,
     transaction.normalizedMerchant,
     transaction.rawCategory,
-    transaction.mappedBucket,
+    transaction.mappedCategory,
     transaction.account,
     transaction.tags,
     transaction.notes,
@@ -105,7 +105,9 @@ export function queryFinanceTransactions({
   const normalizedRawCategory = filters.rawCategory
     ? safeLower(filters.rawCategory)
     : null;
-  const normalizedBucket = filters.bucket ? safeLower(filters.bucket) : null;
+  const normalizedCategory = filters.category
+    ? safeLower(filters.category)
+    : null;
   const normalizedAccount = filters.account ? safeLower(filters.account) : null;
 
   const matchedTransactions = transactions.filter((transaction) => {
@@ -138,8 +140,8 @@ export function queryFinanceTransactions({
     }
 
     if (
-      normalizedBucket &&
-      safeLower(transaction.mappedBucket) !== normalizedBucket
+      normalizedCategory &&
+      safeLower(transaction.mappedCategory) !== normalizedCategory
     ) {
       return false;
     }
@@ -242,8 +244,9 @@ export function queryFinanceTransactions({
       account: transaction.account,
       amount: transaction.outflowAmount,
       rawCategory: transaction.rawCategory,
-      bucket: transaction.mappedBucket,
+      category: transaction.mappedCategory,
       includeFlag: transaction.includeFlag,
     })),
   };
 }
+

@@ -5,6 +5,7 @@ import {
   AUTO_DENY_TOOL_APPROVAL_REASON,
   autoDenyPendingToolApprovals,
   filterPersistableMessages,
+  getRetryableChatHistory,
   sanitizeUIMessagesForModel,
 } from "@/lib/ai/message-history";
 import type { ChatMessage } from "@/lib/types";
@@ -143,4 +144,102 @@ test("filterPersistableMessages drops empty streamed messages", () => {
     messages.map((message) => message.id),
     ["assistant-1"]
   );
+});
+
+test("getRetryableChatHistory keeps trailing user prompts intact", () => {
+  const messages = [
+    buildMessage({
+      id: "user-1",
+      role: "user",
+      parts: [{ type: "text", text: "Where are the mortgage payments?" }],
+    }),
+  ];
+
+  assert.deepEqual(getRetryableChatHistory(messages), {
+    messages,
+    trailingMessageIdToDelete: null,
+  });
+});
+
+test("getRetryableChatHistory trims a trailing assistant message that was saved mid-stream", () => {
+  const userMessage = buildMessage({
+    id: "user-1",
+    role: "user",
+    parts: [{ type: "text", text: "Where are the mortgage payments?" }],
+  });
+  const assistantMessage = buildMessage({
+    id: "assistant-1",
+    role: "assistant",
+    parts: [
+      { type: "data-chat-title", data: "Mortgage Payments Timeline" },
+      { type: "step-start" },
+      {
+        type: "text",
+        text: "I'll look up the mortgage payments",
+        state: "streaming",
+      },
+    ],
+  });
+
+  assert.deepEqual(getRetryableChatHistory([userMessage, assistantMessage]), {
+    messages: [userMessage],
+    trailingMessageIdToDelete: "assistant-1",
+  });
+});
+
+test("getRetryableChatHistory does not treat approval requests as broken retries", () => {
+  const messages = [
+    buildMessage({
+      id: "user-1",
+      role: "user",
+      parts: [{ type: "text", text: "Save these changes." }],
+    }),
+    buildMessage({
+      id: "assistant-1",
+      role: "assistant",
+      parts: [
+        { type: "step-start" },
+        {
+          type: "tool-applyFinanceActions",
+          toolCallId: "tool-call-1",
+          state: "approval-requested",
+          input: { actions: [] },
+          approval: { id: "approval-1" },
+        },
+      ],
+    }),
+  ];
+
+  assert.equal(getRetryableChatHistory(messages), null);
+});
+
+test("getRetryableChatHistory trims unfinished tool calls that never reached output", () => {
+  const userMessage = buildMessage({
+    id: "user-1",
+    role: "user",
+    parts: [{ type: "text", text: "Show me the mortgage payments." }],
+  });
+  const assistantMessage = buildMessage({
+    id: "assistant-1",
+    role: "assistant",
+    parts: [
+      { type: "step-start" },
+      {
+        type: "tool-queryFinanceTransactions",
+        toolCallId: "tool-call-1",
+        state: "input-available",
+        input: {
+          category: "Mortgage",
+          limit: 25,
+          sortBy: "date",
+          sortDirection: "desc",
+        },
+      },
+    ],
+  });
+
+  assert.deepEqual(getRetryableChatHistory([userMessage, assistantMessage]), {
+    messages: [userMessage],
+    trailingMessageIdToDelete: "assistant-1",
+  });
 });

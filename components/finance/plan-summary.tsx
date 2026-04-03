@@ -48,7 +48,7 @@ export function PlanSummary({
           <div className="space-y-1">
             <CardTitle>Plan summary</CardTitle>
             <div className="text-muted-foreground text-sm">
-              Overall budget targets are now separate from bucket-level
+              Overall budget targets are now separate from category-level
               allocations and the {FINANCE_RECOMMENDATION_LOOKBACK_MONTHS}-month
               recommendation pace.
             </div>
@@ -87,7 +87,7 @@ export function PlanSummary({
           </div>
           <div className="rounded-xl bg-muted/70 p-3">
             <div className="text-muted-foreground">
-              {FINANCE_RECOMMENDATION_LOOKBACK_MONTHS}-mo suggested bucket pace
+              {FINANCE_RECOMMENDATION_LOOKBACK_MONTHS}-mo suggested category pace
             </div>
             <div className="font-semibold text-xl">
               {formatCurrency(planSummary.totalMonthlyTarget)}

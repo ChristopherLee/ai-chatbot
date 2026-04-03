@@ -1,9 +1,9 @@
 import {
   FINANCE_DISPLAY_HISTORY_MONTHS,
   FINANCE_RECOMMENDATION_LOOKBACK_MONTHS,
-  resolveBucketGroupFromBucket,
+  resolveCategoryGroupFromCategory,
 } from "./config";
-import { getBucketTargetOverrides, getPlanMode } from "./overrides";
+import { getCategoryTargetOverrides, getPlanMode } from "./overrides";
 import type {
   FinanceAction,
   FinanceCategoryCard,
@@ -21,8 +21,8 @@ import {
   toMonthKey,
 } from "./utils";
 
-type PlannedBucket = {
-  bucket: string;
+type PlannedCategory = {
+  category: string;
   group: FinanceCategoryCard["group"];
   monthlyTarget: number;
   trailingAverage: number;
@@ -61,7 +61,7 @@ function getTargetForGroup({
   monthlyValues,
   planMode,
 }: {
-  group: PlannedBucket["group"];
+  group: PlannedCategory["group"];
   monthlyValues: number[];
   planMode: "balanced" | "conservative";
 }) {
@@ -88,20 +88,20 @@ function getTargetForGroup({
 }
 
 function getMonthTarget({
-  bucket,
+  category,
   month,
   baseTarget,
   actions,
 }: {
-  bucket: string;
+  category: string;
   month: string;
   baseTarget: number;
-  actions: ReturnType<typeof getBucketTargetOverrides>;
+  actions: ReturnType<typeof getCategoryTargetOverrides>;
 }) {
   let target = baseTarget;
 
   for (const action of actions) {
-    if (safeLower(action.bucket) !== safeLower(bucket)) {
+    if (safeLower(action.category) !== safeLower(category)) {
       continue;
     }
 
@@ -135,7 +135,7 @@ export function buildFinancePlan({
           flexible: 0,
           annual: 0,
         },
-        bucketTargets: [],
+        categoryTargets: [],
       } satisfies FinancePlanSummary,
       monthlyChart: [] as FinanceMonthlyChartPoint[],
       cumulativeChart: [] as FinanceCumulativeChartPoint[],
@@ -172,11 +172,11 @@ export function buildFinancePlan({
     displayStartMonth < earliestObservedMonth
       ? earliestObservedMonth
       : displayStartMonth;
-  const bucketTargetOverrides = getBucketTargetOverrides(actions);
+  const categoryTargetOverrides = getCategoryTargetOverrides(actions);
   const displayEndMonth =
     [
       observedEndMonth,
-      ...bucketTargetOverrides.map((rule) => rule.effectiveMonth),
+      ...categoryTargetOverrides.map((rule) => rule.effectiveMonth),
     ]
       .filter((month): month is string => Boolean(month))
       .sort()
@@ -192,20 +192,20 @@ export function buildFinancePlan({
   );
   const planMode = getPlanMode(actions);
 
-  const bucketEntries = Array.from(
+  const categoryEntries = Array.from(
     (() => {
-      const bucketMap = includedTransactions.reduce(
+      const categoryMap = includedTransactions.reduce(
         (map, transaction) => {
-          const bucketKey = safeLower(transaction.mappedBucket);
-          const existing = map.get(bucketKey);
+          const categoryKey = safeLower(transaction.mappedCategory);
+          const existing = map.get(categoryKey);
 
           if (existing) {
             existing.transactions.push(transaction);
             return map;
           }
 
-          map.set(bucketKey, {
-            bucket: transaction.mappedBucket,
+          map.set(categoryKey, {
+            category: transaction.mappedCategory,
             transactions: [transaction],
           });
 
@@ -214,32 +214,32 @@ export function buildFinancePlan({
         new Map<
           string,
           {
-            bucket: string;
+            category: string;
             transactions: FinanceTransaction[];
           }
         >()
       );
 
-      for (const override of bucketTargetOverrides) {
-        const bucketKey = safeLower(override.bucket);
+      for (const override of categoryTargetOverrides) {
+        const categoryKey = safeLower(override.category);
 
-        if (!bucketMap.has(bucketKey)) {
-          bucketMap.set(bucketKey, {
-            bucket: override.bucket,
+        if (!categoryMap.has(categoryKey)) {
+          categoryMap.set(categoryKey, {
+            category: override.category,
             transactions: [],
           });
         }
       }
 
-      return bucketMap.values();
+      return categoryMap.values();
     })()
   );
 
-  const plannedBuckets = bucketEntries.map(
-    ({ bucket, transactions: bucketTransactions }) => {
+  const plannedCategories = categoryEntries.map(
+    ({ category, transactions: categoryTransactions }) => {
       const actualByMonth = new Map<string, number>();
 
-      for (const transaction of bucketTransactions) {
+      for (const transaction of categoryTransactions) {
         const month = toMonthKey(transaction.transactionDate);
         const current = actualByMonth.get(month) ?? 0;
         actualByMonth.set(
@@ -254,8 +254,8 @@ export function buildFinancePlan({
       const activeMonths = observedMonthlyValues.filter(
         (value) => value > 0
       ).length;
-      const group = resolveBucketGroupFromBucket({
-        bucket,
+      const group = resolveCategoryGroupFromCategory({
+        category,
         includeFlag: true,
         activeMonths: activeMonths > 0 ? activeMonths : undefined,
       });
@@ -270,15 +270,15 @@ export function buildFinancePlan({
         label: getMonthLabel(month),
         actual: roundCurrency(actualByMonth.get(month) ?? 0),
         target: getMonthTarget({
-          bucket,
+          category,
           month,
           baseTarget,
-          actions: bucketTargetOverrides,
+          actions: categoryTargetOverrides,
         }),
       }));
 
       const topMerchants = Array.from(
-        bucketTransactions.reduce((map, transaction) => {
+        categoryTransactions.reduce((map, transaction) => {
           const current = map.get(transaction.normalizedMerchant) ?? 0;
           map.set(
             transaction.normalizedMerchant,
@@ -291,7 +291,7 @@ export function buildFinancePlan({
         .sort((a, b) => b.amount - a.amount)
         .slice(0, 5);
 
-      const transactionsForCard = [...bucketTransactions]
+      const transactionsForCard = [...categoryTransactions]
         .sort((a, b) => {
           if (a.transactionDate === b.transactionDate) {
             return b.outflowAmount - a.outflowAmount;
@@ -311,7 +311,7 @@ export function buildFinancePlan({
         }));
 
       return {
-        bucket,
+        category,
         group,
         monthlyTarget: monthly.at(-1)?.target ?? 0,
         trailingAverage: roundCurrency(average(observedMonthlyValues)),
@@ -320,14 +320,14 @@ export function buildFinancePlan({
         ),
         monthly,
         totalOutflow: roundCurrency(
-          bucketTransactions.reduce(
+          categoryTransactions.reduce(
             (sum, transaction) => sum + transaction.outflowAmount,
             0
           )
         ),
         topMerchants,
         transactions: transactionsForCard,
-      } satisfies PlannedBucket;
+      } satisfies PlannedCategory;
     }
   );
 
@@ -335,18 +335,18 @@ export function buildFinancePlan({
     month,
     label: getMonthLabel(month),
     actual: roundCurrency(
-      plannedBuckets.reduce(
-        (sum, bucket) =>
+      plannedCategories.reduce(
+        (sum, category) =>
           sum +
-          (bucket.monthly.find((entry) => entry.month === month)?.actual ?? 0),
+          (category.monthly.find((entry) => entry.month === month)?.actual ?? 0),
         0
       )
     ),
     target: roundCurrency(
-      plannedBuckets.reduce(
-        (sum, bucket) =>
+      plannedCategories.reduce(
+        (sum, category) =>
           sum +
-          (bucket.monthly.find((entry) => entry.month === month)?.target ?? 0),
+          (category.monthly.find((entry) => entry.month === month)?.target ?? 0),
         0
       )
     ),
@@ -366,11 +366,11 @@ export function buildFinancePlan({
     };
   });
 
-  const latestBucketTargets = plannedBuckets.reduce(
-    (totals, bucket) => {
-      if (bucket.group !== "excluded") {
-        totals[bucket.group] = roundCurrency(
-          totals[bucket.group] + bucket.monthlyTarget
+  const latestCategoryTargets = plannedCategories.reduce(
+    (totals, category) => {
+      if (category.group !== "excluded") {
+        totals[category.group] = roundCurrency(
+          totals[category.group] + category.monthlyTarget
         );
       }
       return totals;
@@ -397,28 +397,28 @@ export function buildFinancePlan({
         return observedActualTotal / observedMonths.length;
       })()
     ),
-    totalsByGroup: latestBucketTargets,
-    bucketTargets: plannedBuckets
-      .map((bucket) => ({
-        bucket: bucket.bucket,
-        group: bucket.group,
-        monthlyTarget: bucket.monthlyTarget,
-        trailingAverage: bucket.trailingAverage,
-        trailingTotal: bucket.trailingTotal,
+    totalsByGroup: latestCategoryTargets,
+    categoryTargets: plannedCategories
+      .map((category) => ({
+        category: category.category,
+        group: category.group,
+        monthlyTarget: category.monthlyTarget,
+        trailingAverage: category.trailingAverage,
+        trailingTotal: category.trailingTotal,
       }))
       .sort((a, b) => b.monthlyTarget - a.monthlyTarget),
   } satisfies FinancePlanSummary;
 
-  const categoryCards = plannedBuckets
-    .map((bucket) => ({
-      bucket: bucket.bucket,
-      group: bucket.group,
-      monthlyTarget: bucket.monthlyTarget,
-      trailingAverage: bucket.trailingAverage,
-      totalOutflow: bucket.totalOutflow,
-      monthly: bucket.monthly,
-      topMerchants: bucket.topMerchants,
-      transactions: bucket.transactions,
+  const categoryCards = plannedCategories
+    .map((category) => ({
+      category: category.category,
+      group: category.group,
+      monthlyTarget: category.monthlyTarget,
+      trailingAverage: category.trailingAverage,
+      totalOutflow: category.totalOutflow,
+      monthly: category.monthly,
+      topMerchants: category.topMerchants,
+      transactions: category.transactions,
     }))
     .sort((a, b) => b.totalOutflow - a.totalOutflow);
 
@@ -431,9 +431,9 @@ export function buildFinancePlan({
       description: transaction.description,
       merchant: transaction.normalizedMerchant,
       amount: transaction.outflowAmount,
-      bucket: transaction.mappedBucket,
-      group: resolveBucketGroupFromBucket({
-        bucket: transaction.mappedBucket,
+      category: transaction.mappedCategory,
+      group: resolveCategoryGroupFromCategory({
+        category: transaction.mappedCategory,
         includeFlag: transaction.includeFlag,
       }),
     }));

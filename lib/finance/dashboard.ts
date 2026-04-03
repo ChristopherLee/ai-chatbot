@@ -1,5 +1,5 @@
 import type {
-  BucketGroup,
+  CategoryGroup,
   FinanceCategoryCard,
   FinanceCumulativeChartPoint,
   FinanceMonthlyChartPoint,
@@ -60,15 +60,15 @@ export type FinanceDashboardTrendPoint = {
 
 export type FinanceDashboardTransactionItem =
   FinanceCategoryCard["transactions"][number] & {
-    bucket: string;
-    group: BucketGroup;
+    category: string;
+    group: CategoryGroup;
   };
 
 export type FinanceDashboardOverviewRow = {
   actual: number;
   budget: number | null;
   deltaFromPrevious: number | null;
-  group: BucketGroup | null;
+  group: CategoryGroup | null;
   isCatchAll: boolean;
   key: string;
   label: string;
@@ -108,7 +108,7 @@ export type FinanceDashboardAnalysisRow = {
   averageBudget: number | null;
   averageSpent: number;
   budgetTotal: number | null;
-  group: BucketGroup | null;
+  group: CategoryGroup | null;
   isCatchAll: boolean;
   key: string;
   label: string;
@@ -184,7 +184,7 @@ function classifyRowStatus({
 }
 
 function getRowUrgencyScore(row: FinanceDashboardOverviewRow) {
-  const bucket =
+  const category =
     row.status === "over"
       ? 0
       : row.status === "near"
@@ -197,7 +197,7 @@ function getRowUrgencyScore(row: FinanceDashboardOverviewRow) {
   const magnitude = Math.abs(row.variance ?? row.actual);
 
   return {
-    bucket,
+    category,
     magnitude,
   };
 }
@@ -215,7 +215,7 @@ function buildFlattenedTransactions(categoryCards: FinanceCategoryCard[]) {
       seen.add(transaction.id);
       items.push({
         ...transaction,
-        bucket: category.bucket,
+        category: category.category,
         group: category.group,
       });
     }
@@ -443,20 +443,20 @@ export function buildFinanceDashboardViewModel({
     return null;
   }
 
-  const budgetedBucketKeys = new Set(
-    targets.categoryBudgets.map((budget) => safeLower(budget.bucket))
+  const budgetedCategoryKeys = new Set(
+    targets.categoryBudgets.map((budget) => safeLower(budget.category))
   );
-  const categoryCardsByBucket = new Map<string, FinanceCategoryCard>(
+  const categoryCardsByCategory = new Map<string, FinanceCategoryCard>(
     snapshot.categoryCards.map((category) => [
-      safeLower(category.bucket),
+      safeLower(category.category),
       category,
     ])
   );
   const budgetedCategories = targets.categoryBudgets.map((budget) => ({
-    bucket: budget.bucket,
-    category: categoryCardsByBucket.get(safeLower(budget.bucket)),
+    category: budget.category,
+    categoryCard: categoryCardsByCategory.get(safeLower(budget.category)),
     group:
-      categoryCardsByBucket.get(safeLower(budget.bucket))?.group ??
+      categoryCardsByCategory.get(safeLower(budget.category))?.group ??
       budget.group,
   }));
   const budgetedTotalsByMonth = new Map<
@@ -470,7 +470,7 @@ export function buildFinanceDashboardViewModel({
   for (const month of availableMonths) {
     const actual = roundCurrency(
       budgetedCategories.reduce((sum, category) => {
-        const entry = category.category?.monthly.find(
+        const entry = category.categoryCard?.monthly.find(
           (monthly) => monthly.month === month.month
         );
 
@@ -479,7 +479,7 @@ export function buildFinanceDashboardViewModel({
     );
     const target = roundCurrency(
       budgetedCategories.reduce((sum, category) => {
-        const entry = category.category?.monthly.find(
+        const entry = category.categoryCard?.monthly.find(
           (monthly) => monthly.month === month.month
         );
 
@@ -502,12 +502,12 @@ export function buildFinanceDashboardViewModel({
     )
     .sort((left, right) => right.amount - left.amount);
   const overviewRows = budgetedCategories.map((category) => {
-    const currentMonthEntry = category.category?.monthly.find(
+    const currentMonthEntry = category.categoryCard?.monthly.find(
       (entry) => entry.month === selectedMonthEntry.month
     );
     const previousMonthActual = previousMonthEntry
       ? roundCurrency(
-          category.category?.monthly.find(
+          category.categoryCard?.monthly.find(
             (entry) => entry.month === previousMonthEntry.month
           )?.actual ?? 0
         )
@@ -522,8 +522,8 @@ export function buildFinanceDashboardViewModel({
       progressPercent,
       variance,
     });
-    const selectedTransactions = category.category
-      ? category.category.transactions
+    const selectedTransactions = category.categoryCard
+      ? category.categoryCard.transactions
           .filter((transaction) =>
             transaction.transactionDate.startsWith(selectedMonthEntry.month)
           )
@@ -539,25 +539,25 @@ export function buildFinanceDashboardViewModel({
           : roundCurrency(actual - previousMonthActual),
       group: category.group,
       isCatchAll: false,
-      key: safeLower(category.bucket),
-      label: category.bucket,
+      key: safeLower(category.category),
+      label: category.category,
       leftAmount: variance,
       progressPercent,
       status,
-      topMerchants: category.category?.topMerchants.slice(0, 5) ?? [],
+      topMerchants: category.categoryCard?.topMerchants.slice(0, 5) ?? [],
       transactions:
         selectedTransactions.length > 0
           ? selectedTransactions.slice(0, 8)
-          : (category.category?.transactions.slice(0, 8) ?? []),
+          : (category.categoryCard?.transactions.slice(0, 8) ?? []),
       trend: buildTrendPoints({
-        category: category.category,
+        category: category.categoryCard,
         monthKeys: detailMonthKeys,
       }),
       variance,
     } satisfies FinanceDashboardOverviewRow;
   });
   const unbudgetedCategories = snapshot.categoryCards.filter(
-    (category) => !budgetedBucketKeys.has(safeLower(category.bucket))
+    (category) => !budgetedCategoryKeys.has(safeLower(category.category))
   );
   const catchAllBudget =
     targets.cashFlowSummary.totalMonthlyBudgetTarget === null
@@ -657,7 +657,7 @@ export function buildFinanceDashboardViewModel({
     const rightScore = getRowUrgencyScore(right);
 
     return (
-      leftScore.bucket - rightScore.bucket ||
+      leftScore.category - rightScore.category ||
       rightScore.magnitude - leftScore.magnitude ||
       right.actual - left.actual ||
       left.label.localeCompare(right.label)
@@ -740,7 +740,7 @@ export function buildFinanceDashboardViewModel({
           };
         }
 
-        const category = categoryCardsByBucket.get(row.key);
+        const category = categoryCardsByCategory.get(row.key);
         const categoryMonth = category?.monthly.find(
           (entry) => entry.month === month
         );
@@ -774,7 +774,7 @@ export function buildFinanceDashboardViewModel({
         }),
         totalSpent: summary.actualTotal,
         trend: analysisRange.monthKeys.map((month) => {
-          const category = categoryCardsByBucket.get(row.key);
+          const category = categoryCardsByCategory.get(row.key);
           const categoryMonth = category?.monthly.find(
             (entry) => entry.month === month
           );
@@ -902,3 +902,4 @@ export function buildFinanceDashboardViewModel({
     selectedMonthEntry,
   } satisfies FinanceDashboardViewModel;
 }
+

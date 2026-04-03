@@ -49,16 +49,16 @@ export default async function Page({
     categoryBudgets: currentCategoryBudgets
       .map((budget) => {
         const categoryCard = snapshot.categoryCards.find(
-          (card) => safeLower(card.bucket) === safeLower(budget.bucket)
+          (card) => safeLower(card.category) === safeLower(budget.category)
         );
         const currentMonthEntry = currentMonth
           ? categoryCard?.monthly.find((entry) => entry.month === currentMonth)
           : null;
 
         return {
-          bucket: budget.bucket,
+          category: budget.category,
           group: resolveCategoryBudgetGroup({
-            bucket: budget.bucket,
+            category: budget.category,
             categoryCards: snapshot.categoryCards,
           }),
           amount: budget.amount,
@@ -70,7 +70,9 @@ export default async function Page({
       })
       .sort(
         (left, right) =>
-          right.amount - left.amount || left.bucket.localeCompare(right.bucket)
+          right.amount -
+            left.amount ||
+          left.category.localeCompare(right.category)
       ),
     suggestedCategoryBudgets: buildCategoryBudgetSuggestions({
       categoryCards: snapshot.categoryCards,

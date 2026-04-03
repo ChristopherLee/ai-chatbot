@@ -6,6 +6,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { buildFinanceActionKey } from "@/lib/finance/action-keys";
 import { FINANCE_RECOMMENDATION_LOOKBACK_MONTHS } from "@/lib/finance/config";
+import {
+  normalizeFinanceToolSnapshotSummary,
+  type FinanceToolSnapshotSummaryInput,
+} from "@/lib/finance/tool-result-summary";
 import type {
   FinanceAction,
   FinanceTransactionMatch,
@@ -52,16 +56,10 @@ export function describeFinanceAction(action: FinanceAction) {
       return `Categorize transactions where ${describeMatch(action.match)} as ${action.to}`;
     case "categorize_transaction":
       return `Categorize transaction ${action.transactionId.slice(0, 8)} as ${action.to}`;
-    case "remap_raw_category":
-      return `Map raw category ${action.from} to ${action.to}`;
     case "exclude_transactions":
       return `Exclude transactions where ${describeMatch(action.match)}`;
-    case "merge_buckets":
-      return `Merge ${action.from.join(", ")} into ${action.to}`;
-    case "rename_bucket":
-      return `Rename ${action.from} to ${action.to}`;
-    case "set_bucket_monthly_target":
-      return `Set ${action.bucket} category budget to ${formatCurrency(action.amount)}${action.effectiveMonth ? ` starting ${action.effectiveMonth}` : ""}`;
+    case "set_category_monthly_target":
+      return `Set ${action.category} category budget to ${formatCurrency(action.amount)}${action.effectiveMonth ? ` starting ${action.effectiveMonth}` : ""}`;
     case "set_plan_mode":
       return `Switch plan mode to ${action.mode}`;
     default:
@@ -238,29 +236,15 @@ function SnapshotSummary({
   summary,
 }: {
   label: string;
-  summary: {
-    status: string;
-    includedOutflow: number | null;
-    totalMonthlyBudgetTarget: number | null;
-    totalMonthlyIncomeTarget: number | null;
-    categoryBudgetTotal: number;
-    suggestedMonthlyTarget: number | null;
-    catchAllBudget: number | null;
-    historicalAverageMonthlyIncome: number | null;
-    historicalAverageMonthlySpend: number | null;
-    trailingAverageSpend: number | null;
-    topBuckets: Array<{
-      bucket: string;
-      group: string;
-      monthlyTarget: number;
-    }>;
-  };
+  summary: FinanceToolSnapshotSummaryInput;
 }) {
+  const normalizedSummary = normalizeFinanceToolSnapshotSummary(summary);
+
   return (
     <div className="space-y-3 rounded-md border bg-muted/30 p-3">
       <div className="flex items-center justify-between gap-2">
         <div className="font-medium text-sm">{label}</div>
-        <Badge variant="secondary">{summary.status}</Badge>
+        <Badge variant="secondary">{normalizedSummary.status}</Badge>
       </div>
 
       <div className="grid gap-2 sm:grid-cols-3">
@@ -269,7 +253,7 @@ function SnapshotSummary({
             Included Outflow
           </div>
           <div className="font-medium text-sm">
-            {formatCurrency(summary.includedOutflow)}
+            {formatCurrency(normalizedSummary.includedOutflow)}
           </div>
         </div>
         <div>
@@ -277,7 +261,7 @@ function SnapshotSummary({
             Total Budget
           </div>
           <div className="font-medium text-sm">
-            {formatCurrency(summary.totalMonthlyBudgetTarget)}
+            {formatCurrency(normalizedSummary.totalMonthlyBudgetTarget)}
           </div>
         </div>
         <div>
@@ -285,7 +269,7 @@ function SnapshotSummary({
             Category Budgets
           </div>
           <div className="font-medium text-sm">
-            {formatCurrency(summary.categoryBudgetTotal)}
+            {formatCurrency(normalizedSummary.categoryBudgetTotal)}
           </div>
         </div>
       </div>
@@ -296,7 +280,7 @@ function SnapshotSummary({
             Catch-all Budget
           </div>
           <div className="font-medium text-sm">
-            {formatOptionalSignedCurrency(summary.catchAllBudget)}
+            {formatOptionalSignedCurrency(normalizedSummary.catchAllBudget)}
           </div>
         </div>
         <div>
@@ -304,7 +288,7 @@ function SnapshotSummary({
             Total Income
           </div>
           <div className="font-medium text-sm">
-            {formatCurrency(summary.totalMonthlyIncomeTarget)}
+            {formatCurrency(normalizedSummary.totalMonthlyIncomeTarget)}
           </div>
         </div>
         <div>
@@ -312,7 +296,7 @@ function SnapshotSummary({
             {FINANCE_RECOMMENDATION_LOOKBACK_MONTHS}-Mo Suggested Pace
           </div>
           <div className="font-medium text-sm">
-            {formatCurrency(summary.suggestedMonthlyTarget)}
+            {formatCurrency(normalizedSummary.suggestedMonthlyTarget)}
           </div>
         </div>
       </div>
@@ -323,7 +307,7 @@ function SnapshotSummary({
             Historical Spend
           </div>
           <div className="font-medium text-sm">
-            {formatCurrency(summary.historicalAverageMonthlySpend)}
+            {formatCurrency(normalizedSummary.historicalAverageMonthlySpend)}
           </div>
         </div>
         <div>
@@ -331,7 +315,7 @@ function SnapshotSummary({
             Historical Income
           </div>
           <div className="font-medium text-sm">
-            {formatCurrency(summary.historicalAverageMonthlyIncome)}
+            {formatCurrency(normalizedSummary.historicalAverageMonthlyIncome)}
           </div>
         </div>
         <div>
@@ -339,16 +323,16 @@ function SnapshotSummary({
             {FINANCE_RECOMMENDATION_LOOKBACK_MONTHS}-Mo Avg Spend
           </div>
           <div className="font-medium text-sm">
-            {formatCurrency(summary.trailingAverageSpend)}
+            {formatCurrency(normalizedSummary.trailingAverageSpend)}
           </div>
         </div>
       </div>
 
-      {summary.topBuckets.length > 0 && (
+      {normalizedSummary.topCategories.length > 0 && (
         <div className="flex flex-wrap gap-2">
-          {summary.topBuckets.slice(0, 3).map((bucket) => (
-            <Badge key={bucket.bucket} variant="outline">
-              {bucket.bucket}: {formatCurrency(bucket.monthlyTarget)}
+          {normalizedSummary.topCategories.slice(0, 3).map((category) => (
+            <Badge key={category.category} variant="outline">
+              {category.category}: {formatCurrency(category.monthlyTarget)}
             </Badge>
           ))}
         </div>
@@ -436,3 +420,4 @@ export function FinanceToolResult({
     </div>
   );
 }
+

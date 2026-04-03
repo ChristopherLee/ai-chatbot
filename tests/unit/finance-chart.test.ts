@@ -8,28 +8,28 @@ function createTransaction({
   id,
   month,
   amount,
-  bucket,
+  category,
   group,
 }: {
   id: string;
   month: string;
   amount: number;
-  bucket: string;
-  group: FinanceTransaction["bucketGroup"];
+  category: string;
+  group: FinanceTransaction["categoryGroup"];
 }): FinanceTransaction {
   return {
     id,
     projectId: "project-1",
     transactionDate: `${month}-15`,
     account: "Checking",
-    description: `${bucket} expense`,
-    normalizedMerchant: bucket,
-    rawCategory: bucket,
+    description: `${category} expense`,
+    normalizedMerchant: category,
+    rawCategory: category,
     tags: null,
     amountSigned: -amount,
     outflowAmount: amount,
-    mappedBucket: bucket,
-    bucketGroup: group,
+    mappedCategory: category,
+    categoryGroup: group,
     includeFlag: true,
     exclusionReason: null,
     notes: null,
@@ -93,56 +93,56 @@ const readySnapshot = buildSnapshot([
     id: "mortgage-jan",
     month: "2026-01",
     amount: 2000,
-    bucket: "Mortgage",
+    category: "Mortgage",
     group: "fixed",
   }),
   createTransaction({
     id: "mortgage-feb",
     month: "2026-02",
     amount: 2000,
-    bucket: "Mortgage",
+    category: "Mortgage",
     group: "fixed",
   }),
   createTransaction({
     id: "mortgage-mar",
     month: "2026-03",
     amount: 2100,
-    bucket: "Mortgage",
+    category: "Mortgage",
     group: "fixed",
   }),
   createTransaction({
     id: "groceries-feb",
     month: "2026-02",
     amount: 450,
-    bucket: "Groceries",
+    category: "Groceries",
     group: "flexible",
   }),
   createTransaction({
     id: "groceries-mar",
     month: "2026-03",
     amount: 500,
-    bucket: "Groceries",
+    category: "Groceries",
     group: "flexible",
   }),
   createTransaction({
     id: "dining-feb",
     month: "2026-02",
     amount: 150,
-    bucket: "Dining",
+    category: "Dining",
     group: "flexible",
   }),
   createTransaction({
     id: "dining-mar",
     month: "2026-03",
     amount: 100,
-    bucket: "Dining",
+    category: "Dining",
     group: "flexible",
   }),
   createTransaction({
     id: "travel-mar",
     month: "2026-03",
     amount: 300,
-    bucket: "Travel",
+    category: "Travel",
     group: "annual",
   }),
 ]);
@@ -152,7 +152,7 @@ test("month-over-month chart compares the latest observed month to the prior mon
     snapshot: readySnapshot,
     input: {
       chartType: "month-over-month",
-      bucketLimit: 2,
+      categoryLimit: 2,
     },
   });
 
@@ -168,20 +168,20 @@ test("month-over-month chart compares the latest observed month to the prior mon
   assert.equal(result.chart.totals.currentMonth, 3000);
   assert.equal(result.chart.totals.previousMonth, 2600);
   assert.equal(result.chart.totals.delta, 400);
-  assert.equal(result.chart.availableBucketCount, 4);
+  assert.equal(result.chart.availableCategoryCount, 4);
   assert.equal(result.chart.truncated, true);
   assert.deepEqual(
-    result.chart.data.map((bucket) => bucket.bucket),
+    result.chart.data.map((category) => category.category),
     ["Mortgage", "Groceries"]
   );
 });
 
-test("spending breakdown chart returns top buckets and share percentages", () => {
+test("spending breakdown chart returns top categories and share percentages", () => {
   const result = buildFinanceChart({
     snapshot: readySnapshot,
     input: {
       chartType: "spending-breakdown",
-      bucketLimit: 3,
+      categoryLimit: 3,
     },
   });
 
@@ -194,10 +194,10 @@ test("spending breakdown chart returns top buckets and share percentages", () =>
   assert.equal(result.chart.chartType, "spending-breakdown");
   assert.equal(result.chart.month, "2026-03");
   assert.equal(result.chart.total, 3000);
-  assert.equal(result.chart.availableBucketCount, 4);
+  assert.equal(result.chart.availableCategoryCount, 4);
   assert.equal(result.chart.truncated, true);
   assert.deepEqual(
-    result.chart.data.map((bucket) => bucket.bucket),
+    result.chart.data.map((category) => category.category),
     ["Mortgage", "Groceries", "Travel"]
   );
   assert.equal(result.chart.data[0]?.sharePercentage, 70);
@@ -210,7 +210,7 @@ test("monthly spend chart uses the latest observed month for its summary", () =>
     snapshot: readySnapshot,
     input: {
       chartType: "monthly-spend",
-      bucketLimit: 6,
+      categoryLimit: 6,
     },
   });
 
@@ -242,7 +242,7 @@ test("chart requests return a clear unavailable state while the finance plan is 
     },
     input: {
       chartType: "monthly-spend",
-      bucketLimit: 6,
+      categoryLimit: 6,
     },
   });
 
@@ -253,3 +253,4 @@ test("chart requests return a clear unavailable state while the finance plan is 
     message: "The finance plan is still being prepared. Try again in a moment.",
   });
 });
+

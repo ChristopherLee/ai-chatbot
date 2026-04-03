@@ -92,6 +92,13 @@
       "when": 1774924800000,
       "tag": "0012_project_finance_targets",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1775097600000,
+      "tag": "0013_finance_categories",
+      "breakpoints": true
     }
   ]
 }
