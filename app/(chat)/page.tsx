@@ -25,9 +25,9 @@ async function NewChatPage({
 }: {
   searchParams: Promise<{ projectId?: string }>;
 }) {
-  const id = generateUUID();
   const { projectId: requestedProjectId } = await searchParams;
   const [session, cookieStore] = await Promise.all([auth(), cookies()]);
+  const id = generateUUID();
   const showModelPicker = getLlmBackend() === "openrouter";
   const initialChatModel = showModelPicker
     ? (getSavedChatModelId(cookieStore.get("chat-model")?.value) ??
