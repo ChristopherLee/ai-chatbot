@@ -1,6 +1,7 @@
 import { put } from "@vercel/blob";
 import { NextResponse } from "next/server";
 import { auth } from "@/app/(auth)/auth";
+import { getErrorLogDetails } from "@/lib/ai/logging";
 import { DEFAULT_CHAT_MODEL } from "@/lib/ai/models";
 import {
   getTransactionsByProjectId,
@@ -59,6 +60,68 @@ function buildFallbackStoragePath({
 
 function pluralize(count: number, noun: string) {
   return `${count} ${noun}${count === 1 ? "" : "s"}`;
+}
+
+type FinanceUploadLogContext = {
+  chatId: string | null;
+  fileName: string | null;
+  fileSize: number | null;
+  mimeType: string | null;
+  projectId: string | null;
+  stage: string;
+  userId: string;
+  vercelId: string | null;
+};
+
+function formatFinanceUploadLogPayload(payload: Record<string, unknown>) {
+  try {
+    return JSON.stringify(payload, null, 2);
+  } catch {
+    return payload;
+  }
+}
+
+function getFileUploadContext(file: FormDataEntryValue | null) {
+  if (!(file instanceof File)) {
+    return {
+      fileName: null,
+      fileSize: null,
+      mimeType: null,
+    };
+  }
+
+  return {
+    fileName: file.name,
+    fileSize: file.size,
+    mimeType: file.type || null,
+  };
+}
+
+function logFinanceUploadFailure({
+  context,
+  error,
+}: {
+  context: FinanceUploadLogContext;
+  error: unknown;
+}) {
+  const payload: Record<string, unknown> = {
+    ...context,
+    error: getErrorLogDetails(error),
+  };
+
+  if (error instanceof ChatSDKError) {
+    payload.code = `${error.type}:${error.surface}`;
+    payload.errorMessage = error.message;
+    payload.cause = error.cause;
+    payload.statusCode = error.statusCode;
+  }
+
+  const logMethod =
+    error instanceof ChatSDKError && error.statusCode < 500
+      ? console.warn
+      : console.error;
+
+  logMethod("Finance upload failed", formatFinanceUploadLogPayload(payload));
 }
 
 function joinSummaryParts(parts: string[]) {
@@ -133,7 +196,7 @@ async function storeUploadedCsv({
       const uploaded = await put(
         `finance/${projectId}/${Date.now()}-${filename}`,
         await file.arrayBuffer(),
-        { access: "public" }
+        { access: "private" }
       );
 
       return uploaded.url;
@@ -163,25 +226,57 @@ export async function POST(request: Request) {
     return new ChatSDKError("unauthorized:chat").toResponse();
   }
 
+  const vercelId = request.headers.get("x-vercel-id");
+  let stage = "parse-form-data";
+  let logContext: FinanceUploadLogContext = {
+    chatId: null,
+    fileName: null,
+    fileSize: null,
+    mimeType: null,
+    projectId: null,
+    stage,
+    userId: session.user.id,
+    vercelId,
+  };
+
   try {
     const formData = await request.formData();
     const file = formData.get("file");
     const chatIdValue = formData.get("chatId");
     const projectIdValue = formData.get("projectId");
 
+    logContext = {
+      ...logContext,
+      chatId: typeof chatIdValue === "string" ? chatIdValue : null,
+      projectId: typeof projectIdValue === "string" ? projectIdValue : null,
+      ...getFileUploadContext(file),
+    };
+
+    stage = "validate-request";
+    logContext = {
+      ...logContext,
+      stage,
+    };
+
     if (!(file instanceof File) || typeof chatIdValue !== "string") {
-      return NextResponse.json(
-        { error: "Upload requires a CSV file and chat id." },
-        { status: 400 }
+      throw new ChatSDKError(
+        "bad_request:api",
+        "Upload requires a CSV file and chat id."
       );
     }
 
     if (!file.name.toLowerCase().endsWith(".csv")) {
-      return NextResponse.json(
-        { error: "Only CSV uploads are supported." },
-        { status: 400 }
+      throw new ChatSDKError(
+        "bad_request:api",
+        "Only CSV uploads are supported."
       );
     }
+
+    stage = "load-chat";
+    logContext = {
+      ...logContext,
+      stage,
+    };
 
     const chatId = chatIdValue;
     const existingChat = await getChatById({ id: chatId });
@@ -190,25 +285,37 @@ export async function POST(request: Request) {
       (typeof projectIdValue === "string" ? projectIdValue : null);
 
     if (existingChat && existingChat.userId !== session.user.id) {
-      return new ChatSDKError("forbidden:chat").toResponse();
+      throw new ChatSDKError("forbidden:chat");
     }
 
     if (projectId) {
+      logContext = {
+        ...logContext,
+        projectId,
+      };
+
       const existingProject = await getProjectById({ id: projectId });
 
       if (!existingProject) {
-        return new ChatSDKError(
-          "not_found:database",
-          "Project not found"
-        ).toResponse();
+        throw new ChatSDKError("bad_request:api", "Project not found");
       }
 
       if (existingProject.userId !== session.user.id) {
-        return new ChatSDKError("forbidden:chat").toResponse();
+        throw new ChatSDKError("forbidden:chat");
       }
     } else {
       projectId = generateUUID();
+      logContext = {
+        ...logContext,
+        projectId,
+      };
     }
+
+    stage = "parse-csv";
+    logContext = {
+      ...logContext,
+      stage,
+    };
 
     const csvText = await file.text();
     const parsed = await parseTransactionsCsv({
@@ -233,6 +340,12 @@ export async function POST(request: Request) {
     });
 
     const existingProject = await getProjectById({ id: projectId });
+
+    stage = "persist-project";
+    logContext = {
+      ...logContext,
+      stage,
+    };
 
     if (existingProject) {
       await updateProjectTitleById({
@@ -262,6 +375,12 @@ export async function POST(request: Request) {
       });
     }
 
+    stage = "store-upload";
+    logContext = {
+      ...logContext,
+      stage,
+    };
+
     const storagePath = await storeUploadedCsv({
       projectId,
       filename: file.name,
@@ -277,6 +396,13 @@ export async function POST(request: Request) {
     await saveTransactions({
       transactions: newTransactions,
     });
+
+    stage = "recompute-snapshot";
+    logContext = {
+      ...logContext,
+      stage,
+    };
+
     const categorizationReviewPromise =
       newTransactions.length > 0
         ? findMiscategorizedTransactions({
@@ -334,6 +460,12 @@ export async function POST(request: Request) {
       });
     }
 
+    stage = "save-messages";
+    logContext = {
+      ...logContext,
+      stage,
+    };
+
     await saveMessages({
       messages: uploadMessages,
     });
@@ -347,10 +479,24 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     if (error instanceof ChatSDKError) {
+      logFinanceUploadFailure({
+        context: {
+          ...logContext,
+          stage,
+        },
+        error,
+      });
       return error.toResponse();
     }
 
-    console.error("Failed finance upload", error);
+    logFinanceUploadFailure({
+      context: {
+        ...logContext,
+        stage,
+      },
+      error,
+    });
+
     return NextResponse.json(
       { error: "Failed to upload and parse the CSV file." },
       { status: 500 }

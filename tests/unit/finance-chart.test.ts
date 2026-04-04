@@ -37,6 +37,39 @@ function createTransaction({
   };
 }
 
+function createIncomeTransaction({
+  amount,
+  id,
+  month,
+  rawCategory = "Paychecks/Salary",
+  source,
+}: {
+  amount: number;
+  id: string;
+  month: string;
+  rawCategory?: string;
+  source: string;
+}): FinanceTransaction {
+  return {
+    id,
+    projectId: "project-1",
+    transactionDate: `${month}-01`,
+    account: "Checking",
+    description: `${source} income`,
+    normalizedMerchant: source,
+    rawCategory,
+    tags: null,
+    amountSigned: amount,
+    outflowAmount: 0,
+    mappedCategory: rawCategory,
+    categoryGroup: "excluded",
+    includeFlag: true,
+    exclusionReason: null,
+    notes: null,
+    createdAt: new Date(),
+  };
+}
+
 function buildSnapshot(transactions: FinanceTransaction[]): FinanceSnapshot {
   const plan = buildFinancePlan({
     transactions,
@@ -147,12 +180,87 @@ const readySnapshot = buildSnapshot([
   }),
 ]);
 
+const sankeyTransactions = [
+  createIncomeTransaction({
+    id: "income-paycheck-mar",
+    month: "2026-03",
+    amount: 4200,
+    source: "Primary paycheck",
+  }),
+  createIncomeTransaction({
+    id: "income-side-gig-mar",
+    month: "2026-03",
+    amount: 800,
+    rawCategory: "Deposits",
+    source: "Side gig",
+  }),
+  createTransaction({
+    id: "mortgage-jan",
+    month: "2026-01",
+    amount: 2000,
+    category: "Mortgage",
+    group: "fixed",
+  }),
+  createTransaction({
+    id: "mortgage-feb",
+    month: "2026-02",
+    amount: 2000,
+    category: "Mortgage",
+    group: "fixed",
+  }),
+  createTransaction({
+    id: "mortgage-mar",
+    month: "2026-03",
+    amount: 2100,
+    category: "Mortgage",
+    group: "fixed",
+  }),
+  createTransaction({
+    id: "groceries-feb",
+    month: "2026-02",
+    amount: 450,
+    category: "Groceries",
+    group: "flexible",
+  }),
+  createTransaction({
+    id: "groceries-mar",
+    month: "2026-03",
+    amount: 500,
+    category: "Groceries",
+    group: "flexible",
+  }),
+  createTransaction({
+    id: "dining-feb",
+    month: "2026-02",
+    amount: 150,
+    category: "Dining",
+    group: "flexible",
+  }),
+  createTransaction({
+    id: "dining-mar",
+    month: "2026-03",
+    amount: 100,
+    category: "Dining",
+    group: "flexible",
+  }),
+  createTransaction({
+    id: "travel-mar",
+    month: "2026-03",
+    amount: 300,
+    category: "Travel",
+    group: "annual",
+  }),
+];
+
+const sankeySnapshot = buildSnapshot(sankeyTransactions);
+
 test("month-over-month chart compares the latest observed month to the prior month", () => {
   const result = buildFinanceChart({
     snapshot: readySnapshot,
     input: {
       chartType: "month-over-month",
       categoryLimit: 2,
+      sourceLimit: 4,
     },
   });
 
@@ -182,6 +290,7 @@ test("spending breakdown chart returns top categories and share percentages", ()
     input: {
       chartType: "spending-breakdown",
       categoryLimit: 3,
+      sourceLimit: 4,
     },
   });
 
@@ -211,6 +320,7 @@ test("monthly spend chart uses the latest observed month for its summary", () =>
     input: {
       chartType: "monthly-spend",
       categoryLimit: 6,
+      sourceLimit: 4,
     },
   });
 
@@ -230,6 +340,41 @@ test("monthly spend chart uses the latest observed month for its summary", () =>
   );
 });
 
+test("income-to-expenses chart builds a Sankey payload with observed income and leftover cash", () => {
+  const result = buildFinanceChart({
+    snapshot: sankeySnapshot,
+    input: {
+      chartType: "income-to-expenses",
+      categoryLimit: 2,
+      sourceLimit: 3,
+    },
+    transactions: sankeyTransactions,
+  });
+
+  assert.equal(result.status, "available");
+
+  if (result.status !== "available") {
+    return;
+  }
+
+  assert.equal(result.chart.chartType, "income-to-expenses");
+  assert.equal(result.chart.month, "2026-03");
+  assert.equal(result.chart.incomeBasis, "observed");
+  assert.equal(result.chart.totals.income, 5000);
+  assert.equal(result.chart.totals.expenses, 3000);
+  assert.equal(result.chart.totals.leftover, 2000);
+  assert.equal(result.chart.totals.supplemental, 0);
+  assert.deepEqual(
+    result.chart.sources.map((source) => source.name),
+    ["Primary paycheck", "Side gig"]
+  );
+  assert.deepEqual(
+    result.chart.destinations.map((destination) => destination.name),
+    ["Mortgage", "Groceries", "Other expenses", "Left over / savings"]
+  );
+  assert.equal(result.chart.links.length, 8);
+});
+
 test("chart requests return a clear unavailable state while the finance plan is not ready", () => {
   const result = buildFinanceChart({
     snapshot: {
@@ -243,6 +388,7 @@ test("chart requests return a clear unavailable state while the finance plan is 
     input: {
       chartType: "monthly-spend",
       categoryLimit: 6,
+      sourceLimit: 4,
     },
   });
 

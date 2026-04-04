@@ -86,11 +86,22 @@ export function normalizeMerchant(description: string) {
   return normalized.length > 0 ? normalized : normalizeWhitespace(description);
 }
 
-function parseAmount(amount: string) {
+function parseAmount({
+  amount,
+  rowNumber,
+}: {
+  amount: string;
+  rowNumber?: number;
+}) {
   const parsed = Number.parseFloat(amount.replace(/,/g, ""));
 
   if (!Number.isFinite(parsed)) {
-    throw new ChatSDKError("bad_request:api", "CSV contains an invalid amount");
+    throw new ChatSDKError(
+      "bad_request:api",
+      rowNumber
+        ? `CSV row ${rowNumber} contains an invalid Amount value`
+        : "CSV contains an invalid amount"
+    );
   }
 
   return parsed;
@@ -299,7 +310,20 @@ export async function parseTransactionsCsv({
   });
 
   if (result.errors.length > 0) {
-    throw new ChatSDKError("bad_request:api", "Failed to parse CSV upload");
+    const firstError = result.errors[0];
+    const rowLabel =
+      typeof firstError?.row === "number"
+        ? ` around row ${firstError.row + 1}`
+        : "";
+    const detail =
+      typeof firstError?.message === "string"
+        ? firstError.message
+        : "Unknown CSV parsing error";
+
+    throw new ChatSDKError(
+      "bad_request:api",
+      `Failed to parse CSV upload${rowLabel}: ${detail}`
+    );
   }
 
   const { headers, mappedHeaders } = await resolveHeaders(result.meta.fields);
@@ -308,7 +332,8 @@ export async function parseTransactionsCsv({
     throw new ChatSDKError("bad_request:api", "CSV is empty");
   }
 
-  const transactions = result.data.map((row) => {
+  const transactions = result.data.map((row, index) => {
+    const rowNumber = index + 2;
     const transactionDate = normalizeWhitespace(
       getRowValue({ row, header: mappedHeaders.Date })
     );
@@ -325,17 +350,34 @@ export async function parseTransactionsCsv({
       getRowValue({ row, header: mappedHeaders.Tags })
     );
 
-    if (!transactionDate || !account || !description || !rawCategory) {
+    const missingFields = [
+      transactionDate ? null : "Date",
+      account ? null : "Account",
+      description ? null : "Description",
+      rawCategory ? null : "Category",
+    ].filter((value): value is string => Boolean(value));
+
+    if (missingFields.length > 0) {
       throw new ChatSDKError(
         "bad_request:api",
-        "CSV contains a row with missing required values"
+        `CSV row ${rowNumber} is missing required values: ${missingFields.join(", ")}`
       );
     }
 
-    parseISO(transactionDate);
+    const parsedTransactionDate = parseISO(transactionDate);
+
+    if (Number.isNaN(parsedTransactionDate.getTime())) {
+      throw new ChatSDKError(
+        "bad_request:api",
+        `CSV row ${rowNumber} contains an invalid Date value: ${transactionDate}`
+      );
+    }
 
     const amountSigned = roundCurrency(
-      parseAmount(getRowValue({ row, header: mappedHeaders.Amount }))
+      parseAmount({
+        amount: getRowValue({ row, header: mappedHeaders.Amount }),
+        rowNumber,
+      })
     );
     const outflowAmount =
       amountSigned < 0 ? roundCurrency(Math.abs(amountSigned)) : 0;
@@ -386,4 +428,3 @@ export async function parseTransactionsCsv({
     transactions,
   };
 }
-

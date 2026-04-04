@@ -145,7 +145,8 @@ export type FinanceChartType =
   | "monthly-spend"
   | "cumulative-spend"
   | "month-over-month"
-  | "spending-breakdown";
+  | "spending-breakdown"
+  | "income-to-expenses";
 
 export type FinanceMonthOverMonthChartPoint = {
   category: string;
@@ -160,6 +161,25 @@ export type FinanceSpendingBreakdownPoint = {
   group: CategoryGroup;
   amount: number;
   sharePercentage: number;
+};
+
+export type FinanceIncomeExpenseFlowKind =
+  | "income"
+  | "supplemental"
+  | "category"
+  | "leftover";
+
+export type FinanceIncomeExpenseFlowNode = {
+  name: string;
+  amount: number;
+  kind: FinanceIncomeExpenseFlowKind;
+  group?: CategoryGroup;
+};
+
+export type FinanceIncomeExpenseFlowLink = {
+  source: number;
+  target: number;
+  value: number;
 };
 
 export type FinanceMonthlySpendChartResult = {
@@ -222,11 +242,37 @@ export type FinanceSpendingBreakdownChartResult = {
   data: FinanceSpendingBreakdownPoint[];
 };
 
+export type FinanceIncomeToExpensesChartResult = {
+  chartType: "income-to-expenses";
+  title: string;
+  description: string;
+  month: string;
+  monthLabel: string;
+  incomeBasis: "historical-average" | "income-target" | "observed";
+  sourceLimit: number;
+  availableSourceCount: number;
+  truncatedSources: boolean;
+  categoryLimit: number;
+  availableCategoryCount: number;
+  truncatedCategories: boolean;
+  totals: {
+    income: number;
+    expenses: number;
+    leftover: number;
+    supplemental: number;
+  };
+  sources: FinanceIncomeExpenseFlowNode[];
+  destinations: FinanceIncomeExpenseFlowNode[];
+  nodes: FinanceIncomeExpenseFlowNode[];
+  links: FinanceIncomeExpenseFlowLink[];
+};
+
 export type FinanceChartResult =
   | FinanceMonthlySpendChartResult
   | FinanceCumulativeSpendChartResult
   | FinanceMonthOverMonthChartResult
-  | FinanceSpendingBreakdownChartResult;
+  | FinanceSpendingBreakdownChartResult
+  | FinanceIncomeToExpensesChartResult;
 
 export type FinanceChartToolResult =
   | {

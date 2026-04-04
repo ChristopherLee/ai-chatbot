@@ -15,11 +15,16 @@ type SuggestedActionsProps = {
 
 function PureSuggestedActions({ chatId, sendMessage }: SuggestedActionsProps) {
   const suggestedActions = [
+    "Am I on budget for this month?",
+    "Review my latest transactions",
     "Find miscategorized transactions",
-    "Make this plan more conservative",
-    "Combine travel and transport",
-    "Exclude refinance fee",
-    "Set groceries to 900",
+    "Compare this month's spending to last month",
+    "Recommend budget changes based on my recent spending",
+    // Future prompt options:
+    // "What categories are driving my overspending?",
+    // "Show me any unusual transactions from the last 30 days",
+    // "Where can I cut spending without affecting essentials?",
+    // "Are there any recurring charges I should review?",
   ];
 
   return (

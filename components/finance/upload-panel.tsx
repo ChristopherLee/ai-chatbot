@@ -6,6 +6,7 @@ import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { getFinanceUploadErrorMessage } from "@/lib/finance/upload-errors";
 import { cn } from "@/lib/utils";
 
 type UploadPanelProps = {
@@ -39,10 +40,8 @@ export function UploadPanel({
     });
 
     if (!response.ok) {
-      const body = await response
-        .json()
-        .catch(() => ({ error: "Upload failed" }));
-      throw new Error(body.error ?? "Upload failed");
+      const body = await response.json().catch(() => null);
+      throw new Error(getFinanceUploadErrorMessage(body));
     }
 
     return (await response.json()) as { chatId: string; projectId: string };

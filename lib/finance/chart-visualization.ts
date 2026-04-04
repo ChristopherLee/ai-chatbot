@@ -1,9 +1,12 @@
 import { z } from "zod";
 import type {
+  CategoryGroup,
   FinanceCategoryCard,
   FinanceChartToolResult,
   FinanceSnapshot,
+  FinanceTransaction,
 } from "./types";
+import { NON_INCOME_RAW_CATEGORIES } from "./config";
 import {
   getFutureMonth,
   getMonthLabel,
@@ -17,12 +20,14 @@ export const financeChartInputSchema = z.object({
     "cumulative-spend",
     "month-over-month",
     "spending-breakdown",
+    "income-to-expenses",
   ]),
   month: z
     .string()
     .regex(/^\d{4}-\d{2}$/)
     .optional(),
   categoryLimit: z.number().int().min(3).max(12).default(6),
+  sourceLimit: z.number().int().min(2).max(8).default(4),
 });
 
 export type FinanceChartInput = z.infer<typeof financeChartInputSchema>;
@@ -60,7 +65,7 @@ function resolveAnchorMonth({
   snapshot: FinanceSnapshot;
   chartType: Extract<
     FinanceChartInput["chartType"],
-    "month-over-month" | "spending-breakdown"
+    "month-over-month" | "spending-breakdown" | "income-to-expenses"
   >;
   requestedMonth?: string;
 }) {
@@ -104,6 +109,224 @@ function resolveAnchorMonth({
 function getMonthlyActual(category: FinanceCategoryCard, month: string) {
   return roundCurrency(
     category.monthly.find((entry) => entry.month === month)?.actual ?? 0
+  );
+}
+
+type FlowBucket = {
+  amount: number;
+  group?: CategoryGroup;
+  kind: "category" | "income" | "leftover" | "supplemental";
+  name: string;
+};
+
+function collapseBuckets<T extends FlowBucket>({
+  buckets,
+  limit,
+  overflowKind,
+  overflowName,
+}: {
+  buckets: T[];
+  limit: number;
+  overflowKind: T["kind"];
+  overflowName: string;
+}) {
+  if (buckets.length <= limit) {
+    return {
+      items: buckets,
+      truncated: false,
+    };
+  }
+
+  const visible = buckets.slice(0, limit);
+  const overflowAmount = roundCurrency(
+    buckets.slice(limit).reduce((sum, bucket) => sum + bucket.amount, 0)
+  );
+
+  return {
+    items: [
+      ...visible,
+      {
+        amount: overflowAmount,
+        kind: overflowKind,
+        name: overflowName,
+      } as T,
+    ],
+    truncated: true,
+  };
+}
+
+function resolveIncomeSourceLabel(transaction: FinanceTransaction) {
+  const merchant = transaction.normalizedMerchant.trim();
+  const rawCategory = transaction.rawCategory.trim();
+
+  if (merchant.length > 0 && merchant.toLowerCase() !== rawCategory.toLowerCase()) {
+    return merchant;
+  }
+
+  if (rawCategory.length > 0) {
+    return rawCategory;
+  }
+
+  return "Income";
+}
+
+function buildIncomeSourcesForMonth({
+  month,
+  snapshot,
+  sourceLimit,
+  transactions,
+}: {
+  month: string;
+  snapshot: FinanceSnapshot;
+  sourceLimit: number;
+  transactions?: FinanceTransaction[];
+}) {
+  const monthlyIncomeBuckets = Array.from(
+    (transactions ?? []).reduce((map, transaction) => {
+      if (!transaction.transactionDate.startsWith(month)) {
+        return map;
+      }
+
+      if (
+        transaction.amountSigned <= 0 ||
+        NON_INCOME_RAW_CATEGORIES.has(transaction.rawCategory)
+      ) {
+        return map;
+      }
+
+      const sourceName = resolveIncomeSourceLabel(transaction);
+      map.set(
+        sourceName,
+        roundCurrency((map.get(sourceName) ?? 0) + transaction.amountSigned)
+      );
+      return map;
+    }, new Map<string, number>())
+  )
+    .map(([name, amount]) => ({
+      amount,
+      kind: "income" as const,
+      name,
+    }))
+    .filter((bucket) => bucket.amount > 0)
+    .sort((left, right) => right.amount - left.amount);
+
+  if (monthlyIncomeBuckets.length > 0) {
+    const { items, truncated } = collapseBuckets({
+      buckets: monthlyIncomeBuckets,
+      limit: sourceLimit,
+      overflowKind: "income",
+      overflowName: "Other income",
+    });
+
+    return {
+      basis: "observed" as const,
+      sources: items,
+      totalIncome: roundCurrency(
+        monthlyIncomeBuckets.reduce((sum, bucket) => sum + bucket.amount, 0)
+      ),
+      availableSourceCount: monthlyIncomeBuckets.length,
+      truncatedSources: truncated,
+    };
+  }
+
+  const fallbackIncome =
+    snapshot.cashFlowSummary.totalMonthlyIncomeTarget ??
+    snapshot.cashFlowSummary.historicalAverageMonthlyIncome;
+
+  if (fallbackIncome <= 0) {
+    return {
+      basis: null,
+      sources: [],
+      totalIncome: 0,
+      availableSourceCount: 0,
+      truncatedSources: false,
+    };
+  }
+
+  return {
+    basis:
+      snapshot.cashFlowSummary.totalMonthlyIncomeTarget !== null
+        ? ("income-target" as const)
+        : ("historical-average" as const),
+    sources: [
+      {
+        amount: roundCurrency(fallbackIncome),
+        kind: "income" as const,
+        name:
+          snapshot.cashFlowSummary.totalMonthlyIncomeTarget !== null
+            ? "Income target"
+            : "Historical average income",
+      },
+    ],
+    totalIncome: roundCurrency(fallbackIncome),
+    availableSourceCount: 1,
+    truncatedSources: false,
+  };
+}
+
+function buildExpenseCategoriesForMonth({
+  month,
+  snapshot,
+  categoryLimit,
+}: {
+  month: string;
+  snapshot: FinanceSnapshot;
+  categoryLimit: number;
+}) {
+  const allCategories = snapshot.categoryCards
+    .map((category) => ({
+      amount: getMonthlyActual(category, month),
+      group: category.group,
+      kind: "category" as const,
+      name: category.category,
+    }))
+    .filter((category) => category.amount > 0)
+    .sort((left, right) => right.amount - left.amount);
+
+  const { items, truncated } = collapseBuckets({
+    buckets: allCategories,
+    limit: categoryLimit,
+    overflowKind: "category",
+    overflowName: "Other expenses",
+  });
+
+  return {
+    categories: items,
+    totalExpenses: roundCurrency(
+      allCategories.reduce((sum, category) => sum + category.amount, 0)
+    ),
+    availableCategoryCount: allCategories.length,
+    truncatedCategories: truncated,
+  };
+}
+
+function buildProportionalFlowLinks({
+  destinations,
+  sources,
+}: {
+  destinations: FlowBucket[];
+  sources: FlowBucket[];
+}) {
+  const sourceCount = sources.length;
+  const totalDestinationAmount = destinations.reduce(
+    (sum, destination) => sum + destination.amount,
+    0
+  );
+
+  if (sourceCount === 0 || totalDestinationAmount <= 0) {
+    return [];
+  }
+
+  return sources.flatMap((source, sourceIndex) =>
+    destinations
+      .map((destination, destinationIndex) => ({
+        source: sourceIndex,
+        target: sourceCount + destinationIndex,
+        value: roundCurrency(
+          source.amount * (destination.amount / totalDestinationAmount)
+        ),
+      }))
+      .filter((link) => link.value > 0)
   );
 }
 
@@ -333,12 +556,145 @@ function buildSpendingBreakdownChart({
   };
 }
 
+function buildIncomeToExpensesChart({
+  snapshot,
+  month,
+  categoryLimit,
+  sourceLimit,
+  transactions,
+}: {
+  snapshot: FinanceSnapshot;
+  month?: string;
+  categoryLimit: number;
+  sourceLimit: number;
+  transactions?: FinanceTransaction[];
+}): FinanceChartToolResult {
+  const resolvedMonth = resolveAnchorMonth({
+    snapshot,
+    chartType: "income-to-expenses",
+    requestedMonth: month,
+  });
+
+  if ("status" in resolvedMonth) {
+    return resolvedMonth;
+  }
+
+  const resolvedTargetMonth = resolvedMonth.month;
+  const expenseBuckets = buildExpenseCategoriesForMonth({
+    snapshot,
+    month: resolvedTargetMonth,
+    categoryLimit,
+  });
+
+  if (
+    expenseBuckets.totalExpenses === 0 ||
+    expenseBuckets.availableCategoryCount === 0
+  ) {
+    return buildUnavailableResult({
+      snapshot,
+      chartType: "income-to-expenses",
+      message: `No included spending was recorded for ${getMonthLabel(resolvedTargetMonth)}.`,
+    });
+  }
+
+  const incomeSources = buildIncomeSourcesForMonth({
+    month: resolvedTargetMonth,
+    snapshot,
+    sourceLimit,
+    transactions,
+  });
+
+  if (incomeSources.totalIncome === 0 || incomeSources.basis === null) {
+    return buildUnavailableResult({
+      snapshot,
+      chartType: "income-to-expenses",
+      message: `I could not find income data for ${getMonthLabel(resolvedTargetMonth)} or a saved income target to anchor the Sankey chart.`,
+    });
+  }
+
+  const supplementalAmount = Math.max(
+    0,
+    roundCurrency(expenseBuckets.totalExpenses - incomeSources.totalIncome)
+  );
+  const leftoverAmount = Math.max(
+    0,
+    roundCurrency(incomeSources.totalIncome - expenseBuckets.totalExpenses)
+  );
+  const sources = [
+    ...incomeSources.sources,
+    ...(supplementalAmount > 0
+      ? [
+          {
+            amount: supplementalAmount,
+            kind: "supplemental" as const,
+            name: "From savings / debt",
+          },
+        ]
+      : []),
+  ];
+  const destinations = [
+    ...expenseBuckets.categories,
+    ...(leftoverAmount > 0
+      ? [
+          {
+            amount: leftoverAmount,
+            kind: "leftover" as const,
+            name: "Left over / savings",
+          },
+        ]
+      : []),
+  ];
+  const nodes = [...sources, ...destinations];
+  const links = buildProportionalFlowLinks({
+    destinations,
+    sources,
+  });
+
+  const basisDescription =
+    incomeSources.basis === "observed"
+      ? `Observed income sources from ${getMonthLabel(resolvedTargetMonth)} are distributed proportionally across that month's expense categories.`
+      : incomeSources.basis === "income-target"
+        ? `No income transactions were recorded for ${getMonthLabel(resolvedTargetMonth)}, so this uses the saved monthly income target as the source node.`
+        : `No income transactions were recorded for ${getMonthLabel(resolvedTargetMonth)}, so this uses the historical average monthly income as the source node.`;
+
+  return {
+    status: "available",
+    snapshotStatus: snapshot.status,
+    chart: {
+      chartType: "income-to-expenses",
+      title: "Income to expense categories",
+      description: basisDescription,
+      month: resolvedTargetMonth,
+      monthLabel: getMonthLabel(resolvedTargetMonth),
+      incomeBasis: incomeSources.basis,
+      sourceLimit,
+      availableSourceCount: incomeSources.availableSourceCount,
+      truncatedSources: incomeSources.truncatedSources,
+      categoryLimit,
+      availableCategoryCount: expenseBuckets.availableCategoryCount,
+      truncatedCategories: expenseBuckets.truncatedCategories,
+      totals: {
+        income: incomeSources.totalIncome,
+        expenses: expenseBuckets.totalExpenses,
+        leftover: leftoverAmount,
+        supplemental: supplementalAmount,
+      },
+      sources,
+      destinations,
+      nodes,
+      links,
+    },
+  };
+}
+
 export function buildFinanceChart({
   snapshot,
   input,
+  transactions,
 }: {
   snapshot: FinanceSnapshot;
   input: FinanceChartInput;
+  transactions?: FinanceTransaction[];
 }): FinanceChartToolResult {
   if (
     snapshot.status !== "ready" ||
@@ -373,6 +729,14 @@ export function buildFinanceChart({
         snapshot,
         month: input.month,
         categoryLimit: input.categoryLimit,
+      });
+    case "income-to-expenses":
+      return buildIncomeToExpensesChart({
+        snapshot,
+        month: input.month,
+        categoryLimit: input.categoryLimit,
+        sourceLimit: input.sourceLimit,
+        transactions,
       });
     default:
       return buildUnavailableResult({

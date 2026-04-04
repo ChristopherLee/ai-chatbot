@@ -8,6 +8,7 @@ import {
   Pie,
   PieChart,
   ResponsiveContainer,
+  Sankey,
   Tooltip,
   XAxis,
   YAxis,
@@ -33,6 +34,13 @@ const PIE_COLORS = [
   "#dc2626",
 ];
 
+const FLOW_GROUP_COLORS: Record<string, string> = {
+  fixed: "#0f766e",
+  flexible: "#1d4ed8",
+  annual: "#b45309",
+  excluded: "#64748b",
+};
+
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -44,6 +52,180 @@ function formatCurrency(value: number) {
 function formatDelta(value: number) {
   const formatted = formatCurrency(Math.abs(value));
   return value > 0 ? `+${formatted}` : value < 0 ? `-${formatted}` : formatted;
+}
+
+function getIncomeBasisLabel(
+  basis: "historical-average" | "income-target" | "observed"
+) {
+  if (basis === "income-target") {
+    return "Income target";
+  }
+
+  if (basis === "historical-average") {
+    return "Historical avg income";
+  }
+
+  return "Observed income";
+}
+
+function getFlowNodeColor(node: {
+  group?: string;
+  kind?: "category" | "income" | "leftover" | "supplemental";
+}) {
+  if (node.kind === "income") {
+    return "#0f766e";
+  }
+
+  if (node.kind === "supplemental") {
+    return "#c2410c";
+  }
+
+  if (node.kind === "leftover") {
+    return "#475569";
+  }
+
+  return FLOW_GROUP_COLORS[node.group ?? ""] ?? "#1d4ed8";
+}
+
+function SankeyTooltipContent({
+  active,
+  payload,
+}: {
+  active?: boolean;
+  payload?: Array<{ payload?: unknown }>;
+}) {
+  if (!active || !payload?.length) {
+    return null;
+  }
+
+  const item = payload[0]?.payload as
+    | {
+        amount?: number;
+        kind?: string;
+        name?: string;
+        source?: { name?: string };
+        target?: { name?: string };
+        value?: number;
+      }
+    | undefined;
+
+  if (!item) {
+    return null;
+  }
+
+  const title =
+    item.source && item.target
+      ? `${item.source.name ?? "Source"} -> ${item.target.name ?? "Target"}`
+      : (item.name ?? "Flow");
+  const amount = Number(item.value ?? item.amount ?? 0);
+
+  return (
+    <div className="rounded-xl border border-white/10 bg-slate-950/95 px-3 py-2 text-slate-50 shadow-2xl">
+      <div className="font-medium text-sm">{title}</div>
+      <div className="mt-1 text-slate-300 text-xs">{formatCurrency(amount)}</div>
+    </div>
+  );
+}
+
+function IncomeExpenseSankeyNode({
+  height,
+  payload,
+  width,
+  x,
+  y,
+}: {
+  height: number;
+  payload: {
+    amount?: number;
+    depth?: number;
+    group?: string;
+    kind?: "category" | "income" | "leftover" | "supplemental";
+    name?: string;
+    value?: number;
+  };
+  width: number;
+  x: number;
+  y: number;
+}) {
+  const isSource = (payload.depth ?? 0) === 0;
+  const labelX = isSource ? x + width + 8 : x - 8;
+  const labelAnchor = isSource ? "start" : "end";
+  const nodeAmount = Number(payload.value ?? payload.amount ?? 0);
+
+  return (
+    <g>
+      <rect
+        fill={getFlowNodeColor(payload)}
+        fillOpacity={0.96}
+        height={height}
+        rx={4}
+        ry={4}
+        width={width}
+        x={x}
+        y={y}
+      />
+      <text
+        dominantBaseline="middle"
+        fill="#e2e8f0"
+        fontSize={12}
+        textAnchor={labelAnchor}
+        x={labelX}
+        y={y + height / 2 - 7}
+      >
+        {payload.name ?? "Flow"}
+      </text>
+      <text
+        dominantBaseline="middle"
+        fill="#94a3b8"
+        fontSize={11}
+        textAnchor={labelAnchor}
+        x={labelX}
+        y={y + height / 2 + 9}
+      >
+        {formatCurrency(nodeAmount)}
+      </text>
+    </g>
+  );
+}
+
+function FlowSummaryColumn({
+  items,
+  title,
+}: {
+  items: Array<{
+    amount: number;
+    group?: string;
+    kind: "category" | "income" | "leftover" | "supplemental";
+    name: string;
+  }>;
+  title: string;
+}) {
+  return (
+    <div className="rounded-xl border bg-background/60 p-3">
+      <div className="font-medium text-xs uppercase tracking-[0.2em] text-muted-foreground">
+        {title}
+      </div>
+      <div className="mt-3 space-y-2">
+        {items.map((item) => (
+          <div
+            className="flex items-center justify-between gap-3 rounded-lg border bg-background px-3 py-2"
+            key={`${title}-${item.name}`}
+          >
+            <div className="flex min-w-0 items-center gap-2">
+              <span
+                className="size-2.5 shrink-0 rounded-full"
+                style={{ backgroundColor: getFlowNodeColor(item) }}
+              />
+              <span className="truncate font-medium text-sm">{item.name}</span>
+            </div>
+            <span className="shrink-0 text-muted-foreground text-xs">
+              {formatCurrency(item.amount)}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function MonthOverMonthChart({
@@ -248,6 +430,89 @@ export function FinanceChartResult({
                 {chart.availableCategoryCount} categories.
               </div>
             )}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (chart.chartType === "income-to-expenses") {
+    return (
+      <div className="space-y-4 p-4 text-sm">
+        <Card>
+          <CardHeader className="space-y-2">
+            <CardTitle>{chart.title}</CardTitle>
+            <div className="text-muted-foreground text-sm">
+              {chart.description}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Badge variant="secondary">{chart.monthLabel}</Badge>
+              <Badge variant="secondary">
+                {getIncomeBasisLabel(chart.incomeBasis)}
+              </Badge>
+              <Badge variant="secondary">
+                Income {formatCurrency(chart.totals.income)}
+              </Badge>
+              <Badge variant="secondary">
+                Expenses {formatCurrency(chart.totals.expenses)}
+              </Badge>
+              {chart.totals.leftover > 0 ? (
+                <Badge variant="outline">
+                  Left over {formatCurrency(chart.totals.leftover)}
+                </Badge>
+              ) : null}
+              {chart.totals.supplemental > 0 ? (
+                <Badge variant="outline">
+                  Supplemental {formatCurrency(chart.totals.supplemental)}
+                </Badge>
+              ) : null}
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="h-96 w-full">
+              <ResponsiveContainer height="100%" width="100%">
+                <Sankey
+                  align="justify"
+                  data={{
+                    links: chart.links,
+                    nodes: chart.nodes,
+                  }}
+                  dataKey="value"
+                  link={{
+                    fill: "none",
+                    stroke: "rgba(148, 163, 184, 0.28)",
+                    strokeOpacity: 0.35,
+                  }}
+                  margin={{ bottom: 20, left: 112, right: 112, top: 20 }}
+                  nameKey="name"
+                  node={IncomeExpenseSankeyNode}
+                  nodePadding={18}
+                  nodeWidth={14}
+                  sort={false}
+                >
+                  <Tooltip content={<SankeyTooltipContent />} />
+                </Sankey>
+              </ResponsiveContainer>
+            </div>
+
+            <div className="grid gap-4 lg:grid-cols-2">
+              <FlowSummaryColumn items={chart.sources} title="Sources" />
+              <FlowSummaryColumn
+                items={chart.destinations}
+                title="Destinations"
+              />
+            </div>
+
+            {chart.truncatedSources || chart.truncatedCategories ? (
+              <div className="text-muted-foreground text-xs">
+                {chart.truncatedSources
+                  ? `Smaller income sources are grouped into Other income after the top ${chart.sourceLimit}. `
+                  : ""}
+                {chart.truncatedCategories
+                  ? `Smaller expense categories are grouped into Other expenses after the top ${chart.categoryLimit}.`
+                  : ""}
+              </div>
+            ) : null}
           </CardContent>
         </Card>
       </div>

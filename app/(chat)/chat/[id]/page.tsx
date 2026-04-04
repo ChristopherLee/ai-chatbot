@@ -68,7 +68,6 @@ async function ChatPage({ params }: { params: Promise<{ id: string }> }) {
         autoResume={true}
         id={chat.id}
         initialChatModel={initialChatModel}
-        initialFinanceSnapshot={financeSnapshot}
         initialHasFinanceDataset={financeSnapshot.status !== "needs-upload"}
         initialMessages={uiMessages}
         initialVisibilityType={chat.visibility}

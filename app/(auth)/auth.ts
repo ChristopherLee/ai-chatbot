@@ -78,6 +78,7 @@ export const {
       if (user) {
         token.id = user.id as string;
         token.type = user.type;
+        token.email = user.email;
       }
 
       return token;
@@ -86,6 +87,7 @@ export const {
       if (session.user) {
         session.user.id = token.id;
         session.user.type = token.type;
+        session.user.email = token.email;
       }
 
       return session;

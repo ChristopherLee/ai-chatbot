@@ -15,7 +15,7 @@
 ## UI Chat Verification
 
 - For a real browser-backed finance chat check, start the app locally and run `pnpm verify:chat-flow`.
-- `pnpm verify:chat-flow` uses headless Playwright against the live UI at `http://localhost:3000`, uploads `data/transactions.sample.csv`, waits for the initial plan-ready message, sends `We want a more conservative plan and mortgage changes in April to 3200.`, and verifies both the assistant reply and the `Plan summary` dashboard state.
+- `pnpm verify:chat-flow` uses headless Playwright against the live UI at `http://localhost:3000`, signs in as a guest if needed, uploads `data/transactions.sample.csv`, waits for the initial plan-ready message, sends `We want a more conservative plan and mortgage changes in April to 3200.`, and verifies the assistant reply in the chat-first mobile layout.
 - The verification script assumes the app is already running. Use `pnpm dev:local` first if needed.
 - Do not rely on `pnpm test` for this specific check. `scripts/run-playwright-tests.mjs` sets `PLAYWRIGHT=true`, which switches `lib/ai/providers.ts` to mocked models instead of the real model path.
 - If the desktop Playwright browser bridge is blocked by an existing Chrome session, fall back to the shell-driven `pnpm verify:chat-flow` flow above.

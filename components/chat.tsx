@@ -7,13 +7,10 @@ import {
 } from "ai";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import useSWR, { useSWRConfig } from "swr";
 import { unstable_serialize } from "swr/infinite";
-import { useWindowSize } from "usehooks-ts";
 import { deleteTrailingMessages } from "@/app/(chat)/actions";
 import { ChatHeader } from "@/components/chat-header";
-import { FinanceDashboard } from "@/components/finance/finance-dashboard";
 import { FinanceRulesView } from "@/components/finance/finance-rules-view";
 import {
   AlertDialog,
@@ -35,7 +32,6 @@ import {
 } from "@/lib/ai/message-history";
 import type { Vote } from "@/lib/db/schema";
 import { ChatSDKError } from "@/lib/errors";
-import type { FinanceSnapshot } from "@/lib/finance/types";
 import type { Attachment, ChatMessage } from "@/lib/types";
 import { fetcher, fetchWithErrorHandlers, generateUUID } from "@/lib/utils";
 import { Artifact } from "./artifact";
@@ -72,7 +68,6 @@ export function Chat({
   isReadonly,
   autoResume,
   initialHasFinanceDataset,
-  initialFinanceSnapshot,
   showModelPicker,
 }: {
   id: string;
@@ -84,11 +79,9 @@ export function Chat({
   isReadonly: boolean;
   autoResume: boolean;
   initialHasFinanceDataset: boolean;
-  initialFinanceSnapshot: FinanceSnapshot | null;
   showModelPicker: boolean;
 }) {
   const router = useRouter();
-  const { width } = useWindowSize();
 
   const { visibilityType } = useChatVisibility({
     chatId: id,
@@ -362,7 +355,7 @@ export function Chat({
         votes={votes}
       />
 
-      <div className="sticky bottom-0 z-1 mx-auto flex w-full max-w-4xl gap-2 border-t-0 bg-background px-2 pb-3 md:px-4 md:pb-4">
+      <div className="sticky bottom-0 z-10 mx-auto flex w-full max-w-4xl gap-2 border-border/60 border-t bg-gradient-to-t from-background via-background to-background/90 px-2 pt-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] backdrop-blur supports-[backdrop-filter]:bg-background/90 md:px-4 md:pb-[calc(env(safe-area-inset-bottom)+1rem)]">
         {!isReadonly && (
           <MultimodalInput
             attachments={attachments}
@@ -404,34 +397,7 @@ export function Chat({
 
   return (
     <>
-      {hasFinanceDataset && projectId && width && width >= 1024 ? (
-        <PanelGroup className="h-dvh" direction="horizontal">
-          <Panel defaultSize={48} minSize={34}>
-            {mainShell}
-          </Panel>
-          <PanelResizeHandle className="w-px bg-border" />
-          <Panel defaultSize={52} minSize={30}>
-            <div className="h-dvh overflow-y-auto border-l bg-muted/20">
-              <FinanceDashboard
-                initialSnapshot={initialFinanceSnapshot}
-                projectId={projectId}
-              />
-            </div>
-          </Panel>
-        </PanelGroup>
-      ) : hasFinanceDataset && projectId ? (
-        <div className="flex h-dvh flex-col">
-          <div className="min-h-0 flex-1">{mainShell}</div>
-          <div className="min-h-[20rem] border-t bg-muted/20">
-            <FinanceDashboard
-              initialSnapshot={initialFinanceSnapshot}
-              projectId={projectId}
-            />
-          </div>
-        </div>
-      ) : (
-        <div className="h-dvh">{mainShell}</div>
-      )}
+      <div className="h-dvh">{mainShell}</div>
 
       <Artifact
         addToolApprovalResponse={addToolApprovalResponse}

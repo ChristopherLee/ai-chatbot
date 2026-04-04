@@ -53,6 +53,12 @@ If you want OpenRouter to target specific upstream providers or use provider-spe
 
 The old Vercel Gateway implementation is still in the codebase. Set `LLM_BACKEND=gateway` and provide `AI_GATEWAY_API_KEY` if you want to keep using that path.
 
+## Internal Architecture Docs
+
+- [Frontend Architecture Overview](docs/frontend-overview.md)
+- [Backend Architecture Overview](docs/backend-overview.md)
+- [Chat API and Agent Loop](docs/chat-api-agent-loop.md)
+
 ## Deploy Your Own
 
 You can deploy your own version of the Next.js AI Chatbot to Vercel with one click:

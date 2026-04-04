@@ -33,19 +33,21 @@ function PureChatHeader({
     process.env.NODE_ENV === "development" && !isReadonly;
 
   return (
-    <header className="sticky top-0 flex items-center gap-2 bg-background px-2 py-1.5 md:px-2">
+    <header className="sticky top-0 z-20 flex items-center gap-2 border-border/60 border-b bg-background/95 px-2 pb-2 pt-[max(env(safe-area-inset-top),0.5rem)] backdrop-blur supports-[backdrop-filter]:bg-background/80 md:px-3 md:py-2">
       <SidebarToggle />
 
       <div className="min-w-0 flex-1">
-        <div className="truncate font-medium text-sm">
+        <div className="truncate font-medium text-sm md:text-base">
           {projectTitle ?? "New project"}
         </div>
-        <div className="truncate text-muted-foreground text-xs">Project</div>
+        <div className="truncate text-[10px] text-muted-foreground uppercase tracking-[0.18em]">
+          Project
+        </div>
       </div>
 
       {(!open || windowWidth < 768) && (
         <Button
-          className="order-2 h-8 px-2 md:order-1 md:h-fit md:px-2"
+          className="order-2 h-9 rounded-full px-2.5 md:order-1 md:h-8 md:rounded-md md:px-2"
           onClick={() => {
             router.push(newChatHref);
             router.refresh();

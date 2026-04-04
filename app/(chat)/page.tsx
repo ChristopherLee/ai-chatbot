@@ -58,7 +58,6 @@ async function NewChatPage({
         autoResume={false}
         id={id}
         initialChatModel={initialChatModel}
-        initialFinanceSnapshot={financeSnapshot}
         initialHasFinanceDataset={hasFinanceDataset}
         initialMessages={[]}
         initialVisibilityType="private"
