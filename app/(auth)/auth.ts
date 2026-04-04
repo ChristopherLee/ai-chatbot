@@ -87,7 +87,7 @@ export const {
       if (session.user) {
         session.user.id = token.id;
         session.user.type = token.type;
-        session.user.email = token.email;
+        session.user.email = token.email ?? session.user.email;
       }
 
       return session;
