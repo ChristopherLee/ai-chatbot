@@ -124,6 +124,20 @@ function isRecoverableTrailingAssistantMessage(messages: ChatMessage[]) {
     return true;
   }
 
+  const hasCompletedTextPart = lastMessage.parts.some((part) => {
+    if (part.type !== "text") {
+      return false;
+    }
+
+    const state = (part as { state?: string }).state;
+
+    return state !== "streaming" && part.text.trim().length > 0;
+  });
+
+  if (hasCompletedTextPart) {
+    return false;
+  }
+
   const hasOnlyTransientParts =
     lastMessage.parts.length > 0 &&
     lastMessage.parts.every(
