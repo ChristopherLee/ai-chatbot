@@ -243,3 +243,36 @@ test("getRetryableChatHistory trims unfinished tool calls that never reached out
     trailingMessageIdToDelete: "assistant-1",
   });
 });
+
+test("getRetryableChatHistory ignores unfinished tool metadata after a completed assistant text reply", () => {
+  const userMessage = buildMessage({
+    id: "user-1",
+    role: "user",
+    parts: [{ type: "text", text: "Any budget changes?" }],
+  });
+  const assistantMessage = buildMessage({
+    id: "assistant-1",
+    role: "assistant",
+    parts: [
+      { type: "step-start" },
+      {
+        type: "tool-queryFinanceTransactions",
+        toolCallId: "tool-call-1",
+        state: "input-available",
+        input: {
+          category: "Transfers",
+          page: 1,
+          sortBy: "amount",
+          sortDirection: "desc",
+        },
+      },
+      {
+        type: "text",
+        text: "Transfers are driving most of the variance this month.",
+        state: "done",
+      },
+    ],
+  });
+
+  assert.equal(getRetryableChatHistory([userMessage, assistantMessage]), null);
+});
