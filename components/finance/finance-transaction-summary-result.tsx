@@ -1,7 +1,7 @@
 "use client";
 
 import { Badge } from "@/components/ui/badge";
-import type { FinanceTransactionQueryResult as FinanceTransactionQueryResultData } from "@/lib/finance/query-transactions";
+import type { FinanceTransactionSummaryResult as FinanceTransactionSummaryResultData } from "@/lib/finance/summarize-transactions";
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("en-US", {
@@ -12,9 +12,10 @@ function formatCurrency(value: number) {
 }
 
 function buildFilterBadges(
-  filters: FinanceTransactionQueryResultData["filters"]
+  filters: FinanceTransactionSummaryResultData["filters"]
 ) {
   return [
+    `Group by: ${filters.groupBy}`,
     filters.search ? `Search: ${filters.search}` : null,
     filters.merchant ? `Merchant: ${filters.merchant}` : null,
     filters.descriptionContains
@@ -30,29 +31,32 @@ function buildFilterBadges(
       : null,
     filters.startDate ? `From: ${filters.startDate}` : null,
     filters.endDate ? `To: ${filters.endDate}` : null,
-    filters.sortBy !== "date" || filters.sortDirection !== "desc"
+    filters.sortBy !== "totalOutflow" || filters.sortDirection !== "desc"
       ? `Sort: ${filters.sortBy} ${filters.sortDirection}`
       : null,
   ].filter((value): value is string => Boolean(value));
 }
 
-export function FinanceTransactionQueryResult({
+export function FinanceTransactionSummaryResult({
   result,
 }: {
-  result: FinanceTransactionQueryResultData;
+  result: FinanceTransactionSummaryResultData;
 }) {
   const filterBadges = buildFilterBadges(result.filters);
 
   return (
     <div className="space-y-4 p-4 text-sm">
       <div className="flex flex-wrap gap-2">
-        <Badge variant="secondary">{result.matchedCount} matched</Badge>
+        <Badge variant="secondary">
+          {result.matchedTransactionCount} matched
+        </Badge>
         <Badge variant="secondary">
           {formatCurrency(result.totalMatchedOutflow)} outflow
         </Badge>
+        <Badge variant="secondary">{result.totalGroupCount} groups</Badge>
         {result.truncated && (
           <Badge variant="outline">
-            Showing {result.returnedCount} of {result.matchedCount}
+            Showing {result.returnedGroupCount} of {result.totalGroupCount}
           </Badge>
         )}
       </div>
@@ -67,7 +71,7 @@ export function FinanceTransactionQueryResult({
         </div>
       )}
 
-      {result.transactions.length === 0 ? (
+      {result.groups.length === 0 ? (
         <div className="text-muted-foreground">
           No transactions matched those filters.
         </div>
@@ -76,31 +80,30 @@ export function FinanceTransactionQueryResult({
           <table className="min-w-full text-left text-sm">
             <thead className="bg-muted/70">
               <tr>
-                <th className="px-3 py-2 font-medium">Date</th>
-                <th className="px-3 py-2 font-medium">Description</th>
-                <th className="px-3 py-2 font-medium">Account</th>
-                <th className="px-3 py-2 font-medium">Category</th>
-                <th className="px-3 py-2 font-medium">Included</th>
-                <th className="px-3 py-2 font-medium">Amount</th>
+                <th className="px-3 py-2 font-medium">Group</th>
+                <th className="px-3 py-2 font-medium">Count</th>
+                <th className="px-3 py-2 font-medium">Outflow</th>
+                <th className="px-3 py-2 font-medium">Average</th>
+                <th className="px-3 py-2 font-medium">Share</th>
+                <th className="px-3 py-2 font-medium">Date Range</th>
               </tr>
             </thead>
             <tbody>
-              {result.transactions.map((transaction) => (
-                <tr className="border-t" key={transaction.id}>
-                  <td className="px-3 py-2">{transaction.transactionDate}</td>
+              {result.groups.map((group) => (
+                <tr className="border-t" key={group.key}>
+                  <td className="px-3 py-2 font-medium">{group.label}</td>
+                  <td className="px-3 py-2">{group.transactionCount}</td>
                   <td className="px-3 py-2">
-                    <div className="font-medium">{transaction.description}</div>
-                    <div className="text-muted-foreground text-xs">
-                      {transaction.rawCategory} | {transaction.merchant}
-                    </div>
+                    {formatCurrency(group.totalOutflow)}
                   </td>
-                  <td className="px-3 py-2">{transaction.account}</td>
-                  <td className="px-3 py-2">{transaction.category}</td>
                   <td className="px-3 py-2">
-                    {transaction.includeFlag ? "Yes" : "No"}
+                    {formatCurrency(group.averageOutflow)}
                   </td>
-                  <td className="px-3 py-2 font-medium">
-                    {formatCurrency(transaction.amount)}
+                  <td className="px-3 py-2">{group.sharePercentage}%</td>
+                  <td className="px-3 py-2">
+                    {group.firstTransactionDate === group.lastTransactionDate
+                      ? group.lastTransactionDate
+                      : `${group.firstTransactionDate} to ${group.lastTransactionDate}`}
                   </td>
                 </tr>
               ))}

@@ -37,12 +37,16 @@ const toolLabels: Partial<Record<ToolUIPart["type"], string>> = {
   "tool-applyFinanceActions": "Apply Finance Changes",
   "tool-createDocument": "Create Document",
   "tool-findMiscategorizedTransactions": "Find Miscategorized Transactions",
+  "tool-getFinanceBudgetTargets": "Get Finance Budget Targets",
   "tool-getFinanceCategorizationMemory": "Get Categorization Memory",
+  "tool-getFinanceRules": "Get Finance Rules",
   "tool-getFinanceSnapshot": "Get Finance Snapshot",
   "tool-getWeather": "Get Weather",
   "tool-queryFinanceTransactions": "Query Finance Transactions",
+  "tool-refreshFinancePlan": "Refresh Finance Plan",
   "tool-requestSuggestions": "Request Suggestions",
   "tool-showFinanceChart": "Show Finance Chart",
+  "tool-summarizeFinanceTransactions": "Summarize Finance Transactions",
   "tool-updateDocument": "Update Document",
 };
 

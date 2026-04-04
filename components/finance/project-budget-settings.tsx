@@ -111,6 +111,63 @@ function getGroupBadgeClass(group: CategoryGroup) {
   }
 }
 
+function getSuggestionCadenceLabel(
+  cadence: FinanceTargetsCategoryBudgetSuggestion["cadence"]
+) {
+  switch (cadence) {
+    case "steady":
+      return "Steady";
+    case "variable":
+      return "Variable";
+    case "recent":
+      return "New / Recent";
+    default:
+      return "Occasional";
+  }
+}
+
+function getSuggestionCadenceClass(
+  cadence: FinanceTargetsCategoryBudgetSuggestion["cadence"]
+) {
+  switch (cadence) {
+    case "steady":
+      return "border-sky-200 bg-sky-50 text-sky-700";
+    case "variable":
+      return "border-orange-200 bg-orange-50 text-orange-700";
+    case "recent":
+      return "border-violet-200 bg-violet-50 text-violet-700";
+    default:
+      return "border-amber-200 bg-amber-50 text-amber-700";
+  }
+}
+
+function getSuggestionRecencyLabel(
+  recency: FinanceTargetsCategoryBudgetSuggestion["recency"]
+) {
+  switch (recency) {
+    case "active":
+      return "Active now";
+    case "cooling":
+      return "Cooling";
+    default:
+      return "Older activity";
+  }
+}
+
+function getAnalysisHref({
+  chatId,
+  query,
+}: {
+  chatId: string | null;
+  query: string;
+}) {
+  if (!chatId) {
+    return null;
+  }
+
+  return `/chat/${chatId}?query=${encodeURIComponent(query)}`;
+}
+
 function buildEditableCategoryBudgets(
   categoryBudgets: FinanceTargetsCategoryBudget[]
 ): EditableCategoryBudget[] {
@@ -139,6 +196,10 @@ function buildSuggestionPool(data: FinanceTargetsResponse) {
         group: budget.group,
         suggestedAmount: budget.amount,
         lastMonthActual: budget.lastMonthActual,
+        cadence: "steady",
+        recency: "active",
+        reasoning:
+          "This category already has a saved budget, so it stays in the starter budget pool for quick comparison.",
       });
     }
   }
@@ -419,9 +480,7 @@ function BudgetExclusionsManager({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>
-              Delete budget exclusion?
-            </AlertDialogTitle>
+            <AlertDialogTitle>Delete budget exclusion?</AlertDialogTitle>
             <AlertDialogDescription>
               {rulePendingDelete
                 ? `This will remove "${rulePendingDelete.summary}" from the saved finance plan.`
@@ -441,8 +500,10 @@ function BudgetExclusionsManager({
 }
 
 export function ProjectBudgetSettings({
+  analysisChatId,
   initialData,
 }: {
+  analysisChatId: string | null;
   initialData: FinanceTargetsResponse;
 }) {
   const targetsKey = `/api/finance/project/${initialData.projectId}/targets`;
@@ -481,6 +542,18 @@ export function ProjectBudgetSettings({
   if (!data) {
     return null;
   }
+
+  const analyzeLastMonthHref = getAnalysisHref({
+    chatId: analysisChatId,
+    query: "Analyze last month's spending against my budget.",
+  });
+  const analyzeThisMonthHref = getAnalysisHref({
+    chatId: analysisChatId,
+    query: "How am I doing against budget this month?",
+  });
+  const hasSavedBudgetSetup =
+    data.categoryBudgets.length > 0 ||
+    data.cashFlowSummary.totalMonthlyBudgetTarget !== null;
 
   const parsedBudget =
     totalMonthlyBudgetTarget.trim() === ""
@@ -704,13 +777,29 @@ export function ProjectBudgetSettings({
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant="outline">{data.snapshotStatus}</Badge>
           <Button asChild type="button" variant="outline">
-            <Link href={`/?projectId=${data.projectId}`}>
+            <Link href="/">
               <ArrowLeft className="size-4" />
-              Back to project
+              Back to chat
             </Link>
           </Button>
         </div>
       </div>
+
+      {data.snapshotStatus === "needs-onboarding" ? (
+        <Card className="border-blue-200 bg-blue-50/70 shadow-sm">
+          <CardHeader className="space-y-2">
+            <CardTitle className="text-xl">
+              Step 2 of 3: set starter budgets
+            </CardTitle>
+            <div className="max-w-3xl text-muted-foreground text-sm leading-6">
+              You have already loaded the dataset. After reviewing cleanup
+              suggestions, set the starter budgets you care about here. We only
+              suggest meaningful categories and adjust for steady bills,
+              variable spending, and categories that are newer or fading out.
+            </div>
+          </CardHeader>
+        </Card>
+      ) : null}
 
       <div className="grid gap-6 xl:grid-cols-[320px_1fr]">
         <div className="space-y-4 xl:sticky xl:top-6 xl:self-start">
@@ -1021,7 +1110,7 @@ export function ProjectBudgetSettings({
                   <div className="rounded-2xl border border-dashed bg-background/70 px-4 py-6 text-muted-foreground text-sm">
                     {data.snapshotStatus === "ready"
                       ? "All current category suggestions are already in the budget."
-                      : "Suggestions will appear once the finance plan is ready."}
+                      : "No meaningful starter budgets are waiting right now."}
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -1041,10 +1130,24 @@ export function ProjectBudgetSettings({
                             >
                               {getGroupLabel(suggestion.group)}
                             </Badge>
+                            <Badge
+                              className={getSuggestionCadenceClass(
+                                suggestion.cadence
+                              )}
+                              variant="outline"
+                            >
+                              {getSuggestionCadenceLabel(suggestion.cadence)}
+                            </Badge>
+                            <Badge variant="outline">
+                              {getSuggestionRecencyLabel(suggestion.recency)}
+                            </Badge>
                           </div>
                           <div className="text-muted-foreground text-sm">
                             Last month:{" "}
                             {formatCurrency(suggestion.lastMonthActual)}
+                          </div>
+                          <div className="text-muted-foreground text-sm leading-6">
+                            {suggestion.reasoning}
                           </div>
                         </div>
 
@@ -1101,6 +1204,35 @@ export function ProjectBudgetSettings({
                   {isSaving ? "Saving..." : "Save budget builder"}
                 </Button>
               </div>
+
+              {hasSavedBudgetSetup ? (
+                <div className="rounded-2xl border border-blue-200 bg-blue-50/70 p-4">
+                  <div className="font-medium">
+                    Step 3 of 3: choose your first analysis
+                  </div>
+                  <div className="mt-1 text-muted-foreground text-sm leading-6">
+                    With budgets in place, pick which view you want next:
+                    compare last month to budget or check how this month is
+                    pacing so far.
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {analyzeLastMonthHref ? (
+                      <Button asChild type="button" variant="outline">
+                        <Link href={analyzeLastMonthHref}>
+                          Analyze last month vs budget
+                        </Link>
+                      </Button>
+                    ) : null}
+                    {analyzeThisMonthHref ? (
+                      <Button asChild type="button" variant="outline">
+                        <Link href={analyzeThisMonthHref}>
+                          Check this month
+                        </Link>
+                      </Button>
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
             </CardContent>
           </Card>
 
@@ -1113,4 +1245,3 @@ export function ProjectBudgetSettings({
     </div>
   );
 }
-

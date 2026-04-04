@@ -7,11 +7,7 @@ import { Chat } from "@/components/chat";
 import { DataStreamHandler } from "@/components/data-stream-handler";
 import { DEFAULT_CHAT_MODEL, getSavedChatModelId } from "@/lib/ai/models";
 import { getLlmBackend } from "@/lib/ai/providers";
-import {
-  getChatById,
-  getMessagesByChatId,
-  getProjectById,
-} from "@/lib/db/queries";
+import { getChatById, getMessagesByChatId } from "@/lib/db/queries";
 import { getFinanceSnapshot } from "@/lib/finance/snapshot";
 import { convertToUIMessages } from "@/lib/utils";
 
@@ -55,7 +51,6 @@ async function ChatPage({ params }: { params: Promise<{ id: string }> }) {
   const messagesFromDb = await getMessagesByChatId({
     id,
   });
-  const project = await getProjectById({ id: chat.projectId });
   const financeSnapshot = await getFinanceSnapshot({
     projectId: chat.projectId,
   });
@@ -73,7 +68,6 @@ async function ChatPage({ params }: { params: Promise<{ id: string }> }) {
         initialVisibilityType={chat.visibility}
         isReadonly={session?.user?.id !== chat.userId}
         projectId={chat.projectId}
-        projectTitle={project?.title ?? null}
         showModelPicker={showModelPicker}
       />
       <DataStreamHandler />

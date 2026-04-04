@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { AppSidebar } from "@/components/app-sidebar";
 import { DataStreamProvider } from "@/components/data-stream-provider";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { getLatestProjectByUserId } from "@/lib/db/queries";
 import { auth } from "../(auth)/auth";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
@@ -25,10 +26,20 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 async function SidebarWrapper({ children }: { children: React.ReactNode }) {
   const [session, cookieStore] = await Promise.all([auth(), cookies()]);
   const isCollapsed = cookieStore.get("sidebar_state")?.value !== "true";
+  const currentProject = session?.user
+    ? await getLatestProjectByUserId({ userId: session.user.id })
+    : null;
 
   return (
     <SidebarProvider defaultOpen={!isCollapsed}>
-      <AppSidebar user={session?.user} />
+      <AppSidebar
+        currentProject={
+          currentProject
+            ? { id: currentProject.id, title: currentProject.title }
+            : null
+        }
+        user={session?.user}
+      />
       <SidebarInset>{children}</SidebarInset>
     </SidebarProvider>
   );

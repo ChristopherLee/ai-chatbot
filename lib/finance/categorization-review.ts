@@ -1013,10 +1013,10 @@ export async function persistFinanceCategorizationSelections({
       summary: denial.summary,
     })),
     snapshot:
-      applyResult?.snapshot ??
-      (updatedRuleActions.length > 0
+      updatedRuleActions.length > 0 ||
+      (applyResult?.appliedActions.length ?? 0) > 0
         ? await recomputeFinanceSnapshot({ projectId })
-        : await getFinanceSnapshot({ projectId })),
+        : await getFinanceSnapshot({ projectId }),
   };
 }
 

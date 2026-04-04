@@ -178,10 +178,8 @@ function FinanceRuleTableRow({
 
 export function FinanceRulesView({
   projectId,
-  projectTitle,
 }: {
   projectId: string;
-  projectTitle: string | null;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -273,12 +271,7 @@ export function FinanceRulesView({
         <SidebarToggle />
 
         <div className="min-w-0 flex-1">
-          <div className="truncate font-medium text-sm">
-            {projectTitle ?? "Categorization rules"}
-          </div>
-          <div className="truncate text-muted-foreground text-xs">
-            Categorization rules
-          </div>
+          <div className="truncate font-medium text-sm">Categorization rules</div>
         </div>
 
         <Button
@@ -302,9 +295,6 @@ export function FinanceRulesView({
                     {sortedRules.length} active{" "}
                     {sortedRules.length === 1 ? "rule" : "rules"}
                   </Badge>
-                  {projectTitle ? (
-                    <Badge variant="outline">{projectTitle}</Badge>
-                  ) : null}
                 </div>
 
                 <div className="space-y-1">

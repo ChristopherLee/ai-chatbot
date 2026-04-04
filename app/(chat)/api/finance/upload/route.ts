@@ -6,12 +6,14 @@ import { DEFAULT_CHAT_MODEL } from "@/lib/ai/models";
 import {
   getTransactionsByProjectId,
   getUploadedFileByProjectId,
+  replaceFinancePlan,
   saveTransactions,
   saveUploadedFile,
 } from "@/lib/db/finance-queries";
 import {
   createProject,
   getChatById,
+  getLatestProjectByUserId,
   getProjectById,
   saveChat,
   saveMessages,
@@ -21,31 +23,72 @@ import {
 import { ChatSDKError } from "@/lib/errors";
 import { findMiscategorizedTransactions } from "@/lib/finance/categorization-review";
 import type { FinanceCategorizationReview } from "@/lib/finance/categorization-review-shared";
+import { buildCategoryBudgetSuggestions } from "@/lib/finance/category-budgets";
 import {
   buildFinanceChatTitle,
   parseTransactionsCsv,
 } from "@/lib/finance/csv-ingest";
-import { recomputeFinanceSnapshot } from "@/lib/finance/snapshot";
+import {
+  buildNeedsOnboardingSnapshot,
+  recomputeFinanceSnapshot,
+} from "@/lib/finance/snapshot";
 import { filterNewTransactions } from "@/lib/finance/transaction-dedupe";
 import type { ChatMessage } from "@/lib/types";
 import { generateUUID } from "@/lib/utils";
 
-function buildOnboardingMessage({
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
+function buildFirstUploadOnboardingMessage({
+  budgetSuggestions,
+  endDate,
+  filename,
+  rowCount,
+  startDate,
+}: {
+  budgetSuggestions: ReturnType<typeof buildCategoryBudgetSuggestions>;
+  endDate: string;
+  filename: string;
+  rowCount: number;
+  startDate: string;
+}) {
+  const suggestionPreview = budgetSuggestions
+    .slice(0, 3)
+    .map(
+      (suggestion) =>
+        `${suggestion.category} (${formatCurrency(suggestion.suggestedAmount)})`
+    )
+    .join(", ");
+
+  return `Welcome to the app. I loaded ${rowCount} transactions from ${filename} covering ${startDate} to ${endDate}.
+
+Step 1 is making sure the dataset is clean and categorized correctly. Review the suggested cleanup rules below and save or deny anything that looks off.
+
+Step 2 is setting starter budgets for the categories that matter most in your history.${suggestionPreview ? ` I already have starter recommendations queued up for ${suggestionPreview}.` : ""}
+
+After your budgets are set, we can either compare last month's spending to the budget or check how this month is tracking so far.`;
+}
+
+function buildFollowUpUploadMessage({
   filename,
   rowCount,
 }: {
   filename: string;
   rowCount: number;
 }) {
-  return `I loaded ${rowCount} transactions from ${filename}.
+  return `I loaded ${rowCount} new transactions from ${filename}.
 
-Your starting spending control plan is ready now.
+I refreshed the finance dataset and checked it for any new categorization cleanup suggestions below.
 
-Tell me what you want to change next:
-1. Make the plan more conservative or more balanced.
-2. Adjust a budget, bill, or income target.
-3. Exclude or recategorize transactions.
-4. Share any upcoming life or expense changes to reflect.`;
+Tell me what you want to adjust next:
+1. Update a budget, bill, or income target.
+2. Exclude or recategorize transactions.
+3. Compare recent spending to the current budget.`;
 }
 
 function buildFallbackStoragePath({
@@ -280,9 +323,7 @@ export async function POST(request: Request) {
 
     const chatId = chatIdValue;
     const existingChat = await getChatById({ id: chatId });
-    let projectId =
-      existingChat?.projectId ??
-      (typeof projectIdValue === "string" ? projectIdValue : null);
+    let projectId = existingChat?.projectId ?? null;
 
     if (existingChat && existingChat.userId !== session.user.id) {
       throw new ChatSDKError("forbidden:chat");
@@ -304,7 +345,11 @@ export async function POST(request: Request) {
         throw new ChatSDKError("forbidden:chat");
       }
     } else {
-      projectId = generateUUID();
+      const existingProject = await getLatestProjectByUserId({
+        userId: session.user.id,
+      });
+
+      projectId = existingProject?.id ?? generateUUID();
       logContext = {
         ...logContext,
         projectId,
@@ -418,10 +463,30 @@ export async function POST(request: Request) {
           })
         : Promise.resolve(null);
 
-    const [, categorizationReview] = await Promise.all([
-      recomputeFinanceSnapshot({ projectId }),
+    const [snapshot, categorizationReview] = await Promise.all([
+      existingUpload
+        ? recomputeFinanceSnapshot({ projectId })
+        : (async () => {
+            const onboardingSnapshot = await buildNeedsOnboardingSnapshot({
+              projectId,
+            });
+
+            await replaceFinancePlan({
+              projectId,
+              snapshot: onboardingSnapshot,
+            });
+
+            return onboardingSnapshot;
+          })(),
       categorizationReviewPromise,
     ]);
+    const budgetSuggestions = snapshot.datasetSummary
+      ? buildCategoryBudgetSuggestions({
+          categoryCards: snapshot.categoryCards,
+          currentBudgets: [],
+          latestTransactionDate: snapshot.datasetSummary.dateRange.end,
+        })
+      : [];
     const onboardingCreatedAt = new Date();
     const uploadMessages: Array<{
       id: string;
@@ -438,10 +503,22 @@ export async function POST(request: Request) {
         parts: [
           {
             type: "text",
-            text: buildOnboardingMessage({
-              filename: file.name,
-              rowCount: newTransactions.length,
-            }),
+            text: existingUpload
+              ? buildFollowUpUploadMessage({
+                  filename: file.name,
+                  rowCount: newTransactions.length,
+                })
+              : buildFirstUploadOnboardingMessage({
+                  budgetSuggestions,
+                  endDate:
+                    snapshot.datasetSummary?.dateRange.end ??
+                    parsed.dateRange.end,
+                  filename: file.name,
+                  rowCount: newTransactions.length,
+                  startDate:
+                    snapshot.datasetSummary?.dateRange.start ??
+                    parsed.dateRange.start,
+                }),
           },
         ],
         attachments: [],

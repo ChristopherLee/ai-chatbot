@@ -18,6 +18,8 @@ export function buildFinanceActionKey(action: FinanceAction) {
   switch (action.type) {
     case "categorize_transaction":
       return `categorize_transaction:${action.transactionId}:${safeLower(action.to)}`;
+    case "exclude_transaction":
+      return `exclude_transaction:${action.transactionId}`;
     case "categorize_transactions":
       return `categorize_transactions:${JSON.stringify({
         match: normalizeMatchForKey(action.match),

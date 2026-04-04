@@ -13,14 +13,10 @@ import { VisibilitySelector, type VisibilityType } from "./visibility-selector";
 
 function PureChatHeader({
   chatId,
-  projectId,
-  projectTitle,
   selectedVisibilityType,
   isReadonly,
 }: {
   chatId: string;
-  projectId: string | null;
-  projectTitle: string | null;
   selectedVisibilityType: VisibilityType;
   isReadonly: boolean;
 }) {
@@ -28,22 +24,13 @@ function PureChatHeader({
   const { open } = useSidebar();
 
   const { width: windowWidth } = useWindowSize();
-  const newChatHref = projectId ? `/?projectId=${projectId}` : "/";
-  const showDebugPanel =
-    process.env.NODE_ENV === "development" && !isReadonly;
+  const newChatHref = "/";
+  const showDebugPanel = process.env.NODE_ENV === "development" && !isReadonly;
 
   return (
     <header className="sticky top-0 z-20 flex items-center gap-2 border-border/60 border-b bg-background/95 px-2 pb-2 pt-[max(env(safe-area-inset-top),0.5rem)] backdrop-blur supports-[backdrop-filter]:bg-background/80 md:px-3 md:py-2">
       <SidebarToggle />
-
-      <div className="min-w-0 flex-1">
-        <div className="truncate font-medium text-sm md:text-base">
-          {projectTitle ?? "New project"}
-        </div>
-        <div className="truncate text-[10px] text-muted-foreground uppercase tracking-[0.18em]">
-          Project
-        </div>
-      </div>
+      <div className="flex-1" />
 
       {(!open || windowWidth < 768) && (
         <Button
@@ -55,9 +42,7 @@ function PureChatHeader({
           variant="outline"
         >
           <PlusIcon />
-          <span className="md:sr-only">
-            {projectId ? "New Chat in Project" : "New Project"}
-          </span>
+          <span className="md:sr-only">New Chat</span>
         </Button>
       )}
 
@@ -91,8 +76,6 @@ function PureChatHeader({
 export const ChatHeader = memo(PureChatHeader, (prevProps, nextProps) => {
   return (
     prevProps.chatId === nextProps.chatId &&
-    prevProps.projectId === nextProps.projectId &&
-    prevProps.projectTitle === nextProps.projectTitle &&
     prevProps.selectedVisibilityType === nextProps.selectedVisibilityType &&
     prevProps.isReadonly === nextProps.isReadonly
   );

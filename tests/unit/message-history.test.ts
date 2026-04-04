@@ -230,7 +230,7 @@ test("getRetryableChatHistory trims unfinished tool calls that never reached out
         state: "input-available",
         input: {
           category: "Mortgage",
-          limit: 25,
+          page: 1,
           sortBy: "date",
           sortDirection: "desc",
         },

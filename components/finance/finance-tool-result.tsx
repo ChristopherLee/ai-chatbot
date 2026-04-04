@@ -7,12 +7,16 @@ import { Button } from "@/components/ui/button";
 import { buildFinanceActionKey } from "@/lib/finance/action-keys";
 import { FINANCE_RECOMMENDATION_LOOKBACK_MONTHS } from "@/lib/finance/config";
 import {
-  normalizeFinanceToolSnapshotSummary,
   type FinanceToolSnapshotSummaryInput,
+  normalizeFinanceToolSnapshotSummary,
 } from "@/lib/finance/tool-result-summary";
 import type {
   FinanceAction,
   FinanceTransactionMatch,
+} from "@/lib/finance/types";
+import type {
+  FinanceRulesViewData,
+  FinanceTargetsResponse,
 } from "@/lib/finance/types";
 import { cn } from "@/lib/utils";
 
@@ -56,6 +60,8 @@ export function describeFinanceAction(action: FinanceAction) {
       return `Categorize transactions where ${describeMatch(action.match)} as ${action.to}`;
     case "categorize_transaction":
       return `Categorize transaction ${action.transactionId.slice(0, 8)} as ${action.to}`;
+    case "exclude_transaction":
+      return `Exclude transaction ${action.transactionId.slice(0, 8)}`;
     case "exclude_transactions":
       return `Exclude transactions where ${describeMatch(action.match)}`;
     case "set_category_monthly_target":
@@ -341,12 +347,242 @@ function SnapshotSummary({
   );
 }
 
+function BudgetTargetsResult({
+  result,
+}: {
+  result: FinanceTargetsResponse;
+}) {
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap gap-2">
+        <Badge variant="secondary">{result.snapshotStatus}</Badge>
+        {result.planMode && <Badge variant="secondary">{result.planMode}</Badge>}
+        {result.latestTransactionDate && (
+          <Badge variant="outline">
+            Latest data: {result.latestTransactionDate}
+          </Badge>
+        )}
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="rounded-md border bg-muted/30 p-3">
+          <div className="text-muted-foreground text-xs uppercase tracking-wide">
+            Total Budget
+          </div>
+          <div className="font-medium text-sm">
+            {formatCurrency(result.cashFlowSummary.totalMonthlyBudgetTarget)}
+          </div>
+        </div>
+        <div className="rounded-md border bg-muted/30 p-3">
+          <div className="text-muted-foreground text-xs uppercase tracking-wide">
+            Total Income
+          </div>
+          <div className="font-medium text-sm">
+            {formatCurrency(result.cashFlowSummary.totalMonthlyIncomeTarget)}
+          </div>
+        </div>
+        <div className="rounded-md border bg-muted/30 p-3">
+          <div className="text-muted-foreground text-xs uppercase tracking-wide">
+            Category Budgets
+          </div>
+          <div className="font-medium text-sm">
+            {formatCurrency(result.cashFlowSummary.categoryBudgetTotal)}
+          </div>
+        </div>
+        <div className="rounded-md border bg-muted/30 p-3">
+          <div className="text-muted-foreground text-xs uppercase tracking-wide">
+            Catch-all
+          </div>
+          <div className="font-medium text-sm">
+            {formatOptionalSignedCurrency(result.cashFlowSummary.catchAllBudget)}
+          </div>
+        </div>
+      </div>
+
+      {result.categoryBudgets.length > 0 ? (
+        <div className="space-y-2">
+          <div className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
+            Current Category Budgets
+          </div>
+          <div className="overflow-x-auto rounded-xl border">
+            <table className="min-w-full text-left text-sm">
+              <thead className="bg-muted/70">
+                <tr>
+                  <th className="px-3 py-2 font-medium">Category</th>
+                  <th className="px-3 py-2 font-medium">Group</th>
+                  <th className="px-3 py-2 font-medium">Budget</th>
+                  <th className="px-3 py-2 font-medium">Recent Actual</th>
+                </tr>
+              </thead>
+              <tbody>
+                {result.categoryBudgets.map((budget) => (
+                  <tr className="border-t" key={budget.overrideId ?? budget.category}>
+                    <td className="px-3 py-2 font-medium">{budget.category}</td>
+                    <td className="px-3 py-2">{budget.group}</td>
+                    <td className="px-3 py-2">{formatCurrency(budget.amount)}</td>
+                    <td className="px-3 py-2">
+                      {formatCurrency(budget.lastMonthActual)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : (
+        <div className="text-muted-foreground">
+          No category budgets are set yet.
+        </div>
+      )}
+
+      {result.suggestedCategoryBudgets.length > 0 && (
+        <div className="space-y-2">
+          <div className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
+            Suggested Category Budgets
+          </div>
+          <div className="overflow-x-auto rounded-xl border">
+            <table className="min-w-full text-left text-sm">
+              <thead className="bg-muted/70">
+                <tr>
+                  <th className="px-3 py-2 font-medium">Category</th>
+                  <th className="px-3 py-2 font-medium">Group</th>
+                  <th className="px-3 py-2 font-medium">Suggested</th>
+                  <th className="px-3 py-2 font-medium">Recent Actual</th>
+                </tr>
+              </thead>
+              <tbody>
+                {result.suggestedCategoryBudgets.slice(0, 12).map((budget) => (
+                  <tr className="border-t" key={budget.category}>
+                    <td className="px-3 py-2 font-medium">{budget.category}</td>
+                    <td className="px-3 py-2">{budget.group}</td>
+                    <td className="px-3 py-2">
+                      {formatCurrency(budget.suggestedAmount)}
+                    </td>
+                    <td className="px-3 py-2">
+                      {formatCurrency(budget.lastMonthActual)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function OptionBadges({
+  label,
+  values,
+}: {
+  label: string;
+  values: string[];
+}) {
+  if (values.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
+        {label}
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {values.slice(0, 8).map((value) => (
+          <Badge key={value} variant="outline">
+            {value}
+          </Badge>
+        ))}
+        {values.length > 8 && (
+          <Badge variant="outline">+{values.length - 8} more</Badge>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function RulesResult({
+  result,
+}: {
+  result: FinanceRulesViewData;
+}) {
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap gap-2">
+        <Badge variant="secondary">
+          {result.summary?.totalRules ?? result.rules.length} rules
+        </Badge>
+        {(result.summary?.categorizationRuleCount ?? 0) > 0 && (
+          <Badge variant="outline">
+            {result.summary?.categorizationRuleCount} categorization
+          </Badge>
+        )}
+        {(result.summary?.exclusionRuleCount ?? 0) > 0 && (
+          <Badge variant="outline">
+            {result.summary?.exclusionRuleCount} exclusions
+          </Badge>
+        )}
+        {(result.summary?.budgetOverrideCount ?? 0) > 0 && (
+          <Badge variant="outline">
+            {result.summary?.budgetOverrideCount} budget overrides
+          </Badge>
+        )}
+        {(result.summary?.planModeChangeCount ?? 0) > 0 && (
+          <Badge variant="outline">
+            {result.summary?.planModeChangeCount} plan mode changes
+          </Badge>
+        )}
+      </div>
+
+      <OptionBadges label="Categories" values={result.options.categories} />
+      <OptionBadges label="Raw Categories" values={result.options.rawCategories} />
+      <OptionBadges label="Accounts" values={result.options.accounts} />
+
+      {result.rules.length === 0 ? (
+        <div className="text-muted-foreground">No finance rules are saved yet.</div>
+      ) : (
+        <div className="space-y-2">
+          <div className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
+            Current Rules
+          </div>
+          <div className="space-y-2">
+            {result.rules.slice(0, 12).map((rule) => (
+              <div className="rounded-md border bg-background p-3" key={rule.id}>
+                <div className="font-medium">{rule.summary}</div>
+                <div className="mt-1 flex flex-wrap gap-2 text-muted-foreground text-xs">
+                  <Badge variant="secondary">{rule.type}</Badge>
+                  {rule.matchedTransactions !== null && (
+                    <Badge variant="outline">
+                      {rule.matchedTransactions} matched
+                    </Badge>
+                  )}
+                  {rule.affectedOutflow !== null && (
+                    <Badge variant="outline">
+                      {formatCurrency(rule.affectedOutflow)} affected
+                    </Badge>
+                  )}
+                </div>
+              </div>
+            ))}
+            {result.rules.length > 12 && (
+              <div className="text-muted-foreground text-xs">
+                Showing 12 of {result.rules.length} rules.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function FinanceToolResult({
   result,
   type,
 }: {
   result: any;
-  type: "apply" | "snapshot";
+  type: "apply" | "budget-targets" | "rules" | "snapshot";
 }) {
   return (
     <div className="space-y-4 p-4 text-sm">
@@ -411,6 +647,14 @@ export function FinanceToolResult({
         <SnapshotSummary label="Current" summary={result.current} />
       )}
 
+      {type === "budget-targets" && (
+        <BudgetTargetsResult result={result as FinanceTargetsResponse} />
+      )}
+
+      {type === "rules" && (
+        <RulesResult result={result as FinanceRulesViewData} />
+      )}
+
       {result.before && result.after && (
         <div className="grid gap-3 lg:grid-cols-2">
           <SnapshotSummary label="Before" summary={result.before} />
@@ -420,4 +664,3 @@ export function FinanceToolResult({
     </div>
   );
 }
-

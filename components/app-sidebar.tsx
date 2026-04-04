@@ -6,13 +6,8 @@ import type { User } from "next-auth";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useSWRConfig } from "swr";
-import { unstable_serialize } from "swr/infinite";
 import { PlusIcon, TrashIcon } from "@/components/icons";
-import {
-  getChatHistoryPaginationKey,
-  SidebarHistory,
-} from "@/components/sidebar-history";
-import { SidebarFinanceRulesButton } from "@/components/sidebar-finance-rules-button";
+import { SidebarHistory } from "@/components/sidebar-history";
 import { SidebarUserNav } from "@/components/sidebar-user-nav";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,6 +18,7 @@ import {
   SidebarMenu,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { isChatHistoryCacheKey } from "@/lib/chat-history";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -35,7 +31,13 @@ import {
 } from "./ui/alert-dialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./ui/tooltip";
 
-export function AppSidebar({ user }: { user: User | undefined }) {
+export function AppSidebar({
+  user,
+  currentProject,
+}: {
+  user: User | undefined;
+  currentProject: { id: string; title: string } | null;
+}) {
   const router = useRouter();
   const { setOpenMobile } = useSidebar();
   const { mutate } = useSWRConfig();
@@ -47,15 +49,15 @@ export function AppSidebar({ user }: { user: User | undefined }) {
     });
 
     toast.promise(deletePromise, {
-      loading: "Deleting all projects...",
+      loading: "Resetting project...",
       success: () => {
-        mutate(unstable_serialize(getChatHistoryPaginationKey));
+        mutate(isChatHistoryCacheKey, undefined, { revalidate: true });
         setShowDeleteAllDialog(false);
         router.replace("/");
         router.refresh();
-        return "All projects deleted successfully";
+        return "Project reset successfully";
       },
-      error: "Failed to delete all projects",
+      error: "Failed to reset project",
     });
   };
 
@@ -87,10 +89,11 @@ export function AppSidebar({ user }: { user: User | undefined }) {
                         variant="ghost"
                       >
                         <TrashIcon />
+                        <span className="sr-only">Reset project</span>
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent align="end" className="hidden md:block">
-                      Delete All Projects
+                      Reset Project
                     </TooltipContent>
                   </Tooltip>
                 )}
@@ -107,19 +110,19 @@ export function AppSidebar({ user }: { user: User | undefined }) {
                       variant="ghost"
                     >
                       <PlusIcon />
+                      <span className="sr-only">New chat</span>
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent align="end" className="hidden md:block">
-                    New Project
+                    New Chat
                   </TooltipContent>
                 </Tooltip>
               </div>
             </div>
           </SidebarMenu>
-          <SidebarFinanceRulesButton />
         </SidebarHeader>
         <SidebarContent>
-          <SidebarHistory user={user} />
+          <SidebarHistory currentProject={currentProject} user={user} />
         </SidebarContent>
         <SidebarFooter>{user && <SidebarUserNav user={user} />}</SidebarFooter>
       </Sidebar>
@@ -130,16 +133,16 @@ export function AppSidebar({ user }: { user: User | undefined }) {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete all projects?</AlertDialogTitle>
+            <AlertDialogTitle>Reset project?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete all
-              your projects, chats, and shared data from our servers.
+              This action cannot be undone. This will permanently delete your
+              chats, project data, and uploaded finance data from our servers.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteAll}>
-              Delete All
+              Reset Project
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

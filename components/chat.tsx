@@ -8,7 +8,6 @@ import {
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import useSWR, { useSWRConfig } from "swr";
-import { unstable_serialize } from "swr/infinite";
 import { deleteTrailingMessages } from "@/app/(chat)/actions";
 import { ChatHeader } from "@/components/chat-header";
 import { FinanceRulesView } from "@/components/finance/finance-rules-view";
@@ -30,6 +29,7 @@ import {
   autoDenyPendingToolApprovals,
   getRetryableChatHistory,
 } from "@/lib/ai/message-history";
+import { isChatHistoryCacheKey } from "@/lib/chat-history";
 import type { Vote } from "@/lib/db/schema";
 import { ChatSDKError } from "@/lib/errors";
 import type { Attachment, ChatMessage } from "@/lib/types";
@@ -38,7 +38,6 @@ import { Artifact } from "./artifact";
 import { useDataStream } from "./data-stream-provider";
 import { Messages } from "./messages";
 import { MultimodalInput } from "./multimodal-input";
-import { getChatHistoryPaginationKey } from "./sidebar-history";
 import { toast } from "./toast";
 import type { VisibilityType } from "./visibility-selector";
 
@@ -61,7 +60,6 @@ function getRequestErrorMessage(error: unknown) {
 export function Chat({
   id,
   projectId,
-  projectTitle,
   initialMessages,
   initialChatModel,
   initialVisibilityType,
@@ -72,7 +70,6 @@ export function Chat({
 }: {
   id: string;
   projectId: string | null;
-  projectTitle: string | null;
   initialMessages: ChatMessage[];
   initialChatModel: string;
   initialVisibilityType: VisibilityType;
@@ -108,7 +105,6 @@ export function Chat({
     null
   );
   const [currentModelId, setCurrentModelId] = useState(initialChatModel);
-  const [currentProjectTitle, setCurrentProjectTitle] = useState(projectTitle);
   const [hasFinanceDataset, setHasFinanceDataset] = useState(
     initialHasFinanceDataset
   );
@@ -123,10 +119,6 @@ export function Chat({
   useEffect(() => {
     currentModelIdRef.current = currentModelId;
   }, [currentModelId]);
-
-  useEffect(() => {
-    setCurrentProjectTitle(projectTitle);
-  }, [projectTitle]);
 
   const {
     messages,
@@ -169,14 +161,11 @@ export function Chat({
       },
     }),
     onData: (dataPart) => {
-      if (dataPart.type === "data-chat-title" && !projectTitle) {
-        setCurrentProjectTitle(dataPart.data);
-      }
       setDataStream((ds) => (ds ? [...ds, dataPart] : []));
     },
     onFinish: () => {
       setRequestErrorMessage(null);
-      mutate(unstable_serialize(getChatHistoryPaginationKey));
+      mutate(isChatHistoryCacheKey, undefined, { revalidate: true });
       if (financeSnapshotKey) {
         mutate(financeSnapshotKey);
       }
@@ -334,8 +323,6 @@ export function Chat({
       <ChatHeader
         chatId={id}
         isReadonly={isReadonly}
-        projectId={projectId}
-        projectTitle={currentProjectTitle}
         selectedVisibilityType={initialVisibilityType}
       />
 
@@ -387,10 +374,7 @@ export function Chat({
   );
   const mainShell =
     showRulesView && projectId ? (
-      <FinanceRulesView
-        projectId={projectId}
-        projectTitle={currentProjectTitle}
-      />
+      <FinanceRulesView projectId={projectId} />
     ) : (
       chatShell
     );

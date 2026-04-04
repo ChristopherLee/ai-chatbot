@@ -2,7 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { auth } from "@/app/(auth)/auth";
 import { ProjectBudgetSettings } from "@/components/finance/project-budget-settings";
 import { getFinanceOverridesByProjectId } from "@/lib/db/finance-queries";
-import { getProjectById } from "@/lib/db/queries";
+import { getLatestChatByProjectId, getProjectById } from "@/lib/db/queries";
 import {
   buildCategoryBudgetSuggestions,
   getCurrentCategoryBudgetOverrides,
@@ -34,6 +34,9 @@ export default async function Page({
   const overrides = await getFinanceOverridesByProjectId({
     projectId: project.id,
   });
+  const latestChat = await getLatestChatByProjectId({
+    projectId: project.id,
+  });
   const currentCategoryBudgets = getCurrentCategoryBudgetOverrides(overrides);
   const latestTransactionDate = snapshot.datasetSummary?.dateRange.end ?? null;
   const currentMonth = latestTransactionDate
@@ -43,6 +46,8 @@ export default async function Page({
     projectId: project.id,
     projectTitle: project.title,
     snapshotStatus: snapshot.status,
+    planMode: snapshot.planSummary?.mode ?? null,
+    latestTransactionDate,
     cashFlowSummary: snapshot.cashFlowSummary,
     suggestedCategoryBudgetTotal:
       snapshot.planSummary?.totalMonthlyTarget ?? null,
@@ -70,8 +75,7 @@ export default async function Page({
       })
       .sort(
         (left, right) =>
-          right.amount -
-            left.amount ||
+          right.amount - left.amount ||
           left.category.localeCompare(right.category)
       ),
     suggestedCategoryBudgets: buildCategoryBudgetSuggestions({
@@ -81,5 +85,10 @@ export default async function Page({
     }),
   };
 
-  return <ProjectBudgetSettings initialData={initialData} />;
+  return (
+    <ProjectBudgetSettings
+      analysisChatId={latestChat?.id ?? null}
+      initialData={initialData}
+    />
+  );
 }

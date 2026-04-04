@@ -50,20 +50,44 @@ export function DatasetSummaryEmptyState({
           <CardTitle>Next step</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3 text-sm">
-          <p className="text-muted-foreground">
-            Reply in the chat with your goals, priorities, and any special
-            cases. I'll use that context once the finance plan is ready.
-          </p>
+          {snapshot.status === "needs-onboarding" ? (
+            <p className="text-muted-foreground">
+              Start with cleanup and starter budgets: review any suggested
+              categorization fixes in chat, then open the budget builder to set
+              the important monthly categories before running deeper analysis.
+            </p>
+          ) : (
+            <p className="text-muted-foreground">
+              Reply in the chat with your goals, priorities, and any special
+              cases. I'll use that context once the finance plan is ready.
+            </p>
+          )}
           <div className="flex flex-wrap gap-2">
-            <span className="rounded-full bg-muted px-2 py-1">
-              "We want to save more this year."
-            </span>
-            <span className="rounded-full bg-muted px-2 py-1">
-              "Exclude the refinance fee."
-            </span>
-            <span className="rounded-full bg-muted px-2 py-1">
-              "Make this more conservative."
-            </span>
+            {snapshot.status === "needs-onboarding" ? (
+              <>
+                <span className="rounded-full bg-muted px-2 py-1">
+                  Review categorization fixes
+                </span>
+                <span className="rounded-full bg-muted px-2 py-1">
+                  Set starter budgets
+                </span>
+                <span className="rounded-full bg-muted px-2 py-1">
+                  Compare last month vs budget
+                </span>
+              </>
+            ) : (
+              <>
+                <span className="rounded-full bg-muted px-2 py-1">
+                  "We want to save more this year."
+                </span>
+                <span className="rounded-full bg-muted px-2 py-1">
+                  "Exclude the refinance fee."
+                </span>
+                <span className="rounded-full bg-muted px-2 py-1">
+                  "Make this more conservative."
+                </span>
+              </>
+            )}
           </div>
         </CardContent>
       </Card>

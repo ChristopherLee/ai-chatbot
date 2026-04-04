@@ -67,6 +67,21 @@ export async function getFinanceRulesViewData({
   const finalTransactions = applyFinanceOverrides(baseTransactions, actions);
 
   return {
+    summary: {
+      totalRules: actions.length,
+      categorizationRuleCount: actions.filter(
+        (action) => action.type === "categorize_transactions"
+      ).length,
+      exclusionRuleCount: actions.filter(
+        (action) => action.type === "exclude_transactions"
+      ).length,
+      budgetOverrideCount: actions.filter(
+        (action) => action.type === "set_category_monthly_target"
+      ).length,
+      planModeChangeCount: actions.filter(
+        (action) => action.type === "set_plan_mode"
+      ).length,
+    },
     rules: buildFinanceRuleRecords(overrides, baseTransactions),
     options: {
       accounts: uniqueSorted(

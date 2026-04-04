@@ -27,13 +27,15 @@ import {
 } from "@/lib/ai/stream-timeout";
 import { applyFinanceActions } from "@/lib/ai/tools/apply-finance-actions";
 import { createDocument } from "@/lib/ai/tools/create-document";
+import { getFinanceBudgetTargetsTool } from "@/lib/ai/tools/get-finance-budget-targets";
 import { getFinanceCategorizationMemoryTool } from "@/lib/ai/tools/get-finance-categorization-memory";
-import { getFinanceSnapshotTool } from "@/lib/ai/tools/get-finance-snapshot";
+import { getFinanceRulesTool } from "@/lib/ai/tools/get-finance-rules";
 import { getWeather } from "@/lib/ai/tools/get-weather";
 import { queryFinanceTransactions } from "@/lib/ai/tools/query-finance-transactions";
 import { refreshFinancePlan } from "@/lib/ai/tools/refresh-finance-plan";
 import { requestSuggestions } from "@/lib/ai/tools/request-suggestions";
 import { showFinanceChart } from "@/lib/ai/tools/show-finance-chart";
+import { summarizeFinanceTransactions } from "@/lib/ai/tools/summarize-finance-transactions";
 import { updateDocument } from "@/lib/ai/tools/update-document";
 import { isProductionEnvironment } from "@/lib/constants";
 import { hasFinanceDataset } from "@/lib/db/finance-queries";
@@ -42,6 +44,7 @@ import {
   createStreamId,
   deleteChatById,
   getChatById,
+  getLatestProjectByUserId,
   getMessageCountByUserId,
   getMessagesByChatId,
   getProjectById,
@@ -53,10 +56,7 @@ import {
 } from "@/lib/db/queries";
 import type { DBMessage } from "@/lib/db/schema";
 import { ChatSDKError } from "@/lib/errors";
-import {
-  getFinanceSnapshot,
-  recomputeFinanceSnapshot,
-} from "@/lib/finance/snapshot";
+import { getFinanceSnapshot } from "@/lib/finance/snapshot";
 import type { FinanceSnapshot } from "@/lib/finance/types";
 import type { ChatMessage } from "@/lib/types";
 import { convertToUIMessages, generateUUID } from "@/lib/utils";
@@ -97,6 +97,83 @@ function formatCurrency(value: number | null) {
   }).format(value);
 }
 
+function buildFinancePromptContext(snapshot: FinanceSnapshot) {
+  return {
+    snapshotStatus: snapshot.status,
+    planMode: snapshot.planSummary?.mode ?? null,
+    latestTransactionDate: snapshot.datasetSummary?.dateRange.end ?? null,
+    cashFlowSummary: snapshot.cashFlowSummary,
+    suggestedCategoryBudgetTotal: snapshot.planSummary?.totalMonthlyTarget ?? null,
+    topCategoryTargets:
+      snapshot.planSummary?.categoryTargets.slice(0, 6).map((category) => ({
+        category: category.category,
+        group: category.group,
+        monthlyTarget: category.monthlyTarget,
+        trailingAverage: category.trailingAverage,
+      })) ?? [],
+    latestOverrideSummaries: snapshot.appliedOverrides
+      .slice(-3)
+      .map((override) => override.summary),
+  };
+}
+
+function buildFinanceSystemPrompt(snapshot: FinanceSnapshot) {
+  return `You are a helpful finance planning assistant inside a budgeting app.
+
+Use the finance context and finance tools to explain the user's current plan, what changed, and any meaningful trends.
+Keep the tone practical and supportive.
+
+You can use tools to inspect, visualize, or update the finance plan:
+- getFinanceBudgetTargets: read total budget and income targets, current category budgets, catch-all budget, suggested category budgets, and current plan mode
+- getFinanceRules: inspect saved categorization rules, exclusions, budget overrides, plan mode changes, and available raw categories/accounts/categories
+- summarizeFinanceTransactions: get grouped totals by month, category, raw category, merchant, or account
+- showFinanceChart: render a chart directly in the chat for trend, comparison, spending mix, or income-allocation Sankey questions
+- queryFinanceTransactions: search and filter the project's transactions in detail
+- refreshFinancePlan: generate or recompute the current plan
+- applyFinanceActions: persist structured plan changes
+- getFinanceCategorizationMemory: read previously accepted categorization rules, one-off transaction overrides, and denied guidance
+
+Onboarding behavior:
+- If the finance context snapshotStatus is "needs-onboarding", the user is in the first-upload onboarding flow.
+- In onboarding, start by helping the user validate data cleanliness and categorization before treating the plan as finalized.
+- Treat suggested category budgets and target recommendations in onboarding as provisional guidance derived from historical spend, not as final approved budgets.
+- Do not call refreshFinancePlan just because the user sent their first onboarding message.
+- After the user has reviewed the cleanup suggestions or intentionally chosen to skip that step, recommend starter budgets only for meaningful categories.
+- When discussing starter budgets, skip tiny categories and use judgment about whether spend is steady, variable, newly recent, or mostly in older months.
+- Use merchant and description clues to infer whether a category behaves like a recurring bill, flexible monthly spend, or occasional spending.
+- Call refreshFinancePlan only when the user explicitly wants to finalize onboarding, skip onboarding, or move into the main planning experience.
+- After budgets are set or the user says they are ready to move on, ask whether they want (1) a last-month vs budget analysis or (2) a current-month progress check.
+
+Rules:
+- Never claim a change was applied unless you called a finance tool in this response and it succeeded.
+- Use getFinanceBudgetTargets whenever you need the latest budget settings, category budgets, catch-all budget, or plan mode, especially after a plan change.
+- Use getFinanceRules when you need to inspect saved rules or learn the available raw categories, categories, accounts, and override history.
+- Use summarizeFinanceTransactions when you need grouped totals or trends without transaction-level rows.
+- Use showFinanceChart when the user explicitly wants to see a visual, a trend line, a category comparison, a current-month spending mix, or an income-to-expense Sankey in the chat.
+- Use queryFinanceTransactions when you need transaction-level detail beyond aggregated results, such as keyword search, merchant lookups, current category filters, raw category filters, account filters, or date windows.
+- Use getFinanceCategorizationMemory before auditing likely miscategorizations or proposing categorization changes, so you can avoid already approved rules, one-off manual overrides, and explicitly denied guidance.
+- If the user asks for a plan change and it is specific enough to represent exactly, call applyFinanceActions.
+- If a requested change is ambiguous, ask a concise follow-up question instead of guessing.
+- For categorization requests, keep the source match and target category aligned with the user's exact request. Do not silently substitute a different merchant, raw category, or destination category.
+- If the user asks to rename or merge categories, explain that reusable rules now work by categorizing source transactions into the destination category instead of using separate rename or merge actions.
+- If you cannot represent the requested source or destination exactly, ask a concise clarification question instead of calling applyFinanceActions.
+- When the user refers to an entire raw category like Uncategorized, prefer an action with match.rawCategory using the exact category name from the rules or transaction tools.
+- When the user refers to a merchant or recurring transaction label like "Direct Debit Crosscountry", prefer a match-based categorization action instead of remapping the whole raw category.
+- When the user asks to review, audit, or find likely miscategorized transactions, inspect rules, summaries, transaction rows, and categorization memory yourself instead of relying on a separate audit tool.
+- For deeper transaction investigations, prefer querying transactions directly over guessing from aggregate charts or grouped summaries.
+- For miscategorization audits, focus on ambiguous categories, inconsistent merchant placement, recurring merchants, and large outflows that do not fit their current category.
+- Ignore transactions that already have one-off manual categorization overrides, and ignore rules that are already accepted.
+- Prefer categorize_transactions for stable recurring patterns. Use categorize_transaction only for isolated exceptions. Do not propose both a rule and a redundant one-off for the same transaction.
+- When you have one to four strong categorization candidates, call applyFinanceActions with those actions. The UI may ask the user to approve or deny them before anything is persisted.
+- If the user denies suggested categorization actions, use that feedback to continue the investigation, refine the proposal, or ask whether they want a deeper review.
+- After any finance tool call, summarize the result and any plan changes that occurred.
+- Do not invent transactions, categories, tool results, or chart values beyond the finance context or tool outputs.
+- Distinguish between the user-set total monthly budget/income and the derived category allocations in the plan. The catch-all budget is whatever remains after category allocations.
+
+Finance context:
+${JSON.stringify(buildFinancePromptContext(snapshot))}`;
+}
+
 function buildFinanceFallbackMessage({
   snapshot,
   error,
@@ -119,7 +196,7 @@ function buildFinanceFallbackMessage({
   }
 
   if (snapshot.status === "needs-onboarding") {
-    return `${intro}\n\nYour dataset is loaded. Answer the onboarding questions and I will generate the first plan from the transactions already on file.`;
+    return `${intro}\n\nYour dataset is loaded. Start by reviewing the data-cleanup suggestions, then set starter budgets for the important categories. After that, we can compare last month to budget or check this month's pace.`;
   }
 
   const planSummary = snapshot.planSummary;
@@ -194,14 +271,8 @@ export async function POST(request: Request) {
   }
 
   try {
-    const {
-      id,
-      projectId: requestedProjectId,
-      message,
-      messages,
-      selectedChatModel,
-      selectedVisibilityType,
-    } = requestBody;
+    const { id, message, messages, selectedChatModel, selectedVisibilityType } =
+      requestBody;
 
     const session = await auth();
 
@@ -224,7 +295,7 @@ export async function POST(request: Request) {
     const incomingMessage = isToolApprovalFlow ? undefined : message;
 
     const chat = await getChatById({ id });
-    let projectId = chat?.projectId ?? requestedProjectId ?? null;
+    let projectId = chat?.projectId ?? null;
     let createdProjectId: string | null = null;
     let messagesFromDb: DBMessage[] = [];
     let titlePromise: Promise<string> | null = null;
@@ -237,19 +308,16 @@ export async function POST(request: Request) {
         messagesFromDb = await getMessagesByChatId({ id });
       }
     } else if (incomingMessage?.role === "user") {
-      if (projectId) {
-        const existingProject = await getProjectById({ id: projectId });
+      const existingProject = projectId
+        ? await getProjectById({ id: projectId })
+        : await getLatestProjectByUserId({ userId: session.user.id });
 
-        if (!existingProject) {
-          return new ChatSDKError(
-            "not_found:database",
-            "Project not found"
-          ).toResponse();
-        }
-
+      if (existingProject) {
         if (existingProject.userId !== session.user.id) {
           return new ChatSDKError("forbidden:chat").toResponse();
         }
+
+        projectId = existingProject.id;
       } else {
         const createdProject = await createProject({
           userId: session.user.id,
@@ -331,13 +399,6 @@ export async function POST(request: Request) {
 
     if (projectId && chatRuntimeMode === "finance") {
       financeSnapshot = await getFinanceSnapshot({ projectId });
-
-      if (
-        incomingMessage?.role === "user" &&
-        financeSnapshot.status === "needs-onboarding"
-      ) {
-        financeSnapshot = await recomputeFinanceSnapshot({ projectId });
-      }
     }
 
     const stream = createUIMessageStream({
@@ -373,68 +434,37 @@ export async function POST(request: Request) {
           const streamTimeout = createStreamTimeout();
           const result = streamText({
             model: getLanguageModel(selectedChatModel),
-            system: `You are a helpful finance planning assistant inside a budgeting app.
-
-Use the finance snapshot to explain the user's current plan, what changed, and any meaningful trends.
-Keep the tone practical and supportive.
-
-You can use tools to inspect, visualize, or update the finance plan:
-- getFinanceSnapshot: read the full finance dashboard snapshot currently shown to the user
-- showFinanceChart: render a chart directly in the chat for trend, comparison, spending mix, or income-allocation Sankey questions
-- queryFinanceTransactions: search and filter the project's transactions in detail
-- refreshFinancePlan: generate or recompute the current plan
-- applyFinanceActions: persist structured plan changes
-- getFinanceCategorizationMemory: read previously accepted categorization rules, one-off transaction overrides, and denied guidance
-
-Rules:
-- Never claim a change was applied unless you called a finance tool in this response and it succeeded.
-- Use getFinanceSnapshot whenever you need to inspect the latest full dashboard data in detail or after a tool changes the plan.
-- Use showFinanceChart when the user explicitly wants to see a visual, a trend line, a category comparison, a current-month spending mix, or an income-to-expense Sankey in the chat.
-- Use queryFinanceTransactions when you need transaction-level detail beyond the snapshot, such as keyword search, merchant lookups, current category filters, raw category filters, account filters, date windows, or amount ranges.
-- Use getFinanceCategorizationMemory before auditing likely miscategorizations or proposing categorization changes, so you can avoid already approved rules, one-off manual overrides, and explicitly denied guidance.
-- If the snapshot status is "needs-onboarding" and the user has provided enough context to start planning, call refreshFinancePlan before answering.
-- If the user asks for a plan change and it is specific enough to represent exactly, call applyFinanceActions.
-- If a requested change is ambiguous, ask a concise follow-up question instead of guessing.
-- For categorization requests, keep the source match and target category aligned with the user's exact request. Do not silently substitute a different merchant, raw category, or destination category.
-- If the user asks to rename or merge categories, explain that reusable rules now work by categorizing source transactions into the destination category instead of using separate rename or merge actions.
-- If you cannot represent the requested source or destination exactly, ask a concise clarification question instead of calling applyFinanceActions.
-- When the user refers to an entire raw category like Uncategorized, prefer an action with match.rawCategory using the exact category name from the snapshot.
-- When the user refers to a merchant or recurring transaction label like "Direct Debit Crosscountry", prefer a match-based categorization action instead of remapping the whole raw category.
-- When the user asks to review, audit, or find likely miscategorized transactions, inspect the snapshot and memory yourself instead of relying on a separate audit tool.
-- For deeper transaction investigations, prefer querying transactions directly over guessing from aggregate charts.
-- For miscategorization audits, focus on ambiguous categories, inconsistent merchant placement, recurring merchants, and large outflows that do not fit their current category.
-- Ignore transactions that already have one-off manual categorization overrides, and ignore rules that are already accepted.
-- Prefer categorize_transactions for stable recurring patterns. Use categorize_transaction only for isolated exceptions. Do not propose both a rule and a redundant one-off for the same transaction.
-- When you have one to four strong categorization candidates, call applyFinanceActions with those actions. The UI may ask the user to approve or deny them before anything is persisted.
-- If the user denies suggested categorization actions, use that feedback to continue the investigation, refine the proposal, or ask whether they want a deeper review.
-- After any finance tool call, summarize the result and any plan changes that occurred.
-- Do not invent transactions, categories, tool results, or chart values beyond the snapshot or tool outputs.
-- Distinguish between the user-set total monthly budget/income and the derived category allocations in the plan. The catch-all budget is whatever remains after category allocations.
-
-Finance snapshot:
-${JSON.stringify(resolvedFinanceSnapshot)}`,
+            system: buildFinanceSystemPrompt(resolvedFinanceSnapshot),
             messages: modelMessages,
             abortSignal: streamTimeout.signal,
             stopWhen: stepCountIs(6),
             experimental_activeTools: [
+              "getFinanceBudgetTargets",
               "getFinanceCategorizationMemory",
-              "getFinanceSnapshot",
+              "getFinanceRules",
               "queryFinanceTransactions",
               "refreshFinancePlan",
               "showFinanceChart",
+              "summarizeFinanceTransactions",
               "applyFinanceActions",
             ],
             tools: {
+              getFinanceBudgetTargets: getFinanceBudgetTargetsTool({
+                projectId,
+              }),
               getFinanceCategorizationMemory:
                 getFinanceCategorizationMemoryTool({
                   projectId,
                 }),
-              getFinanceSnapshot: getFinanceSnapshotTool({ projectId }),
+              getFinanceRules: getFinanceRulesTool({ projectId }),
               queryFinanceTransactions: queryFinanceTransactions({
                 projectId,
               }),
               refreshFinancePlan: refreshFinancePlan({ projectId }),
               showFinanceChart: showFinanceChart({ projectId }),
+              summarizeFinanceTransactions: summarizeFinanceTransactions({
+                projectId,
+              }),
               applyFinanceActions: applyFinanceActions({ projectId }),
             },
             providerOptions: getLanguageModelProviderOptions(selectedChatModel),

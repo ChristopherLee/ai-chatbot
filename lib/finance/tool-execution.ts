@@ -3,7 +3,13 @@ import {
   getTransactionsByProjectId,
   saveFinanceOverrides,
 } from "@/lib/db/finance-queries";
+import { getProjectById } from "@/lib/db/queries";
 import { buildFinanceActionKey } from "./action-keys";
+import {
+  buildCategoryBudgetSuggestions,
+  getCurrentCategoryBudgetOverrides,
+  resolveCategoryBudgetGroup,
+} from "./category-budgets";
 import { categorizeTransactions } from "./categorize";
 import {
   getFinanceActionsFromOverrides,
@@ -15,9 +21,14 @@ import {
   type FinanceTransactionQueryInput,
   queryFinanceTransactions,
 } from "./query-transactions";
+import { getFinanceRulesViewData } from "./rules";
 import { getFinanceSnapshot, recomputeFinanceSnapshot } from "./snapshot";
+import {
+  summarizeFinanceTransactions,
+  type FinanceTransactionSummaryInput,
+} from "./summarize-transactions";
 import type { FinanceAction, FinanceSnapshot } from "./types";
-import { uniqueBy } from "./utils";
+import { roundCurrency, safeLower, toMonthKey, uniqueBy } from "./utils";
 
 function buildSnapshotSummary(snapshot: FinanceSnapshot) {
   return {
@@ -42,6 +53,82 @@ function buildSnapshotSummary(snapshot: FinanceSnapshot) {
         monthlyTarget: category.monthlyTarget,
       })) ?? [],
   };
+}
+
+async function buildFinanceBudgetTargetsData({
+  projectId,
+  projectTitle,
+  snapshot,
+}: {
+  projectId: string;
+  projectTitle?: string;
+  snapshot?: FinanceSnapshot;
+}) {
+  const [project, resolvedSnapshot, overrides] = await Promise.all([
+    projectTitle ? Promise.resolve(null) : getProjectById({ id: projectId }),
+    snapshot ? Promise.resolve(snapshot) : getFinanceSnapshot({ projectId }),
+    getFinanceOverridesByProjectId({ projectId }),
+  ]);
+  const currentCategoryBudgets = getCurrentCategoryBudgetOverrides(overrides);
+  const latestTransactionDate = resolvedSnapshot.datasetSummary?.dateRange.end ?? null;
+  const currentMonth = latestTransactionDate
+    ? toMonthKey(latestTransactionDate)
+    : null;
+
+  return {
+    projectId,
+    projectTitle: projectTitle ?? project?.title ?? "Finance project",
+    snapshotStatus: resolvedSnapshot.status,
+    planMode: resolvedSnapshot.planSummary?.mode ?? null,
+    latestTransactionDate,
+    cashFlowSummary: resolvedSnapshot.cashFlowSummary,
+    suggestedCategoryBudgetTotal:
+      resolvedSnapshot.planSummary?.totalMonthlyTarget ?? null,
+    categoryBudgets: currentCategoryBudgets
+      .map((budget) => {
+        const categoryCard = resolvedSnapshot.categoryCards.find(
+          (card) => safeLower(card.category) === safeLower(budget.category)
+        );
+        const currentMonthEntry = currentMonth
+          ? categoryCard?.monthly.find((entry) => entry.month === currentMonth)
+          : null;
+
+        return {
+          category: budget.category,
+          group: resolveCategoryBudgetGroup({
+            category: budget.category,
+            categoryCards: resolvedSnapshot.categoryCards,
+          }),
+          amount: budget.amount,
+          overrideId: budget.overrideId,
+          lastMonthActual: roundCurrency(
+            currentMonthEntry?.actual ?? categoryCard?.trailingAverage ?? 0
+          ),
+        };
+      })
+      .sort(
+        (left, right) =>
+          right.amount - left.amount || left.category.localeCompare(right.category)
+      ),
+    suggestedCategoryBudgets: buildCategoryBudgetSuggestions({
+      categoryCards: resolvedSnapshot.categoryCards,
+      currentBudgets: currentCategoryBudgets,
+      latestTransactionDate,
+    }),
+  };
+}
+
+async function getCategorizedTransactionsForProject(projectId: string) {
+  const [transactions, overrides] = await Promise.all([
+    getTransactionsByProjectId({ projectId }),
+    getFinanceOverridesByProjectId({ projectId }),
+  ]);
+  const actions = getFinanceActionsFromOverrides(overrides);
+
+  return categorizeTransactions({
+    transactions,
+    actions,
+  });
 }
 
 export async function applyFinanceActionsForChat({
@@ -122,6 +209,28 @@ export async function applyFinanceActionsForChat({
       continue;
     }
 
+    if (action.type === "exclude_transaction") {
+      const matchedTransaction = transactions.find(
+        (transaction) => transaction.id === action.transactionId
+      );
+
+      if (!matchedTransaction) {
+        skippedActions.push({
+          action,
+          reason: "The suggested transaction could not be found anymore.",
+        });
+        continue;
+      }
+
+      appliedActions.push({
+        action,
+        summary: summarizeFinanceAction(action),
+        matchedTransactions: 1,
+        affectedOutflow: matchedTransaction.outflowAmount,
+      });
+      continue;
+    }
+
     if (action.type === "categorize_transaction") {
       const matchedTransaction = transactions.find(
         (transaction) => transaction.id === action.transactionId
@@ -167,7 +276,6 @@ export async function applyFinanceActionsForChat({
     skippedActions,
     before: buildSnapshotSummary(beforeSnapshot),
     after: buildSnapshotSummary(afterSnapshot),
-    snapshot: afterSnapshot,
   };
 }
 
@@ -193,8 +301,23 @@ export async function refreshFinancePlanForChat({
 
   return {
     current: buildSnapshotSummary(snapshot),
-    snapshot,
   };
+}
+
+export async function getFinanceBudgetTargetsForChat({
+  projectId,
+}: {
+  projectId: string;
+}) {
+  return buildFinanceBudgetTargetsData({ projectId });
+}
+
+export async function getFinanceRulesForChat({
+  projectId,
+}: {
+  projectId: string;
+}) {
+  return getFinanceRulesViewData({ projectId });
 }
 
 export async function queryFinanceTransactionsForChat({
@@ -203,17 +326,25 @@ export async function queryFinanceTransactionsForChat({
 }: {
   projectId: string;
 } & FinanceTransactionQueryInput) {
-  const [transactions, overrides] = await Promise.all([
-    getTransactionsByProjectId({ projectId }),
-    getFinanceOverridesByProjectId({ projectId }),
-  ]);
-  const actions = getFinanceActionsFromOverrides(overrides);
-  const categorizedTransactions = categorizeTransactions({
-    transactions,
-    actions,
-  });
+  const categorizedTransactions =
+    await getCategorizedTransactionsForProject(projectId);
 
   return queryFinanceTransactions({
+    transactions: categorizedTransactions,
+    filters,
+  });
+}
+
+export async function summarizeFinanceTransactionsForChat({
+  projectId,
+  ...filters
+}: {
+  projectId: string;
+} & FinanceTransactionSummaryInput) {
+  const categorizedTransactions =
+    await getCategorizedTransactionsForProject(projectId);
+
+  return summarizeFinanceTransactions({
     transactions: categorizedTransactions,
     filters,
   });

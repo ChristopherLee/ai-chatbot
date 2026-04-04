@@ -143,9 +143,17 @@ function snapshotNeedsOverrideRefresh(snapshot: FinanceSnapshot) {
 
 function snapshotNeedsDerivedPlanRefresh(snapshot: FinanceSnapshot) {
   return (
-    snapshot.status !== "ready" ||
-    !snapshot.planSummary ||
-    !snapshot.datasetSummary
+    snapshot.status === "ready" &&
+    (!snapshot.planSummary || !snapshot.datasetSummary)
+  );
+}
+
+function snapshotNeedsOnboardingRefresh(snapshot: FinanceSnapshot) {
+  return (
+    snapshot.status === "needs-onboarding" &&
+    (!snapshot.planSummary ||
+      snapshot.categoryCards.length === 0 ||
+      snapshot.monthlyChart.length === 0)
   );
 }
 
@@ -249,6 +257,11 @@ export async function buildNeedsOnboardingSnapshot({
     return snapshot;
   }
 
+  const plan = buildFinancePlan({
+    transactions: context.categorizedTransactions,
+    actions: context.actions,
+  });
+
   return {
     status: "needs-onboarding",
     cashFlowSummary: buildFinanceCashFlowSummary({
@@ -264,26 +277,11 @@ export async function buildNeedsOnboardingSnapshot({
       transactions: context.transactions,
       categorizedTransactions: context.categorizedTransactions,
     }),
-    planSummary: null,
-    monthlyChart: [],
-    cumulativeChart: [],
-    categoryCards: [],
-    transactionHighlights: [...context.categorizedTransactions]
-      .filter(
-        (transaction) =>
-          transaction.includeFlag && transaction.outflowAmount > 0
-      )
-      .sort((a, b) => b.outflowAmount - a.outflowAmount)
-      .slice(0, 12)
-      .map((transaction) => ({
-        id: transaction.id,
-        transactionDate: transaction.transactionDate,
-        description: transaction.description,
-        merchant: transaction.normalizedMerchant,
-        amount: transaction.outflowAmount,
-        category: transaction.mappedCategory,
-        group: transaction.categoryGroup,
-      })),
+    planSummary: plan.planSummary,
+    monthlyChart: plan.monthlyChart,
+    cumulativeChart: plan.cumulativeChart,
+    categoryCards: plan.categoryCards,
+    transactionHighlights: plan.transactionHighlights,
     appliedOverrides: buildAppliedOverrides(
       context.overrides,
       context.baseTransactions
@@ -376,20 +374,44 @@ export async function getFinanceSnapshot({
     );
     const uploadUpdatedAfterPlan =
       file !== null && file.uploadedAt.getTime() > planCreatedAt;
+    const cashFlowRefreshRequired = snapshotNeedsCashFlowRefresh({
+      currentCategoryBudgetTotal: getCurrentCategoryBudgetTotal(overrides),
+      projectTargets: {
+        totalMonthlyBudgetTarget: project?.totalMonthlyBudgetTarget ?? null,
+        totalMonthlyIncomeTarget: project?.totalMonthlyIncomeTarget ?? null,
+      },
+      snapshot,
+    });
+
+    if (snapshot.status === "needs-onboarding") {
+      if (
+        snapshotNeedsOnboardingRefresh(snapshot) ||
+        snapshotNeedsOverrideRefresh(snapshot) ||
+        overrideUpdatedAfterPlan ||
+        uploadUpdatedAfterPlan ||
+        cashFlowRefreshRequired
+      ) {
+        const onboardingSnapshot = await buildNeedsOnboardingSnapshot({
+          projectId,
+        });
+
+        await replaceFinancePlan({
+          projectId,
+          snapshot: onboardingSnapshot,
+        });
+
+        return onboardingSnapshot;
+      }
+
+      return snapshot;
+    }
 
     if (
       snapshotNeedsDerivedPlanRefresh(snapshot) ||
       snapshotNeedsOverrideRefresh(snapshot) ||
       overrideUpdatedAfterPlan ||
       uploadUpdatedAfterPlan ||
-      snapshotNeedsCashFlowRefresh({
-        currentCategoryBudgetTotal: getCurrentCategoryBudgetTotal(overrides),
-        projectTargets: {
-          totalMonthlyBudgetTarget: project?.totalMonthlyBudgetTarget ?? null,
-          totalMonthlyIncomeTarget: project?.totalMonthlyIncomeTarget ?? null,
-        },
-        snapshot,
-      })
+      cashFlowRefreshRequired
     ) {
       return recomputeFinanceSnapshot({ projectId });
     }

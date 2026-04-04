@@ -197,6 +197,8 @@ async function buildTargetsResponse({
     projectId,
     projectTitle,
     snapshotStatus: snapshot.status,
+    planMode: snapshot.planSummary?.mode ?? null,
+    latestTransactionDate,
     cashFlowSummary: snapshot.cashFlowSummary,
     suggestedCategoryBudgetTotal:
       snapshot.planSummary?.totalMonthlyTarget ?? null,

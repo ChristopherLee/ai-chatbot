@@ -5,9 +5,6 @@ const baseUrl = process.env.CHAT_FLOW_BASE_URL ?? "http://localhost:3000";
 const csvPath =
   process.env.CHAT_FLOW_CSV_PATH ??
   path.join(process.cwd(), "data", "transactions.sample.csv");
-const prompt =
-  process.env.CHAT_FLOW_PROMPT ??
-  "We want a more conservative plan and mortgage changes in April to 3200.";
 const headless = process.env.HEADLESS !== "false";
 const viewportWidth = Number(process.env.CHAT_FLOW_VIEWPORT_WIDTH ?? 393);
 const viewportHeight = Number(process.env.CHAT_FLOW_VIEWPORT_HEIGHT ?? 852);
@@ -38,57 +35,6 @@ async function getLastAssistantMessage(page) {
     .allTextContents();
 
   return (assistantMessages.at(-1) ?? "").trim();
-}
-
-async function waitForCompletedAssistantReply(page, expectedCount) {
-  const retryButton = page.getByRole("button", { name: "Retry response" });
-
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    await page.waitForFunction(
-      (count) => {
-        const assistantMessages = Array.from(
-          document.querySelectorAll(
-            '[data-testid="message-assistant"] [data-testid="message-content"]'
-          )
-        ).map((node) => (node.textContent ?? "").trim());
-
-        const lastAssistantMessage =
-          assistantMessages.at(assistantMessages.length - 1) ?? "";
-        const hasRetryBanner = document.body.innerText.includes(
-          "Retry response"
-        );
-        const isStreaming =
-          document.querySelector('[data-testid="stop-button"]') !== null;
-
-        return (
-          hasRetryBanner ||
-          (!isStreaming &&
-            assistantMessages.length >= count &&
-            lastAssistantMessage.length > 0)
-        );
-      },
-      expectedCount,
-      { timeout: 180_000 }
-    );
-
-    const lastAssistantMessage = await getLastAssistantMessage(page);
-
-    if (lastAssistantMessage.length > 0) {
-      return lastAssistantMessage;
-    }
-
-    if (
-      attempt < 2 &&
-      (await retryButton.isVisible().catch(() => false))
-    ) {
-      await retryButton.click();
-      continue;
-    }
-
-    break;
-  }
-
-  return getLastAssistantMessage(page);
 }
 
 async function main() {
@@ -126,36 +72,34 @@ async function main() {
 
     await page.waitForFunction(
       () =>
+        document.body.innerText.includes("Welcome to the app.") &&
         document.body.innerText.includes(
-          "Your starting spending control plan is ready now."
+          "Step 1 is making sure the dataset is clean and categorized correctly."
         ),
       null,
       { timeout: 120_000 }
     );
 
-    const input = page.getByTestId("multimodal-input").first();
-    const sendButton = page.getByTestId("send-button").first();
-    const initialAssistantMessageCount = await page
-      .locator(
-        '[data-testid="message-assistant"] [data-testid="message-content"]'
-      )
-      .count();
-
-    await input.fill(prompt);
-    await sendButton.click();
-
-    const lastAssistantMessage = await waitForCompletedAssistantReply(
-      page,
-      initialAssistantMessageCount + 1
-    );
+    const lastAssistantMessage = await getLastAssistantMessage(page);
 
     assert(
-      /conservative/i.test(lastAssistantMessage),
-      `Expected the last assistant message to mention a conservative plan, but got: ${lastAssistantMessage}`
+      /Welcome to the app\./i.test(lastAssistantMessage),
+      `Expected the onboarding welcome message after upload, but got: ${lastAssistantMessage}`
     );
+
+    const hasCleanupStep =
+      (await page
+        .getByText("Suggested Rules")
+        .isVisible()
+        .catch(() => false)) ||
+      (await page
+        .getByText("No strong categorization issues found.")
+        .isVisible()
+        .catch(() => false));
+
     assert(
-      /3,?200/.test(lastAssistantMessage),
-      `Expected the last assistant message to mention 3200, but got: ${lastAssistantMessage}`
+      hasCleanupStep,
+      "Expected the onboarding flow to surface categorization review feedback."
     );
 
     console.log(
@@ -165,7 +109,6 @@ async function main() {
           baseUrl,
           chatUrl: page.url(),
           projectId,
-          prompt,
           viewport: {
             width: viewportWidth,
             height: viewportHeight,

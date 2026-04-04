@@ -11,8 +11,6 @@ export const financeTransactionQueryInputSchema = z
     category: z.string().trim().min(1).optional(),
     account: z.string().trim().min(1).optional(),
     includeFlag: z.boolean().optional(),
-    minAmount: z.number().finite().nonnegative().optional(),
-    maxAmount: z.number().finite().nonnegative().optional(),
     startDate: z
       .string()
       .regex(/^\d{4}-\d{2}-\d{2}$/)
@@ -21,20 +19,12 @@ export const financeTransactionQueryInputSchema = z
       .string()
       .regex(/^\d{4}-\d{2}-\d{2}$/)
       .optional(),
-    limit: z.number().int().min(1).max(100).default(25),
-    sortBy: z.enum(["date", "amount"]).default("date"),
+    page: z.number().int().min(1).default(1),
+    sortBy: z
+      .enum(["date", "description", "account", "category", "status", "amount"])
+      .default("date"),
     sortDirection: z.enum(["asc", "desc"]).default("desc"),
   })
-  .refine(
-    (value) =>
-      value.minAmount === undefined ||
-      value.maxAmount === undefined ||
-      value.minAmount <= value.maxAmount,
-    {
-      message: "minAmount must be less than or equal to maxAmount.",
-      path: ["maxAmount"],
-    }
-  )
   .refine(
     (value) =>
       value.startDate === undefined ||
@@ -50,11 +40,22 @@ export type FinanceTransactionQueryInput = z.infer<
   typeof financeTransactionQueryInputSchema
 >;
 
+export const FINANCE_TRANSACTIONS_PAGE_SIZE = 100;
+
 export type FinanceTransactionQueryResult = {
   filters: FinanceTransactionQueryInput;
   matchedCount: number;
   returnedCount: number;
   totalMatchedOutflow: number;
+  matchedIncludedCount: number;
+  matchedExcludedCount: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  hasPreviousPage: boolean;
+  hasNextPage: boolean;
+  startIndex: number;
+  endIndex: number;
   truncated: boolean;
   transactions: Array<{
     id: string;
@@ -88,13 +89,17 @@ function matchesBroadSearch(
   ].some((value) => includesNormalized(value, normalizedSearch));
 }
 
-export function queryFinanceTransactions({
+function compareStrings(left: string, right: string) {
+  return safeLower(left).localeCompare(safeLower(right));
+}
+
+export function filterFinanceTransactions({
   transactions,
   filters,
 }: {
   transactions: FinanceTransaction[];
   filters: FinanceTransactionQueryInput;
-}): FinanceTransactionQueryResult {
+}) {
   const normalizedSearch = filters.search ? safeLower(filters.search) : null;
   const normalizedMerchant = filters.merchant
     ? safeLower(filters.merchant)
@@ -110,7 +115,7 @@ export function queryFinanceTransactions({
     : null;
   const normalizedAccount = filters.account ? safeLower(filters.account) : null;
 
-  const matchedTransactions = transactions.filter((transaction) => {
+  return transactions.filter((transaction) => {
     if (
       normalizedSearch &&
       !matchesBroadSearch(transaction, normalizedSearch)
@@ -161,20 +166,6 @@ export function queryFinanceTransactions({
     }
 
     if (
-      typeof filters.minAmount === "number" &&
-      transaction.outflowAmount < filters.minAmount
-    ) {
-      return false;
-    }
-
-    if (
-      typeof filters.maxAmount === "number" &&
-      transaction.outflowAmount > filters.maxAmount
-    ) {
-      return false;
-    }
-
-    if (
       typeof filters.startDate === "string" &&
       transaction.transactionDate < filters.startDate
     ) {
@@ -190,43 +181,86 @@ export function queryFinanceTransactions({
 
     return true;
   });
+}
+
+export function queryFinanceTransactions({
+  transactions,
+  filters,
+}: {
+  transactions: FinanceTransaction[];
+  filters: FinanceTransactionQueryInput;
+}): FinanceTransactionQueryResult {
+  const matchedTransactions = filterFinanceTransactions({
+    transactions,
+    filters,
+  });
 
   const sortedTransactions = [...matchedTransactions].sort((left, right) => {
-    if (filters.sortBy === "amount") {
-      const amountDelta = left.outflowAmount - right.outflowAmount;
+    let sortDelta = 0;
 
-      if (amountDelta !== 0) {
-        return filters.sortDirection === "asc" ? amountDelta : -amountDelta;
-      }
-    } else {
-      const dateDelta = left.transactionDate.localeCompare(
-        right.transactionDate
-      );
-
-      if (dateDelta !== 0) {
-        return filters.sortDirection === "asc" ? dateDelta : -dateDelta;
-      }
+    switch (filters.sortBy) {
+      case "amount":
+        sortDelta = left.outflowAmount - right.outflowAmount;
+        break;
+      case "description":
+        sortDelta = compareStrings(left.description, right.description);
+        break;
+      case "account":
+        sortDelta = compareStrings(left.account, right.account);
+        break;
+      case "category":
+        sortDelta = compareStrings(left.mappedCategory, right.mappedCategory);
+        break;
+      case "status":
+        sortDelta = Number(left.includeFlag) - Number(right.includeFlag);
+        break;
+      default:
+        sortDelta = left.transactionDate.localeCompare(right.transactionDate);
+        break;
     }
 
-    const fallbackDateDelta = left.transactionDate.localeCompare(
-      right.transactionDate
+    if (sortDelta !== 0) {
+      return filters.sortDirection === "asc" ? sortDelta : -sortDelta;
+    }
+
+    const fallbackDateDelta = right.transactionDate.localeCompare(
+      left.transactionDate
     );
 
     if (fallbackDateDelta !== 0) {
-      return filters.sortDirection === "asc"
-        ? fallbackDateDelta
-        : -fallbackDateDelta;
+      return fallbackDateDelta;
     }
 
-    return filters.sortDirection === "asc"
-      ? left.outflowAmount - right.outflowAmount
-      : right.outflowAmount - left.outflowAmount;
+    const fallbackAmountDelta = right.outflowAmount - left.outflowAmount;
+
+    if (fallbackAmountDelta !== 0) {
+      return fallbackAmountDelta;
+    }
+
+    return left.id.localeCompare(right.id);
   });
 
-  const returnedTransactions = sortedTransactions.slice(0, filters.limit);
+  const totalPages =
+    matchedTransactions.length === 0
+      ? 1
+      : Math.ceil(matchedTransactions.length / FINANCE_TRANSACTIONS_PAGE_SIZE);
+  const page = Math.min(filters.page, totalPages);
+  const pageStart = (page - 1) * FINANCE_TRANSACTIONS_PAGE_SIZE;
+  const returnedTransactions = sortedTransactions.slice(
+    pageStart,
+    pageStart + FINANCE_TRANSACTIONS_PAGE_SIZE
+  );
+  const matchedIncludedCount = matchedTransactions.filter(
+    (transaction) => transaction.includeFlag
+  ).length;
+  const startIndex = returnedTransactions.length === 0 ? 0 : pageStart + 1;
+  const endIndex = pageStart + returnedTransactions.length;
 
   return {
-    filters,
+    filters: {
+      ...filters,
+      page,
+    },
     matchedCount: matchedTransactions.length,
     returnedCount: returnedTransactions.length,
     totalMatchedOutflow: roundCurrency(
@@ -235,6 +269,15 @@ export function queryFinanceTransactions({
         0
       )
     ),
+    matchedIncludedCount,
+    matchedExcludedCount: matchedTransactions.length - matchedIncludedCount,
+    page,
+    pageSize: FINANCE_TRANSACTIONS_PAGE_SIZE,
+    totalPages,
+    hasPreviousPage: page > 1,
+    hasNextPage: page < totalPages,
+    startIndex,
+    endIndex,
     truncated: matchedTransactions.length > returnedTransactions.length,
     transactions: returnedTransactions.map((transaction) => ({
       id: transaction.id,
@@ -249,4 +292,3 @@ export function queryFinanceTransactions({
     })),
   };
 }
-

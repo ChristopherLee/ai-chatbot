@@ -123,6 +123,24 @@ export async function getProjectById({ id }: { id: string }) {
   }
 }
 
+export async function getLatestProjectByUserId({ userId }: { userId: string }) {
+  try {
+    const [selectedProject] = await db
+      .select()
+      .from(project)
+      .where(eq(project.userId, userId))
+      .orderBy(desc(project.updatedAt), desc(project.createdAt))
+      .limit(1);
+
+    return selectedProject ?? null;
+  } catch (_error) {
+    throw new ChatSDKError(
+      "bad_request:database",
+      "Failed to get latest project by user id"
+    );
+  }
+}
+
 export async function saveChat({
   id,
   userId,
@@ -271,20 +289,10 @@ export async function deleteChatById({ id }: { id: string }) {
       .where(eq(chat.id, id))
       .returning();
 
-    const [remainingChat] = await db
-      .select({ id: chat.id })
-      .from(chat)
-      .where(eq(chat.projectId, existingChat.projectId))
-      .limit(1);
-
-    if (remainingChat) {
-      await db
-        .update(project)
-        .set({ updatedAt: new Date() })
-        .where(eq(project.id, existingChat.projectId));
-    } else {
-      await deleteProjectById({ id: existingChat.projectId });
-    }
+    await db
+      .update(project)
+      .set({ updatedAt: new Date() })
+      .where(eq(project.id, existingChat.projectId));
 
     return deletedChat;
   } catch (_error) {
@@ -335,11 +343,13 @@ export async function getChatsByUserId({
   limit,
   startingAfter,
   endingBefore,
+  projectId,
 }: {
   id: string;
   limit: number;
   startingAfter: string | null;
   endingBefore: string | null;
+  projectId?: string | null;
 }) {
   try {
     const extendedLimit = limit + 1;
@@ -358,9 +368,11 @@ export async function getChatsByUserId({
         .from(chat)
         .innerJoin(project, eq(chat.projectId, project.id))
         .where(
-          whereCondition
-            ? and(whereCondition, eq(chat.userId, id))
-            : eq(chat.userId, id)
+          and(
+            eq(chat.userId, id),
+            projectId ? eq(chat.projectId, projectId) : undefined,
+            whereCondition
+          )
         )
         .orderBy(desc(chat.createdAt))
         .limit(extendedLimit);
@@ -371,7 +383,13 @@ export async function getChatsByUserId({
       const [selectedChat] = await db
         .select()
         .from(chat)
-        .where(eq(chat.id, startingAfter))
+        .where(
+          and(
+            eq(chat.id, startingAfter),
+            eq(chat.userId, id),
+            projectId ? eq(chat.projectId, projectId) : undefined
+          )
+        )
         .limit(1);
 
       if (!selectedChat) {
@@ -386,7 +404,13 @@ export async function getChatsByUserId({
       const [selectedChat] = await db
         .select()
         .from(chat)
-        .where(eq(chat.id, endingBefore))
+        .where(
+          and(
+            eq(chat.id, endingBefore),
+            eq(chat.userId, id),
+            projectId ? eq(chat.projectId, projectId) : undefined
+          )
+        )
         .limit(1);
 
       if (!selectedChat) {
@@ -425,6 +449,28 @@ export async function getChatById({ id }: { id: string }) {
     return selectedChat;
   } catch (_error) {
     throw new ChatSDKError("bad_request:database", "Failed to get chat by id");
+  }
+}
+
+export async function getLatestChatByProjectId({
+  projectId,
+}: {
+  projectId: string;
+}) {
+  try {
+    const [selectedChat] = await db
+      .select()
+      .from(chat)
+      .where(eq(chat.projectId, projectId))
+      .orderBy(desc(chat.createdAt))
+      .limit(1);
+
+    return selectedChat ?? null;
+  } catch (_error) {
+    throw new ChatSDKError(
+      "bad_request:database",
+      "Failed to get latest chat by project id"
+    );
   }
 }
 

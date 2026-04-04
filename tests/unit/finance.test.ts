@@ -122,6 +122,40 @@ test("CSV ingest errors when required headers are missing", async () => {
   );
 });
 
+test("CSV ingest explains common validation issues in one message", async () => {
+  await assert.rejects(
+    () =>
+      parseTransactionsCsv({
+        projectId: "project-1",
+        filename: "chase-like.csv",
+        csvText: [
+          "Date,Account,Description,Category,Type,Amount,Tags",
+          "12/30/2025,E-ZPass MA,Chase,Travel,Sale,-10.00,",
+          "12/22/2025,AUTOMATIC PAYMENT - THANK,Chase,,Payment,1822.21,",
+          "12/19/2025,HLU*HULUPLUS,Chase,Bills & Utilities,Sale,-12.99,",
+          "12/17/2025,PETCO.COM 6989,Chase,Shopping,Sale,-68.63,",
+          "12/16/2025,SQ *ALMA*SMP51F,Chase,Health & Wellness,Sale,-30.00,",
+          "12/15/2025,TRADER JOE S #509,Chase,Groceries,Sale,-54.12,",
+          "12/14/2025,STOP & SHOP 0446,Chase,Groceries,Sale,-89.31,",
+          "12/13/2025,CVS/PHARMACY #01012,Chase,Health & Wellness,Sale,-22.10,",
+          "12/12/2025,BJS WHOLESALE #0205,Chase,Groceries,Sale,-101.27,",
+          "12/11/2025,MBTA-550021903293,Chase,Travel,Sale,-2.40,",
+          "12/10/2025,BROOKLINE PASSPORT PKG,Chase,Travel,Sale,-6.75,",
+        ].join("\n"),
+      }),
+    (error: unknown) => {
+      assert.ok(error instanceof Error);
+      const message = String(error.cause ?? error.message);
+      assert.match(message, /CSV validation failed/i);
+      assert.match(message, /MM\/DD\/YYYY/i);
+      assert.match(message, /YYYY-MM-DD/i);
+      assert.match(message, /blank Category value/i);
+      assert.match(message, /Account and Description swapped/i);
+      return true;
+    }
+  );
+});
+
 test("Heuristic actions prefer match-based categorization for merchant labels", () => {
   const snapshot: FinanceSnapshot = {
     status: "ready",

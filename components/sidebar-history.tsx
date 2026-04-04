@@ -1,15 +1,19 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { BookOpenText, Wallet } from "lucide-react";
+import {
+  BookOpenText,
+  LayoutDashboard,
+  ReceiptText,
+  Wallet,
+} from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { User } from "next-auth";
 import type { CSSProperties } from "react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import useSWRInfinite from "swr/infinite";
-import { PlusIcon } from "@/components/icons";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,86 +24,49 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Button } from "@/components/ui/button";
 import {
   SidebarGroup,
   SidebarGroupContent,
   SidebarMenu,
-  SidebarMenuSub,
-  SidebarMenuSubButton,
-  SidebarMenuSubItem,
+  SidebarMenuButton,
+  SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { createChatHistoryPaginationKey } from "@/lib/chat-history";
 import type { ChatWithProject } from "@/lib/db/schema";
 import { fetcher } from "@/lib/utils";
 import { LoaderIcon } from "./icons";
 import { ChatItem } from "./sidebar-history-item";
-
-type ProjectHistoryGroup = {
-  projectId: string;
-  projectTitle: string;
-  chats: ChatWithProject[];
-};
 
 export type ChatHistory = {
   chats: ChatWithProject[];
   hasMore: boolean;
 };
 
-const PAGE_SIZE = 20;
-
-function groupChatsByProject(chats: ChatWithProject[]): ProjectHistoryGroup[] {
-  const groupedProjects = new Map<string, ProjectHistoryGroup>();
-
-  for (const chat of chats) {
-    const existingGroup = groupedProjects.get(chat.projectId);
-
-    if (existingGroup) {
-      existingGroup.chats.push(chat);
-      continue;
-    }
-
-    groupedProjects.set(chat.projectId, {
-      projectId: chat.projectId,
-      projectTitle: chat.projectTitle,
-      chats: [chat],
-    });
-  }
-
-  return Array.from(groupedProjects.values());
-}
-
-export function getChatHistoryPaginationKey(
-  pageIndex: number,
-  previousPageData: ChatHistory
-) {
-  if (previousPageData && previousPageData.hasMore === false) {
-    return null;
-  }
-
-  if (pageIndex === 0) {
-    return `/api/history?limit=${PAGE_SIZE}`;
-  }
-
-  const firstChatFromPage = previousPageData.chats.at(-1);
-
-  if (!firstChatFromPage) {
-    return null;
-  }
-
-  return `/api/history?ending_before=${firstChatFromPage.id}&limit=${PAGE_SIZE}`;
-}
-
-export function SidebarHistory({ user }: { user: User | undefined }) {
+export function SidebarHistory({
+  user,
+  currentProject,
+}: {
+  user: User | undefined;
+  currentProject: { id: string; title: string } | null;
+}) {
   const { setOpenMobile } = useSidebar();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const activeChatId = pathname?.startsWith("/chat/")
     ? pathname.split("/")[2]
     : null;
-  const activeBudgetProjectId = pathname?.startsWith("/project/")
+  const activeProjectId = pathname?.startsWith("/project/")
     ? pathname.split("/")[2]
     : null;
+  const activeProjectRoute = pathname?.startsWith("/project/")
+    ? (pathname.split("/")[3] ?? null)
+    : null;
+  const selectedProjectId = activeProjectId ?? currentProject?.id ?? null;
+  const historyPaginationKey = useMemo(
+    () => createChatHistoryPaginationKey(selectedProjectId),
+    [selectedProjectId]
+  );
 
   const {
     data: paginatedChatHistories,
@@ -107,7 +74,7 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
     isValidating,
     isLoading,
     mutate,
-  } = useSWRInfinite<ChatHistory>(getChatHistoryPaginationKey, fetcher, {
+  } = useSWRInfinite<ChatHistory>(historyPaginationKey, fetcher, {
     fallbackData: [],
   });
 
@@ -118,10 +85,31 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
   const hasReachedEnd = paginatedChatHistories
     ? paginatedChatHistories.some((page) => page.hasMore === false)
     : false;
-
-  const hasEmptyChatHistory = paginatedChatHistories
-    ? paginatedChatHistories.every((page) => page.chats.length === 0)
-    : false;
+  const hasEmptyChatHistory =
+    !isLoading && paginatedChatHistories
+      ? paginatedChatHistories.every((page) => page.chats.length === 0)
+      : false;
+  const chatsFromHistory =
+    paginatedChatHistories?.flatMap((page) => page.chats) ?? [];
+  const showInitialLoading = isLoading && chatsFromHistory.length === 0;
+  const activeChat = activeChatId
+    ? (chatsFromHistory.find((chat) => chat.id === activeChatId) ?? null)
+    : null;
+  const resolvedProjectId =
+    selectedProjectId ??
+    chatsFromHistory[0]?.projectId ??
+    activeChat?.projectId ??
+    null;
+  const rulesChatId =
+    (activeChat?.projectId === resolvedProjectId ? activeChat.id : null) ??
+    (resolvedProjectId
+      ? (chatsFromHistory.find((chat) => chat.projectId === resolvedProjectId)
+          ?.id ?? null)
+      : null);
+  const isRulesView =
+    pathname?.startsWith("/chat/") === true &&
+    searchParams.get("view") === "rules" &&
+    activeChat?.projectId === resolvedProjectId;
 
   const handleDelete = () => {
     const chatToDelete = deleteId;
@@ -131,12 +119,6 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
     }
 
     const isCurrentChat = pathname === `/chat/${chatToDelete}`;
-    const deletedChat = paginatedChatHistories
-      ?.flatMap((chatHistory) => chatHistory.chats)
-      .find((chat) => chat.id === chatToDelete);
-    const fallbackHref = deletedChat
-      ? `/?projectId=${deletedChat.projectId}`
-      : "/";
 
     setShowDeleteDialog(false);
 
@@ -159,7 +141,7 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
         });
 
         if (isCurrentChat) {
-          router.replace(fallbackHref);
+          router.replace("/");
           router.refresh();
         }
 
@@ -174,162 +156,156 @@ export function SidebarHistory({ user }: { user: User | undefined }) {
       <SidebarGroup>
         <SidebarGroupContent>
           <div className="flex w-full flex-row items-center justify-center gap-2 px-2 text-sm text-zinc-500">
-            Login to save and revisit previous projects!
+            Login to save and revisit previous chats!
           </div>
         </SidebarGroupContent>
       </SidebarGroup>
     );
   }
-
-  if (isLoading) {
-    return (
-      <SidebarGroup>
-        <div className="px-2 py-1 text-sidebar-foreground/50 text-xs">
-          Projects
-        </div>
-        <SidebarGroupContent>
-          <div className="flex flex-col">
-            {[44, 32, 28, 64, 52].map((item) => (
-              <div
-                className="flex h-8 items-center gap-2 rounded-md px-2"
-                key={item}
-              >
-                <div
-                  className="h-4 max-w-(--skeleton-width) flex-1 rounded-md bg-sidebar-accent-foreground/10"
-                  style={
-                    {
-                      "--skeleton-width": `${item}%`,
-                    } as CSSProperties
-                  }
-                />
-              </div>
-            ))}
-          </div>
-        </SidebarGroupContent>
-      </SidebarGroup>
-    );
-  }
-
-  if (hasEmptyChatHistory) {
-    return (
-      <SidebarGroup>
-        <SidebarGroupContent>
-          <div className="flex w-full flex-row items-center justify-center gap-2 px-2 text-sm text-zinc-500">
-            Your projects will appear here once you start chatting!
-          </div>
-        </SidebarGroupContent>
-      </SidebarGroup>
-    );
-  }
-
-  const chatsFromHistory =
-    paginatedChatHistories?.flatMap((page) => page.chats) ?? [];
-  const groupedProjects = groupChatsByProject(chatsFromHistory);
 
   return (
     <>
       <SidebarGroup>
         <SidebarGroupContent>
-          <SidebarMenu>
-            <div className="flex flex-col gap-6">
-              {groupedProjects.map((project) => (
-                <div className="flex flex-col gap-1" key={project.projectId}>
-                  <div className="flex items-center gap-2 px-2 py-1">
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate font-medium text-sidebar-foreground text-sm">
-                        {project.projectTitle}
-                      </div>
-                      <div className="text-sidebar-foreground/50 text-xs">
-                        {project.chats.length}{" "}
-                        {project.chats.length === 1 ? "chat" : "chats"}
-                      </div>
-                    </div>
-                    <Button
-                      className="size-7"
-                      onClick={() => {
-                        setOpenMobile(false);
-                        router.push(`/?projectId=${project.projectId}`);
-                        router.refresh();
-                      }}
-                      size="icon"
-                      type="button"
-                      variant="ghost"
+          {resolvedProjectId ? (
+            <div className="mb-4">
+              <SidebarMenu>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={
+                      activeProjectId === resolvedProjectId &&
+                      activeProjectRoute === "dashboard"
+                    }
+                  >
+                    <Link
+                      href={`/project/${resolvedProjectId}/dashboard`}
+                      onClick={() => setOpenMobile(false)}
                     >
-                      <PlusIcon />
-                      <span className="sr-only">New chat in project</span>
-                    </Button>
-                  </div>
-
-                  <SidebarMenuSub>
-                    <SidebarMenuSubItem>
-                      <SidebarMenuSubButton
-                        asChild
-                        isActive={
-                          searchParams.get("view") === "rules" &&
-                          project.chats.some((chat) => chat.id === activeChatId)
-                        }
+                      <LayoutDashboard />
+                      <span>Dashboard</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={
+                      activeProjectId === resolvedProjectId &&
+                      activeProjectRoute === "transactions"
+                    }
+                  >
+                    <Link
+                      href={`/project/${resolvedProjectId}/transactions`}
+                      onClick={() => setOpenMobile(false)}
+                    >
+                      <ReceiptText />
+                      <span>Transactions</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={
+                      activeProjectId === resolvedProjectId &&
+                      activeProjectRoute === "budget"
+                    }
+                  >
+                    <Link
+                      href={`/project/${resolvedProjectId}/budget`}
+                      onClick={() => setOpenMobile(false)}
+                    >
+                      <Wallet />
+                      <span>Budget</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                {rulesChatId ? (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton asChild isActive={isRulesView}>
+                      <Link
+                        href={`/chat/${rulesChatId}?view=rules`}
+                        onClick={() => setOpenMobile(false)}
                       >
-                        <Link
-                          href={`/chat/${project.chats[0]?.id}?view=rules`}
-                          onClick={() => setOpenMobile(false)}
-                        >
-                          <BookOpenText />
-                          <span>Categorization Rules</span>
-                        </Link>
-                      </SidebarMenuSubButton>
-                    </SidebarMenuSubItem>
-                    <SidebarMenuSubItem>
-                      <SidebarMenuSubButton
-                        asChild
-                        isActive={activeBudgetProjectId === project.projectId}
-                      >
-                        <Link
-                          href={`/project/${project.projectId}/budget`}
-                          onClick={() => setOpenMobile(false)}
-                        >
-                          <Wallet />
-                          <span>Budget</span>
-                        </Link>
-                      </SidebarMenuSubButton>
-                    </SidebarMenuSubItem>
-                  </SidebarMenuSub>
-
-                  {project.chats.map((chat) => (
-                    <ChatItem
-                      chat={chat}
-                      isActive={chat.id === activeChatId}
-                      key={chat.id}
-                      onDelete={(chatId) => {
-                        setDeleteId(chatId);
-                        setShowDeleteDialog(true);
-                      }}
-                      setOpenMobile={setOpenMobile}
-                    />
-                  ))}
-                </div>
-              ))}
+                        <BookOpenText />
+                        <span>Categorization Rules</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ) : null}
+              </SidebarMenu>
             </div>
-          </SidebarMenu>
+          ) : null}
 
-          <motion.div
-            onViewportEnter={() => {
-              if (!isValidating && !hasReachedEnd) {
-                setSize((size) => size + 1);
-              }
-            }}
-          />
-
-          {hasReachedEnd ? (
-            <div className="mt-8 flex w-full flex-row items-center justify-center gap-2 px-2 text-sm text-zinc-500">
-              You have reached the end of your project history.
+          {showInitialLoading ? (
+            <>
+              <div className="px-2 py-1 text-sidebar-foreground/50 text-xs">
+                Chats
+              </div>
+              <div className="flex flex-col">
+                {[44, 32, 28, 64, 52].map((item) => (
+                  <div
+                    className="flex h-8 items-center gap-2 rounded-md px-2"
+                    key={item}
+                  >
+                    <div
+                      className="h-4 max-w-(--skeleton-width) flex-1 rounded-md bg-sidebar-accent-foreground/10"
+                      style={
+                        {
+                          "--skeleton-width": `${item}%`,
+                        } as CSSProperties
+                      }
+                    />
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : hasEmptyChatHistory ? (
+            <div className="flex w-full flex-row items-center justify-center gap-2 px-2 text-sm text-zinc-500">
+              Your chats will appear here once you start chatting!
             </div>
           ) : (
-            <div className="mt-8 flex flex-row items-center gap-2 p-2 text-zinc-500 dark:text-zinc-400">
-              <div className="animate-spin">
-                <LoaderIcon />
+            <>
+              <div className="px-2 py-1 text-sidebar-foreground/50 text-xs">
+                Chats
               </div>
-              <div>Loading Projects...</div>
-            </div>
+              <SidebarMenu>
+                {chatsFromHistory.map((chat) => (
+                  <ChatItem
+                    chat={chat}
+                    isActive={chat.id === activeChatId}
+                    key={chat.id}
+                    onDelete={(chatId) => {
+                      setDeleteId(chatId);
+                      setShowDeleteDialog(true);
+                    }}
+                    setOpenMobile={setOpenMobile}
+                  />
+                ))}
+              </SidebarMenu>
+
+              <motion.div
+                onViewportEnter={() => {
+                  if (!isValidating && !hasReachedEnd) {
+                    setSize((size) => size + 1);
+                  }
+                }}
+              />
+
+              {hasReachedEnd ? (
+                <div className="mt-8 flex w-full flex-row items-center justify-center gap-2 px-2 text-sm text-zinc-500">
+                  You have reached the end of your chat history.
+                </div>
+              ) : (
+                <div className="mt-8 flex flex-row items-center gap-2 p-2 text-zinc-500 dark:text-zinc-400">
+                  <div className="animate-spin">
+                    <LoaderIcon />
+                  </div>
+                  <div>Loading Chats...</div>
+                </div>
+              )}
+            </>
           )}
         </SidebarGroupContent>
       </SidebarGroup>

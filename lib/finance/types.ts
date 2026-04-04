@@ -43,6 +43,11 @@ export const categorizeTransactionActionSchema = z.object({
   to: z.string().min(1),
 });
 
+export const excludeTransactionActionSchema = z.object({
+  type: z.literal("exclude_transaction"),
+  transactionId: z.string().uuid(),
+});
+
 export const excludeTransactionsActionSchema = z.object({
   type: z.literal("exclude_transactions"),
   match: transactionMatchSchema,
@@ -66,6 +71,7 @@ export const setPlanModeActionSchema = z.object({
 export const financeActionSchema = z.discriminatedUnion("type", [
   categorizeTransactionsActionSchema,
   categorizeTransactionActionSchema,
+  excludeTransactionActionSchema,
   excludeTransactionsActionSchema,
   setCategoryMonthlyTargetActionSchema,
   setPlanModeActionSchema,
@@ -83,7 +89,8 @@ export const budgetExclusionRuleTypes = [
   "exclude_transactions",
 ] as const satisfies FinanceAction["type"][];
 
-export const legacyFinanceRuleTypes = [] as const satisfies FinanceAction["type"][];
+export const legacyFinanceRuleTypes =
+  [] as const satisfies FinanceAction["type"][];
 
 export type FinanceTransaction = {
   id: string;
@@ -345,17 +352,33 @@ export type FinanceTargetsCategoryBudget = {
   lastMonthActual: number;
 };
 
+export type FinanceCategoryBudgetSuggestionCadence =
+  | "steady"
+  | "variable"
+  | "recent"
+  | "occasional";
+
+export type FinanceCategoryBudgetSuggestionRecency =
+  | "active"
+  | "cooling"
+  | "inactive";
+
 export type FinanceTargetsCategoryBudgetSuggestion = {
   category: string;
   group: CategoryGroup;
   suggestedAmount: number;
   lastMonthActual: number;
+  cadence: FinanceCategoryBudgetSuggestionCadence;
+  recency: FinanceCategoryBudgetSuggestionRecency;
+  reasoning: string;
 };
 
 export type FinanceTargetsResponse = {
   projectId: string;
   projectTitle: string;
   snapshotStatus: FinanceSnapshotStatus;
+  planMode?: PlanMode | null;
+  latestTransactionDate?: string | null;
   cashFlowSummary: FinanceCashFlowSummary;
   suggestedCategoryBudgetTotal: number | null;
   categoryBudgets: FinanceTargetsCategoryBudget[];
@@ -398,6 +421,13 @@ export type FinanceRuleRecord = FinanceAppliedOverride & {
 };
 
 export type FinanceRulesViewData = {
+  summary?: {
+    totalRules: number;
+    categorizationRuleCount: number;
+    exclusionRuleCount: number;
+    budgetOverrideCount: number;
+    planModeChangeCount: number;
+  };
   rules: FinanceRuleRecord[];
   options: {
     accounts: string[];

@@ -8,6 +8,7 @@ export const financeRuleTypeLabels: Record<FinanceAction["type"], string> = {
   categorize_transactions: "Match transactions -> category",
   exclude_transactions: "Exclude from budget",
   categorize_transaction: "Transaction override",
+  exclude_transaction: "Transaction exclusion",
   set_category_monthly_target: "Category budget",
   set_plan_mode: "Plan mode",
 };
@@ -31,6 +32,10 @@ export const financeRuleTypeMetadata: Record<
   categorize_transaction: {
     definition: "Changes one specific transaction and nothing else.",
     why: "We keep this for one-off exceptions even though it is hidden from the reusable rules page.",
+  },
+  exclude_transaction: {
+    definition: "Excludes one specific transaction and nothing else.",
+    why: "We keep this for one-off exceptions that should not count toward the budget.",
   },
   set_category_monthly_target: {
     definition: "Sets the monthly target for one category.",
@@ -59,9 +64,7 @@ function describeMatch(match: FinanceTransactionMatch) {
   return parts.join(" + ");
 }
 
-function getTransactionDetail(
-  details: FinanceAppliedOverrideDetail[]
-) {
+function getTransactionDetail(details: FinanceAppliedOverrideDetail[]) {
   const transactionDetail = details.find(
     (detail) => detail.label === "Transaction"
   )?.value;
@@ -78,6 +81,8 @@ export function describeFinanceRuleAction(
       return `${describeMatch(action.match)} -> ${quote(action.to)}`;
     case "categorize_transaction":
       return `${getTransactionDetail(details) ?? "Transaction override"} -> ${quote(action.to)}`;
+    case "exclude_transaction":
+      return `Exclude ${getTransactionDetail(details) ?? "transaction"}`;
     case "exclude_transactions":
       return `Exclude ${describeMatch(action.match)}`;
     case "set_category_monthly_target":
@@ -95,6 +100,8 @@ export function describeFinanceRuleBehavior(action: FinanceAction) {
       return "Applies to every transaction that matches these saved conditions.";
     case "categorize_transaction":
       return "Applies only to this one saved transaction override.";
+    case "exclude_transaction":
+      return "Removes only this one saved transaction from the budget plan.";
     case "exclude_transactions":
       return "Removes matching transactions from the budget plan.";
     case "set_category_monthly_target":

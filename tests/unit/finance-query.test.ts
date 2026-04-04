@@ -4,6 +4,7 @@ import {
   type FinanceTransactionQueryInput,
   queryFinanceTransactions,
 } from "@/lib/finance/query-transactions";
+import { summarizeFinanceTransactions } from "@/lib/finance/summarize-transactions";
 import type { FinanceTransaction } from "@/lib/finance/types";
 
 const transactions: FinanceTransaction[] = [
@@ -103,7 +104,7 @@ function runQuery(filters: Partial<FinanceTransactionQueryInput>) {
   return queryFinanceTransactions({
     transactions,
     filters: {
-      limit: 25,
+      page: 1,
       sortBy: "date",
       sortDirection: "desc",
       ...filters,
@@ -118,20 +119,48 @@ test("broad keyword search matches current category and transaction text", () =>
   assert.equal(result.transactions[0]?.id, "tx-3");
 });
 
-test("attribute filters support merchant searches with sorting and truncation", () => {
+test("attribute filters support merchant searches with sorting", () => {
   const result = runQuery({
     merchant: "whole",
     includeFlag: true,
-    minAmount: 90,
     sortBy: "amount",
     sortDirection: "desc",
-    limit: 1,
   });
 
   assert.equal(result.matchedCount, 2);
-  assert.equal(result.returnedCount, 1);
-  assert.equal(result.truncated, true);
   assert.equal(result.transactions[0]?.id, "tx-4");
+});
+
+test("query pagination returns the requested page window", () => {
+  const paginatedTransactions: FinanceTransaction[] = Array.from(
+    { length: 105 },
+    (_, index) => ({
+      ...transactions[1],
+      id: `whole-foods-${index + 1}`,
+      transactionDate: `2026-03-${String((index % 28) + 1).padStart(2, "0")}`,
+      amountSigned: -(index + 1),
+      outflowAmount: index + 1,
+    })
+  );
+  const result = queryFinanceTransactions({
+    transactions: paginatedTransactions,
+    filters: {
+      merchant: "whole",
+      page: 2,
+      sortBy: "amount",
+      sortDirection: "desc",
+    },
+  });
+
+  assert.equal(result.matchedCount, 105);
+  assert.equal(result.page, 2);
+  assert.equal(result.totalPages, 2);
+  assert.equal(result.startIndex, 101);
+  assert.equal(result.endIndex, 105);
+  assert.equal(result.returnedCount, 5);
+  assert.equal(result.truncated, true);
+  assert.equal(result.transactions[0]?.amount, 5);
+  assert.equal(result.transactions.at(-1)?.amount, 1);
 });
 
 test("exact filters support raw category, category, account, and date ranges", () => {
@@ -148,3 +177,22 @@ test("exact filters support raw category, category, account, and date ranges", (
   assert.equal(result.totalMatchedOutflow, 2200);
 });
 
+test("transaction summaries group matched outflow by category", () => {
+  const result = summarizeFinanceTransactions({
+    transactions,
+    filters: {
+      groupBy: "category",
+      includeFlag: true,
+      limit: 10,
+      sortBy: "totalOutflow",
+      sortDirection: "desc",
+    },
+  });
+
+  assert.equal(result.matchedTransactionCount, 4);
+  assert.equal(result.totalMatchedOutflow, 2443.5);
+  assert.equal(result.groups[0]?.label, "Mortgage");
+  assert.equal(result.groups[0]?.totalOutflow, 2200);
+  assert.equal(result.groups[1]?.label, "Groceries");
+  assert.equal(result.groups[1]?.transactionCount, 2);
+});

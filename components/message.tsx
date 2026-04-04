@@ -26,6 +26,7 @@ import {
   FinanceToolResult,
 } from "./finance/finance-tool-result";
 import { FinanceTransactionQueryResult } from "./finance/finance-transaction-query-result";
+import { FinanceTransactionSummaryResult } from "./finance/finance-transaction-summary-result";
 import { SparklesIcon } from "./icons";
 import { MessageActions } from "./message-actions";
 import { MessageEditor } from "./message-editor";
@@ -354,10 +355,14 @@ const PurePreviewMessage = ({
 
             if (
               type === "tool-findMiscategorizedTransactions" ||
+              type === "tool-getFinanceBudgetTargets" ||
               type === "tool-getFinanceCategorizationMemory" ||
+              type === "tool-getFinanceRules" ||
               type === "tool-getFinanceSnapshot" ||
               type === "tool-queryFinanceTransactions" ||
+              type === "tool-refreshFinancePlan" ||
               type === "tool-showFinanceChart" ||
+              type === "tool-summarizeFinanceTransactions" ||
               type === "tool-applyFinanceActions"
             ) {
               const { toolCallId, state } = part;
@@ -502,8 +507,19 @@ const PurePreviewMessage = ({
                             <FinanceCategorizationMemoryResult
                               result={part.output}
                             />
+                          ) : type === "tool-getFinanceBudgetTargets" ? (
+                            <FinanceToolResult
+                              result={part.output}
+                              type="budget-targets"
+                            />
+                          ) : type === "tool-getFinanceRules" ? (
+                            <FinanceToolResult result={part.output} type="rules" />
                           ) : type === "tool-queryFinanceTransactions" ? (
                             <FinanceTransactionQueryResult
+                              result={part.output}
+                            />
+                          ) : type === "tool-summarizeFinanceTransactions" ? (
+                            <FinanceTransactionSummaryResult
                               result={part.output}
                             />
                           ) : type === "tool-showFinanceChart" ? (
@@ -512,7 +528,8 @@ const PurePreviewMessage = ({
                             <FinanceToolResult
                               result={part.output}
                               type={
-                                type === "tool-getFinanceSnapshot"
+                                type === "tool-getFinanceSnapshot" ||
+                                type === "tool-refreshFinancePlan"
                                   ? "snapshot"
                                   : "apply"
                               }

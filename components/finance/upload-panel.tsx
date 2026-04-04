@@ -3,9 +3,9 @@
 import { Loader2Icon, UploadIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
-import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { toast } from "@/components/toast";
 import { getFinanceUploadErrorMessage } from "@/lib/finance/upload-errors";
 import { cn } from "@/lib/utils";
 
@@ -60,14 +60,21 @@ export function UploadPanel({
 
     try {
       const result = await uploadFile(file);
-      toast.success("Transactions uploaded");
+      toast({
+        type: "success",
+        description: "Transactions uploaded",
+      });
       onUploaded?.(result.chatId);
       router.push(`/chat/${result.chatId}`);
       router.refresh();
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Failed to upload transactions"
-      );
+      toast({
+        type: "error",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Failed to upload transactions",
+      });
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) {

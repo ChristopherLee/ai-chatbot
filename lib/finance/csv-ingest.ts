@@ -281,6 +281,252 @@ function getRowValue({
   return typeof rawValue === "string" ? rawValue : "";
 }
 
+function formatRowList(rowNumbers: number[]) {
+  const unique = [...new Set(rowNumbers)].slice(0, 3);
+
+  if (unique.length === 0) {
+    return "";
+  }
+
+  if (unique.length === 1) {
+    return `row ${unique[0]}`;
+  }
+
+  if (unique.length === 2) {
+    return `rows ${unique[0]} and ${unique[1]}`;
+  }
+
+  return `rows ${unique[0]}, ${unique[1]}, and ${unique[2]}`;
+}
+
+function formatCount(count: number, noun: string) {
+  return `${count} ${noun}${count === 1 ? "" : "s"}`;
+}
+
+function convertSlashDateToIso(dateValue: string) {
+  const match = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(dateValue.trim());
+
+  if (!match) {
+    return null;
+  }
+
+  const [, month, day, year] = match;
+  return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
+}
+
+function detectLikelySwappedColumns({
+  rows,
+  mappedHeaders,
+}: {
+  rows: Record<string, unknown>[];
+  mappedHeaders: Record<(typeof EXPECTED_TRANSACTION_HEADERS)[number], string | null>;
+}) {
+  const accountHeader = mappedHeaders.Account;
+  const descriptionHeader = mappedHeaders.Description;
+
+  if (!accountHeader || !descriptionHeader || rows.length < 5) {
+    return null;
+  }
+
+  const accountValues = rows
+    .map((row) => normalizeWhitespace(getRowValue({ row, header: accountHeader })))
+    .filter(Boolean);
+  const descriptionValues = rows
+    .map((row) =>
+      normalizeWhitespace(getRowValue({ row, header: descriptionHeader }))
+    )
+    .filter(Boolean);
+
+  if (accountValues.length < 5 || descriptionValues.length < 5) {
+    return null;
+  }
+
+  const descriptionCounts = new Map<string, number>();
+  for (const value of descriptionValues) {
+    descriptionCounts.set(value, (descriptionCounts.get(value) ?? 0) + 1);
+  }
+
+  let topDescriptionValue: string | null = null;
+  let topDescriptionCount = 0;
+
+  for (const [value, count] of descriptionCounts.entries()) {
+    if (count > topDescriptionCount) {
+      topDescriptionValue = value;
+      topDescriptionCount = count;
+    }
+  }
+
+  if (!topDescriptionValue) {
+    return null;
+  }
+
+  const repeatedDescriptionShare = topDescriptionCount / descriptionValues.length;
+  const descriptionDistinctCount = descriptionCounts.size;
+  const accountDistinctCount = new Set(accountValues).size;
+  const sampleAccountValue =
+    accountValues.find((value) => value !== topDescriptionValue) ?? accountValues[0];
+
+  if (
+    repeatedDescriptionShare < 0.85 ||
+    descriptionDistinctCount > 3 ||
+    accountDistinctCount < 10 ||
+    !sampleAccountValue
+  ) {
+    return null;
+  }
+
+  return `The file may also have Account and Description swapped: Description is almost always "${topDescriptionValue}" while Account looks like merchant text, for example "${sampleAccountValue}".`;
+}
+
+function validateParsedRows({
+  rows,
+  mappedHeaders,
+}: {
+  rows: Record<string, unknown>[];
+  mappedHeaders: Record<(typeof EXPECTED_TRANSACTION_HEADERS)[number], string | null>;
+}) {
+  const missingRequiredFieldRows = {
+    Date: [] as number[],
+    Account: [] as number[],
+    Description: [] as number[],
+    Category: [] as number[],
+  };
+  const invalidDateRows: Array<{ rowNumber: number; value: string }> = [];
+  const invalidAmountRows: Array<{ rowNumber: number; value: string }> = [];
+  let slashDateCount = 0;
+
+  for (const [index, row] of rows.entries()) {
+    const rowNumber = index + 2;
+    const transactionDate = normalizeWhitespace(
+      getRowValue({ row, header: mappedHeaders.Date })
+    );
+    const account = normalizeWhitespace(
+      getRowValue({ row, header: mappedHeaders.Account })
+    );
+    const description = normalizeWhitespace(
+      getRowValue({ row, header: mappedHeaders.Description })
+    );
+    const category = normalizeWhitespace(
+      getRowValue({ row, header: mappedHeaders.Category })
+    );
+    const amount = normalizeWhitespace(
+      getRowValue({ row, header: mappedHeaders.Amount })
+    );
+
+    if (!transactionDate) {
+      missingRequiredFieldRows.Date.push(rowNumber);
+    } else {
+      const parsedTransactionDate = parseISO(transactionDate);
+
+      if (Number.isNaN(parsedTransactionDate.getTime())) {
+        invalidDateRows.push({
+          rowNumber,
+          value: transactionDate,
+        });
+
+        if (convertSlashDateToIso(transactionDate)) {
+          slashDateCount += 1;
+        }
+      }
+    }
+
+    if (!account) {
+      missingRequiredFieldRows.Account.push(rowNumber);
+    }
+
+    if (!description) {
+      missingRequiredFieldRows.Description.push(rowNumber);
+    }
+
+    if (!category) {
+      missingRequiredFieldRows.Category.push(rowNumber);
+    }
+
+    if (amount.length === 0) {
+      invalidAmountRows.push({
+        rowNumber,
+        value: amount,
+      });
+      continue;
+    }
+
+    const parsedAmount = Number.parseFloat(amount.replace(/,/g, ""));
+    if (!Number.isFinite(parsedAmount)) {
+      invalidAmountRows.push({
+        rowNumber,
+        value: amount,
+      });
+    }
+  }
+
+  const issues: string[] = [];
+
+  if (invalidDateRows.length > 0) {
+    if (slashDateCount === invalidDateRows.length) {
+      const sampleSlashDate = invalidDateRows[0]?.value ?? "";
+      const isoExample = convertSlashDateToIso(sampleSlashDate);
+
+      issues.push(
+        `Found ${formatCount(
+          invalidDateRows.length,
+          "Date value"
+        )} in MM/DD/YYYY format, starting at ${formatRowList(
+          invalidDateRows.map((entry) => entry.rowNumber)
+        )}. Use YYYY-MM-DD instead${
+          isoExample ? `, for example ${isoExample} instead of ${sampleSlashDate}` : ""
+        }.`
+      );
+    } else {
+      issues.push(
+        `Found ${formatCount(
+          invalidDateRows.length,
+          "invalid Date value"
+        )}, starting at ${formatRowList(
+          invalidDateRows.map((entry) => entry.rowNumber)
+        )}.`
+      );
+    }
+  }
+
+  for (const [fieldName, rowNumbers] of Object.entries(missingRequiredFieldRows)) {
+    if (rowNumbers.length === 0) {
+      continue;
+    }
+
+    issues.push(
+      `Found ${rowNumbers.length} ${
+        rowNumbers.length === 1 ? "row" : "rows"
+      } with blank ${fieldName} values, starting at ${formatRowList(rowNumbers)}.`
+    );
+  }
+
+  if (invalidAmountRows.length > 0) {
+    issues.push(
+      `Found ${formatCount(
+        invalidAmountRows.length,
+        "invalid Amount value"
+      )}, starting at ${formatRowList(
+        invalidAmountRows.map((entry) => entry.rowNumber)
+      )}.`
+    );
+  }
+
+  if (issues.length === 0) {
+    return;
+  }
+
+  const swappedColumnsHint = detectLikelySwappedColumns({
+    rows,
+    mappedHeaders,
+  });
+
+  if (swappedColumnsHint) {
+    issues.push(swappedColumnsHint);
+  }
+
+  throw new ChatSDKError("bad_request:api", `CSV validation failed. ${issues.join(" ")}`);
+}
+
 export function buildFinanceChatTitle({
   filename,
   startDate,
@@ -331,6 +577,11 @@ export async function parseTransactionsCsv({
   if (!result.data.length) {
     throw new ChatSDKError("bad_request:api", "CSV is empty");
   }
+
+  validateParsedRows({
+    rows: result.data,
+    mappedHeaders,
+  });
 
   const transactions = result.data.map((row, index) => {
     const rowNumber = index + 2;

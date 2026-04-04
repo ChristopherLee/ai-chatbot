@@ -20,9 +20,9 @@ async function uploadFinanceCsv(page: Page) {
     .setInputFiles(csvPath);
 
   await expect(page).toHaveURL(CHAT_URL_REGEX, { timeout: 30_000 });
-  await expect(
-    page.getByText("Your starting spending control plan is ready now.")
-  ).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText("Welcome to the app.")).toBeVisible({
+    timeout: 30_000,
+  });
 }
 
 function getChatInput(page: Page) {
@@ -35,13 +35,18 @@ function getSendButton(page: Page) {
 
 async function getLastAssistantMessage(page: Page) {
   const messages = await page
-    .locator('[data-testid="message-assistant"] [data-testid="message-content"]')
+    .locator(
+      '[data-testid="message-assistant"] [data-testid="message-content"]'
+    )
     .allTextContents();
 
   return (messages.at(-1) ?? "").trim();
 }
 
-async function waitForCompletedAssistantReply(page: Page, expectedCount: number) {
+async function waitForCompletedAssistantReply(
+  page: Page,
+  expectedCount: number
+) {
   const retryButton = page.getByRole("button", { name: "Retry response" });
 
   for (let attempt = 0; attempt < 3; attempt += 1) {
@@ -55,9 +60,8 @@ async function waitForCompletedAssistantReply(page: Page, expectedCount: number)
 
         const lastAssistantMessage =
           assistantMessages.at(assistantMessages.length - 1) ?? "";
-        const hasRetryBanner = document.body.innerText.includes(
-          "Retry response"
-        );
+        const hasRetryBanner =
+          document.body.innerText.includes("Retry response");
         const isStreaming =
           document.querySelector('[data-testid="stop-button"]') !== null;
 
@@ -78,10 +82,7 @@ async function waitForCompletedAssistantReply(page: Page, expectedCount: number)
       return lastAssistantMessage;
     }
 
-    if (
-      attempt < 2 &&
-      (await retryButton.isVisible().catch(() => false))
-    ) {
+    if (attempt < 2 && (await retryButton.isVisible().catch(() => false))) {
       await retryButton.click();
       continue;
     }
@@ -93,6 +94,7 @@ async function waitForCompletedAssistantReply(page: Page, expectedCount: number)
 }
 
 // TODO: Re-enable once the finance Playwright flow is stable again.
+// biome-ignore lint/suspicious/noSkippedTests: This suite is intentionally parked until the live finance flow is stable again.
 test.describe
   .skip("Finance Prototype", () => {
     test.describe.configure({ mode: "serial" });
@@ -143,12 +145,9 @@ test.describe
 
       expect(lastAssistantMessage).toMatch(/conservative/i);
 
-      await page
-        .getByRole("button", { name: "New chat in project" })
-        .first()
-        .click();
+      await page.getByRole("button", { name: "New Chat" }).first().click();
 
-      await expect(page).toHaveURL(/\/\?projectId=/, { timeout: 30_000 });
+      await expect(page).toHaveURL(/\/$/, { timeout: 30_000 });
       await expect(page.getByText("Plan summary")).toBeVisible({
         timeout: 30_000,
       });

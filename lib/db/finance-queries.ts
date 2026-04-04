@@ -120,6 +120,61 @@ export async function getTransactionsByProjectId({
   }
 }
 
+export async function getTransactionById({
+  projectId,
+  transactionId,
+}: {
+  projectId: string;
+  transactionId: string;
+}): Promise<Transaction | null> {
+  try {
+    const [selectedTransaction] = await db
+      .select()
+      .from(transaction)
+      .where(
+        and(
+          eq(transaction.projectId, projectId),
+          eq(transaction.id, transactionId)
+        )
+      )
+      .limit(1);
+
+    return selectedTransaction ?? null;
+  } catch (_error) {
+    throw new ChatSDKError(
+      "bad_request:database",
+      "Failed to get transaction by id"
+    );
+  }
+}
+
+export async function deleteTransactionById({
+  projectId,
+  transactionId,
+}: {
+  projectId: string;
+  transactionId: string;
+}) {
+  try {
+    const [deletedTransaction] = await db
+      .delete(transaction)
+      .where(
+        and(
+          eq(transaction.projectId, projectId),
+          eq(transaction.id, transactionId)
+        )
+      )
+      .returning();
+
+    return deletedTransaction ?? null;
+  } catch (_error) {
+    throw new ChatSDKError(
+      "bad_request:database",
+      "Failed to delete transaction by id"
+    );
+  }
+}
+
 export async function saveFinanceOverrides({
   projectId,
   actions,

@@ -1,6 +1,7 @@
 "use client";
 
 import { CheckIcon, CircleIcon, ShieldXIcon } from "lucide-react";
+import Link from "next/link";
 import { useState } from "react";
 import { useSWRConfig } from "swr";
 import { toast } from "@/components/toast";
@@ -63,6 +64,9 @@ export function FinanceCategorizationReviewResult({
   const unsavedTransactions = result.suggestedTransactions.filter(
     (transaction) => !savedStatuses[transaction.key]
   );
+  const hasSavedSelections = Object.keys(savedStatuses).length > 0;
+  const reviewComplete =
+    unsavedRules.length === 0 && unsavedTransactions.length === 0;
 
   const isRuleSelected = (ruleId: string) => selectedRuleIds.has(ruleId);
   const isTransactionSelected = (
@@ -399,7 +403,8 @@ export function FinanceCategorizationReviewResult({
                     {formatCurrency(transaction.amount)}
                   </Badge>
                   <Badge variant="outline">
-                    {transaction.currentCategory} → {transaction.suggestedCategory}
+                    {transaction.currentCategory} →{" "}
+                    {transaction.suggestedCategory}
                   </Badge>
                   {coveredBySelectedRule && (
                     <Badge
@@ -438,7 +443,28 @@ export function FinanceCategorizationReviewResult({
             : `Deny selected (${selectedRules.length + selectedTransactions.length})`}
         </Button>
       </div>
+
+      {(hasSavedSelections || reviewComplete) && (
+        <Card className="border-blue-200 bg-blue-50/70">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">
+              Next step: starter budgets
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3 text-sm">
+            <p className="text-muted-foreground">
+              The next onboarding step is choosing starter budgets for the
+              meaningful categories in your history. Once that is set, we can
+              compare last month to budget or check how this month is tracking.
+            </p>
+            <Button asChild type="button">
+              <Link href={`/project/${result.projectId}/budget`}>
+                Open Budget Builder
+              </Link>
+            </Button>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
-

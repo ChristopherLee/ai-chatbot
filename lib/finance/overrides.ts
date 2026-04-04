@@ -162,6 +162,49 @@ function buildSingleTransactionDetails(
   };
 }
 
+function buildSingleTransactionExclusionDetails(
+  action: Extract<FinanceAction, { type: "exclude_transaction" }>,
+  transactions: MatchableTransaction[]
+) {
+  const transaction = transactions.find(
+    (item) => item.id === action.transactionId
+  );
+
+  if (!transaction) {
+    return {
+      details: [
+        {
+          label: "Transaction",
+          value: action.transactionId,
+        },
+        {
+          label: "Then",
+          value: "Exclude from the plan",
+        },
+      ] satisfies FinanceAppliedOverrideDetail[],
+      affectedOutflow: null,
+    };
+  }
+
+  return {
+    details: [
+      {
+        label: "Transaction",
+        value: `${transaction.transactionDate} - ${transaction.description}`,
+      },
+      {
+        label: "Merchant / account",
+        value: `${transaction.normalizedMerchant} - ${transaction.account}`,
+      },
+      {
+        label: "Then",
+        value: "Exclude from the plan",
+      },
+    ] satisfies FinanceAppliedOverrideDetail[],
+    affectedOutflow: roundCurrency(transaction.outflowAmount),
+  };
+}
+
 export function buildFinanceRulePresentation(
   action: FinanceAction,
   transactions: MatchableTransaction[],
@@ -187,6 +230,22 @@ export function buildFinanceRulePresentation(
       };
     case "categorize_transaction": {
       const singleTransaction = buildSingleTransactionDetails(
+        action,
+        transactions
+      );
+
+      return {
+        details: singleTransaction.details,
+        matchedTransactions: preview.totalAffectedTransactions,
+        affectedOutflow:
+          singleTransaction.affectedOutflow ?? preview.affectedOutflow,
+        affectedTransactions: preview.affectedTransactions,
+        affectedTransactionsTruncated: preview.affectedTransactionsTruncated,
+        totalAffectedTransactions: preview.totalAffectedTransactions,
+      };
+    }
+    case "exclude_transaction": {
+      const singleTransaction = buildSingleTransactionExclusionDetails(
         action,
         transactions
       );
@@ -343,6 +402,7 @@ function getAffectedTransactionsForAction(
           transactionMatches(transaction, action.match)
       );
     case "categorize_transaction":
+    case "exclude_transaction":
       return transactions.filter(
         (transaction) => transaction.id === action.transactionId
       );
@@ -423,6 +483,16 @@ function applyFinanceActionToTransactions(
       }
       break;
     }
+    case "exclude_transaction": {
+      for (const transaction of transactions) {
+        if (transaction.id === action.transactionId) {
+          transaction.includeFlag = false;
+          transaction.exclusionReason = "Manual exclusion";
+          refreshCategoryGroup(transaction);
+        }
+      }
+      break;
+    }
     case "exclude_transactions": {
       for (const transaction of transactions) {
         if (transactionMatches(transaction, action.match)) {
@@ -493,6 +563,8 @@ export function summarizeFinanceAction(action: FinanceAction) {
       return `Categorized matching transactions as ${action.to}`;
     case "categorize_transaction":
       return `Categorized one transaction as ${action.to}`;
+    case "exclude_transaction":
+      return "Excluded one transaction";
     case "exclude_transactions":
       return "Excluded matching transactions";
     case "set_category_monthly_target":
