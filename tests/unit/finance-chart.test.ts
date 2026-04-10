@@ -375,6 +375,41 @@ test("income-to-expenses chart builds a Sankey payload with observed income and 
   assert.equal(result.chart.links.length, 8);
 });
 
+test("cash-flow-trend chart builds a month-by-month projection using saved targets when available", () => {
+  const result = buildFinanceChart({
+    snapshot: {
+      ...sankeySnapshot,
+      cashFlowSummary: {
+        ...sankeySnapshot.cashFlowSummary,
+        totalMonthlyIncomeTarget: 5200,
+        totalMonthlyBudgetTarget: 3100,
+      },
+    },
+    input: {
+      chartType: "cash-flow-trend",
+      categoryLimit: 6,
+      sourceLimit: 4,
+    },
+  });
+
+  assert.equal(result.status, "available");
+
+  if (result.status !== "available") {
+    return;
+  }
+
+  assert.equal(result.chart.chartType, "cash-flow-trend");
+  assert.equal(result.chart.latestMonth, "2026-03");
+  assert.equal(result.chart.projectionMonths, 6);
+  assert.equal(result.chart.assumptions.projectedIncomeBasis, "income-target");
+  assert.equal(result.chart.assumptions.projectedExpenseBasis, "budget-target");
+  assert.equal(result.chart.summary.projectedNet, 2100);
+  assert.equal(result.chart.data.length, sankeySnapshot.monthlyChart.length + 6);
+  assert.equal(result.chart.data.at(-1)?.month, "2026-09");
+  assert.equal(result.chart.data.at(-1)?.isProjected, true);
+  assert.equal(result.chart.monthlyBreakdown.length, result.chart.data.length);
+});
+
 test("chart requests return a clear unavailable state while the finance plan is not ready", () => {
   const result = buildFinanceChart({
     snapshot: {
@@ -399,4 +434,3 @@ test("chart requests return a clear unavailable state while the finance plan is 
     message: "The finance plan is still being prepared. Try again in a moment.",
   });
 });
-

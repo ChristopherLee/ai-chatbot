@@ -18,6 +18,7 @@ export const financeChartInputSchema = z.object({
   chartType: z.enum([
     "monthly-spend",
     "cumulative-spend",
+    "cash-flow-trend",
     "month-over-month",
     "spending-breakdown",
     "income-to-expenses",
@@ -404,6 +405,150 @@ function buildCumulativeSpendChart(
   };
 }
 
+function buildCashFlowTrendChart(
+  snapshot: FinanceSnapshot
+): FinanceChartToolResult {
+  const latestMonth = getObservedMonth(snapshot);
+  const latestPoint = latestMonth
+    ? snapshot.monthlyChart.find((entry) => entry.month === latestMonth)
+    : null;
+
+  if (!latestMonth || !latestPoint || snapshot.monthlyChart.length === 0) {
+    return buildUnavailableResult({
+      snapshot,
+      chartType: "cash-flow-trend",
+      message: "Cash flow trend data is not available yet.",
+    });
+  }
+
+  const projectionMonths = 6;
+  const projectedIncomeBasis =
+    snapshot.cashFlowSummary.totalMonthlyIncomeTarget !== null
+      ? ("income-target" as const)
+      : ("historical-average" as const);
+  const projectedExpenseBasis =
+    snapshot.cashFlowSummary.totalMonthlyBudgetTarget !== null
+      ? ("budget-target" as const)
+      : ("historical-average" as const);
+  const projectedIncome = roundCurrency(
+    snapshot.cashFlowSummary.totalMonthlyIncomeTarget ??
+      snapshot.cashFlowSummary.historicalAverageMonthlyIncome
+  );
+  const projectedExpenses = roundCurrency(
+    snapshot.cashFlowSummary.totalMonthlyBudgetTarget ??
+      snapshot.cashFlowSummary.historicalAverageMonthlySpend
+  );
+
+  let actualCashBalance = 0;
+  let projectedCashBalance = 0;
+
+  const historicalData = snapshot.monthlyChart.map((entry) => {
+    const actualIncome = roundCurrency(
+      snapshot.cashFlowSummary.historicalAverageMonthlyIncome
+    );
+    const actualExpenses = entry.actual;
+    const actualNet = roundCurrency(actualIncome - actualExpenses);
+    const projectedNet = roundCurrency(projectedIncome - projectedExpenses);
+
+    actualCashBalance = roundCurrency(actualCashBalance + actualNet);
+    projectedCashBalance = roundCurrency(projectedCashBalance + projectedNet);
+
+    return {
+      month: entry.month,
+      label: entry.label,
+      isProjected: false,
+      actualIncome,
+      actualExpenses,
+      actualNet,
+      projectedIncome,
+      projectedExpenses,
+      projectedNet,
+      actualCashBalance,
+      projectedCashBalance,
+    };
+  });
+
+  const projectionData = Array.from({ length: projectionMonths }).map(
+    (_, index) => {
+      const month = getFutureMonth(latestMonth, index + 1);
+      const projectedNet = roundCurrency(projectedIncome - projectedExpenses);
+      projectedCashBalance = roundCurrency(projectedCashBalance + projectedNet);
+
+      return {
+        month,
+        label: getMonthLabel(month),
+        isProjected: true,
+        actualIncome: 0,
+        actualExpenses: 0,
+        actualNet: 0,
+        projectedIncome,
+        projectedExpenses,
+        projectedNet,
+        actualCashBalance,
+        projectedCashBalance,
+      };
+    }
+  );
+
+  const data = [...historicalData, ...projectionData];
+  const latestDataPoint = data.at(-1);
+  const monthlyBreakdown = data.map((monthEntry) => ({
+    month: monthEntry.month,
+    label: monthEntry.label,
+    categories: snapshot.categoryCards
+      .map((category) => {
+        const monthValue = category.monthly.find(
+          (entry) => entry.month === monthEntry.month
+        );
+        const actual = roundCurrency(monthValue?.actual ?? 0);
+        const projected = roundCurrency(
+          monthValue?.target ?? category.monthlyTarget
+        );
+
+        return {
+          category: category.category,
+          group: category.group,
+          actual,
+          projected,
+        };
+      })
+      .filter((category) => category.actual > 0 || category.projected > 0)
+      .sort((left, right) => right.projected - left.projected),
+  }));
+
+  return {
+    status: "available",
+    snapshotStatus: snapshot.status,
+    chart: {
+      chartType: "cash-flow-trend",
+      title: "Cash flow trend and projection",
+      description:
+        "Month-by-month net cash and running cash balance, combining historical actuals with a forward projection.",
+      latestMonth,
+      latestMonthLabel: getMonthLabel(latestMonth),
+      projectionMonths,
+      assumptions: {
+        projectedIncomeBasis,
+        projectedExpenseBasis,
+      },
+      summary: {
+        actualNet: roundCurrency(
+          historicalData.at(-1)?.actualNet ?? latestPoint.actual
+        ),
+        projectedNet: roundCurrency(projectedIncome - projectedExpenses),
+        actualCashBalance: roundCurrency(
+          historicalData.at(-1)?.actualCashBalance ?? 0
+        ),
+        projectedCashBalance: roundCurrency(
+          latestDataPoint?.projectedCashBalance ?? 0
+        ),
+      },
+      monthlyBreakdown,
+      data,
+    },
+  };
+}
+
 function buildMonthOverMonthChart({
   snapshot,
   month,
@@ -718,6 +863,8 @@ export function buildFinanceChart({
       return buildMonthlySpendChart(snapshot);
     case "cumulative-spend":
       return buildCumulativeSpendChart(snapshot);
+    case "cash-flow-trend":
+      return buildCashFlowTrendChart(snapshot);
     case "month-over-month":
       return buildMonthOverMonthChart({
         snapshot,
@@ -746,4 +893,3 @@ export function buildFinanceChart({
       });
   }
 }
-
