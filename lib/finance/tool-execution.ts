@@ -10,7 +10,7 @@ import {
   getCurrentCategoryBudgetOverrides,
   resolveCategoryBudgetGroup,
 } from "./category-budgets";
-import { categorizeTransactions } from "./categorize";
+import { buildInitialFinanceTransactions, categorizeTransactions } from "./categorize";
 import {
   getFinanceActionsFromOverrides,
   getLockedCategorizationTransactionIds,
@@ -129,6 +129,11 @@ async function getCategorizedTransactionsForProject(projectId: string) {
     transactions,
     actions,
   });
+}
+
+async function getBaseTransactionsForProject(projectId: string) {
+  const transactions = await getTransactionsByProjectId({ projectId });
+  return buildInitialFinanceTransactions(transactions);
 }
 
 export async function applyFinanceActionsForChat({
@@ -326,11 +331,14 @@ export async function queryFinanceTransactionsForChat({
 }: {
   projectId: string;
 } & FinanceTransactionQueryInput) {
-  const categorizedTransactions =
-    await getCategorizedTransactionsForProject(projectId);
+  const transactionRepresentation = filters.representation ?? "budget";
+  const transactions =
+    transactionRepresentation === "raw"
+      ? await getBaseTransactionsForProject(projectId)
+      : await getCategorizedTransactionsForProject(projectId);
 
   return queryFinanceTransactions({
-    transactions: categorizedTransactions,
+    transactions,
     filters,
   });
 }
@@ -341,11 +349,14 @@ export async function summarizeFinanceTransactionsForChat({
 }: {
   projectId: string;
 } & FinanceTransactionSummaryInput) {
-  const categorizedTransactions =
-    await getCategorizedTransactionsForProject(projectId);
+  const transactionRepresentation = filters.representation ?? "budget";
+  const transactions =
+    transactionRepresentation === "raw"
+      ? await getBaseTransactionsForProject(projectId)
+      : await getCategorizedTransactionsForProject(projectId);
 
   return summarizeFinanceTransactions({
-    transactions: categorizedTransactions,
+    transactions,
     filters,
   });
 }

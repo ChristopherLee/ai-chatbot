@@ -4,6 +4,10 @@ import { roundCurrency, safeLower } from "./utils";
 
 export const financeTransactionQueryInputSchema = z
   .object({
+    representation: z
+      .enum(["budget", "raw"])
+      .default("budget")
+      .optional(),
     search: z.string().trim().min(1).optional(),
     merchant: z.string().trim().min(1).optional(),
     descriptionContains: z.string().trim().min(1).optional(),
@@ -44,6 +48,7 @@ export const FINANCE_TRANSACTIONS_PAGE_SIZE = 100;
 
 export type FinanceTransactionQueryResult = {
   filters: FinanceTransactionQueryInput;
+  representation: "budget" | "raw";
   matchedCount: number;
   returnedCount: number;
   totalMatchedOutflow: number;
@@ -261,6 +266,7 @@ export function queryFinanceTransactions({
       ...filters,
       page,
     },
+    representation: filters.representation ?? "budget",
     matchedCount: matchedTransactions.length,
     returnedCount: returnedTransactions.length,
     totalMatchedOutflow: roundCurrency(
