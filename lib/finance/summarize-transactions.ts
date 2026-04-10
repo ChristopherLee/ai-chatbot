@@ -5,6 +5,10 @@ import { getMonthLabel, roundCurrency, safeLower, toMonthKey } from "./utils";
 
 export const financeTransactionSummaryInputSchema = z
   .object({
+    representation: z
+      .enum(["budget", "raw"])
+      .default("budget")
+      .optional(),
     groupBy: z.enum([
       "month",
       "category",
@@ -50,6 +54,7 @@ export type FinanceTransactionSummaryInput = z.infer<
 
 export type FinanceTransactionSummaryResult = {
   filters: FinanceTransactionSummaryInput;
+  representation: "budget" | "raw";
   matchedTransactionCount: number;
   totalMatchedOutflow: number;
   totalGroupCount: number;
@@ -216,6 +221,7 @@ export function summarizeFinanceTransactions({
 
   return {
     filters,
+    representation: filters.representation ?? "budget",
     matchedTransactionCount: matchedTransactions.length,
     totalMatchedOutflow,
     totalGroupCount: sortedGroups.length,
