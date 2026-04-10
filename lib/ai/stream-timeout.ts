@@ -1,11 +1,5 @@
-import { isDevelopmentEnvironment } from "@/lib/constants";
-
-const DEV_STREAM_TIMEOUT_MS = 60_000;
-const PROD_STREAM_TIMEOUT_MS = 45_000;
-
-export const CHAT_STREAM_TIMEOUT_MS = isDevelopmentEnvironment
-  ? DEV_STREAM_TIMEOUT_MS
-  : PROD_STREAM_TIMEOUT_MS;
+export const CHAT_STREAM_TIMEOUT_MS = 120_000;
+export const CHAT_STREAM_TIMEOUT_SECONDS = CHAT_STREAM_TIMEOUT_MS / 1000;
 
 export function createStreamTimeout(timeoutMs = CHAT_STREAM_TIMEOUT_MS) {
   const controller = new AbortController();

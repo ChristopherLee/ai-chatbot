@@ -17,13 +17,17 @@ import { sanitizeUIMessagesForModel } from "@/lib/ai/message-history";
 import { planPersistableMessageWrites } from "@/lib/ai/message-persistence";
 import { type RequestHints, systemPrompt } from "@/lib/ai/prompts";
 import {
+  buildFinanceStreamErrorMessage,
+  buildStreamErrorMessage,
+} from "@/lib/ai/stream-error-messages";
+import {
   getLanguageModel,
   getLanguageModelProviderOptions,
   isReasoningModelId,
 } from "@/lib/ai/providers";
 import {
+  CHAT_STREAM_TIMEOUT_SECONDS,
   createStreamTimeout,
-  isStreamTimeoutError,
 } from "@/lib/ai/stream-timeout";
 import { applyFinanceActions } from "@/lib/ai/tools/apply-finance-actions";
 import { createDocument } from "@/lib/ai/tools/create-document";
@@ -63,39 +67,7 @@ import { convertToUIMessages, generateUUID } from "@/lib/utils";
 import { generateTitleFromUserMessage } from "../../actions";
 import { type PostRequestBody, postRequestBodySchema } from "./schema";
 
-export const maxDuration = 60;
-
-function isGatewayActivationError(error: unknown) {
-  return (
-    error instanceof Error &&
-    error.message.includes(
-      "AI Gateway requires a valid credit card on file to service requests"
-    )
-  );
-}
-
-function isGatewayInsufficientFundsError(error: unknown) {
-  return error instanceof Error && error.message.includes("Insufficient funds");
-}
-
-function isOpenRouterKeyLimitError(error: unknown) {
-  return (
-    error instanceof Error &&
-    error.message.includes("Key limit exceeded (total limit)")
-  );
-}
-
-function formatCurrency(value: number | null) {
-  if (value === null) {
-    return "Not set";
-  }
-
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0,
-  }).format(value);
-}
+export const maxDuration = CHAT_STREAM_TIMEOUT_SECONDS;
 
 function buildFinancePromptContext(snapshot: FinanceSnapshot) {
   return {
@@ -174,82 +146,6 @@ Rules:
 
 Finance context:
 ${JSON.stringify(buildFinancePromptContext(snapshot))}`;
-}
-
-function buildFinanceFallbackMessage({
-  snapshot,
-  error,
-}: {
-  snapshot: FinanceSnapshot | null;
-  error: unknown;
-}) {
-  const intro = isGatewayActivationError(error)
-    ? "The finance response is unavailable until AI Gateway is activated."
-    : isGatewayInsufficientFundsError(error)
-      ? "The finance response is unavailable because AI Gateway is out of credits."
-      : isOpenRouterKeyLimitError(error)
-        ? "The finance response is unavailable because the configured OpenRouter key is over its limit."
-        : isStreamTimeoutError(error)
-          ? "The finance response took too long, so here is the latest deterministic summary instead."
-          : "I ran into an issue while finishing the finance response. Here is the latest deterministic summary instead.";
-
-  if (!snapshot || snapshot.status === "needs-upload") {
-    return `${intro}\n\nUpload a transaction CSV to begin.`;
-  }
-
-  if (snapshot.status === "needs-onboarding") {
-    return `${intro}\n\nYour dataset is loaded. Start by reviewing the data-cleanup suggestions, then set starter budgets for the important categories. After that, we can compare last month to budget or check this month's pace.`;
-  }
-
-  const planSummary = snapshot.planSummary;
-
-  if (!planSummary) {
-    return `${intro}\n\nYour transactions are loaded, but I do not have a plan summary ready yet.`;
-  }
-
-  const topCategories = planSummary.categoryTargets
-    .slice(0, 3)
-    .map(
-      (category) =>
-        `${category.category} (${formatCurrency(category.monthlyTarget)}/mo)`
-    )
-    .join(", ");
-
-  const latestOverrides = snapshot.appliedOverrides
-    .slice(-2)
-    .map((override) => override.summary)
-    .join("; ");
-
-  return `${intro}
-
-Total monthly budget: ${formatCurrency(snapshot.cashFlowSummary.totalMonthlyBudgetTarget)}
-Category allocations: ${formatCurrency(planSummary.totalMonthlyTarget)}
-Catch-all budget: ${formatCurrency(snapshot.cashFlowSummary.catchAllBudget)}
-Plan mode: ${planSummary.mode}
-Top categories: ${topCategories || "No included categories yet."}
-${latestOverrides ? `Latest changes: ${latestOverrides}` : ""}
-
-You can keep chatting and I will continue applying finance changes even without the model-written explanation.`;
-}
-
-function buildStreamErrorMessage(error: unknown) {
-  if (isGatewayActivationError(error)) {
-    return "The model could not respond because AI Gateway is not activated for this project yet. Once it is activated, you can retry this message.";
-  }
-
-  if (isGatewayInsufficientFundsError(error)) {
-    return "The model could not respond because AI Gateway is out of credits. Add credits in Vercel AI Gateway, then retry this message.";
-  }
-
-  if (isOpenRouterKeyLimitError(error)) {
-    return "The model could not respond because the configured OpenRouter key is over its limit. Recharge or replace that key, then retry this message.";
-  }
-
-  if (isStreamTimeoutError(error)) {
-    return "That reply took too long to finish, so I stopped the request. Please try again.";
-  }
-
-  return "I ran into a model error while finishing that response. Please try again.";
 }
 
 function getStreamContext() {
@@ -497,10 +393,7 @@ export async function POST(request: Request) {
                   selectedChatModel,
                 });
 
-                return buildFinanceFallbackMessage({
-                  snapshot: resolvedFinanceSnapshot,
-                  error,
-                });
+                return buildFinanceStreamErrorMessage(error);
               },
             })
           );
@@ -600,7 +493,9 @@ export async function POST(request: Request) {
           selectedChatModel,
         });
 
-        return "Oops, an error occurred!";
+        return chatRuntimeMode === "finance"
+          ? buildFinanceStreamErrorMessage(error)
+          : buildStreamErrorMessage(error);
       },
     });
 

@@ -2,6 +2,7 @@
 
 import {
   ArrowUpDown,
+  Check,
   ChevronDown,
   ChevronsLeft,
   ChevronsRight,
@@ -26,8 +27,28 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Command,
+  CommandEmpty,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Select,
   SelectContent,
@@ -36,11 +57,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { FinanceTransactionQueryInput } from "@/lib/finance/query-transactions";
+import { describeFinanceRuleAction } from "@/lib/finance/rule-display";
 import type {
   FinanceTransactionExclusionSource,
   FinanceTransactionsViewData,
 } from "@/lib/finance/transactions-view";
+import type { FinanceTransactionCategoryChangePreview } from "@/lib/finance/types";
 import { cn, fetcher } from "@/lib/utils";
+import { FinanceRulesTransactionTable } from "./finance-rules-transaction-table";
 
 type TransactionRow = FinanceTransactionsViewData["transactions"][number];
 type TransactionSortKey = FinanceTransactionQueryInput["sortBy"];
@@ -55,6 +79,14 @@ type PendingDialogAction =
       type: "delete";
       transaction: TransactionRow;
     };
+
+type PendingCategoryChange = {
+  transaction: TransactionRow;
+  nextCategory: string;
+  preview: FinanceTransactionCategoryChangePreview | null;
+  previewError: string | null;
+  isPreviewLoading: boolean;
+};
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("en-US", {
@@ -239,6 +271,96 @@ function PaginationControls({
   );
 }
 
+function SearchableCategoryPicker({
+  categories,
+  disabled = false,
+  onSelectCategory,
+  value,
+}: {
+  categories: string[];
+  disabled?: boolean;
+  onSelectCategory: (category: string) => void;
+  value: string;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [searchValue, setSearchValue] = useState("");
+
+  const filteredCategories = useMemo(() => {
+    const normalizedSearchValue = searchValue.trim().toLowerCase();
+
+    if (!normalizedSearchValue) {
+      return categories;
+    }
+
+    return categories.filter((category) =>
+      category.toLowerCase().includes(normalizedSearchValue)
+    );
+  }, [categories, searchValue]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setSearchValue("");
+    }
+  }, [isOpen]);
+
+  return (
+    <Popover modal={false} onOpenChange={setIsOpen} open={isOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          aria-expanded={isOpen}
+          className="h-9 min-w-44 justify-between font-normal"
+          disabled={disabled}
+          role="combobox"
+          type="button"
+          variant="outline"
+        >
+          <span className="truncate">{value}</span>
+          <ChevronDown className="ml-2 size-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        className="w-[min(24rem,calc(100vw-2rem))] p-0"
+        collisionPadding={16}
+      >
+        <Command shouldFilter={false}>
+          <CommandInput
+            autoFocus
+            onValueChange={setSearchValue}
+            placeholder="Search categories..."
+            value={searchValue}
+          />
+          <CommandList className="max-h-[min(18rem,var(--radix-popover-content-available-height))]">
+            <CommandEmpty>No categories found.</CommandEmpty>
+            {filteredCategories.map((category) => (
+              <CommandItem
+                className="justify-between gap-3"
+                key={category}
+                onSelect={() => {
+                  setIsOpen(false);
+
+                  if (category !== value) {
+                    onSelectCategory(category);
+                  }
+                }}
+                value={category}
+              >
+                <span className="truncate">{category}</span>
+                <Check
+                  className={cn(
+                    "size-4 shrink-0",
+                    category === value ? "opacity-100" : "opacity-0"
+                  )}
+                />
+              </CommandItem>
+            ))}
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 export function ProjectTransactions({
   initialData,
 }: {
@@ -272,9 +394,14 @@ export function ProjectTransactions({
   );
   const [pendingDialogAction, setPendingDialogAction] =
     useState<PendingDialogAction | null>(null);
+  const [pendingCategoryChange, setPendingCategoryChange] =
+    useState<PendingCategoryChange | null>(null);
   const [activeTransactionId, setActiveTransactionId] = useState<string | null>(
     null
   );
+  const [activeCategorySaveMode, setActiveCategorySaveMode] = useState<
+    "transaction" | "rule" | null
+  >(null);
 
   const deferredSearch = useDeferredValue(search.trim());
   const filters = useMemo<FinanceTransactionQueryInput>(
@@ -384,6 +511,136 @@ export function ProjectTransactions({
             : "Failed to update the transaction.",
       });
     } finally {
+      setActiveTransactionId(null);
+    }
+  };
+
+  const previewCategoryChange = async ({
+    nextCategory,
+    transaction,
+  }: {
+    nextCategory: string;
+    transaction: TransactionRow;
+  }) => {
+    if (nextCategory === transaction.category) {
+      return;
+    }
+
+    setPendingCategoryChange({
+      transaction,
+      nextCategory,
+      preview: null,
+      previewError: null,
+      isPreviewLoading: true,
+    });
+
+    try {
+      const response = await fetch(
+        `/api/finance/project/${data.projectId}/transactions/${transaction.id}/category-preview`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            category: nextCategory,
+          }),
+        }
+      );
+      const payload = await response.json();
+
+      if (!response.ok) {
+        throw new Error(payload?.cause || payload?.message || "Request failed");
+      }
+
+      setPendingCategoryChange((current) => {
+        if (
+          !current ||
+          current.transaction.id !== transaction.id ||
+          current.nextCategory !== nextCategory
+        ) {
+          return current;
+        }
+
+        return {
+          ...current,
+          preview: payload satisfies FinanceTransactionCategoryChangePreview,
+          previewError: null,
+          isPreviewLoading: false,
+        };
+      });
+    } catch (error) {
+      setPendingCategoryChange((current) => {
+        if (
+          !current ||
+          current.transaction.id !== transaction.id ||
+          current.nextCategory !== nextCategory
+        ) {
+          return current;
+        }
+
+        return {
+          ...current,
+          previewError:
+            error instanceof Error
+              ? error.message
+              : "Unable to preview the category change.",
+          isPreviewLoading: false,
+        };
+      });
+    }
+  };
+
+  const saveCategoryChange = async ({
+    applySuggestedRule,
+    transaction,
+  }: {
+    applySuggestedRule: boolean;
+    transaction: PendingCategoryChange;
+  }) => {
+    setActiveTransactionId(transaction.transaction.id);
+    setActiveCategorySaveMode(applySuggestedRule ? "rule" : "transaction");
+
+    try {
+      const response = await fetch(
+        `/api/finance/project/${data.projectId}/transactions/${transaction.transaction.id}`,
+        {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            operation: "categorize",
+            category: transaction.nextCategory,
+            applySuggestedRule,
+          }),
+        }
+      );
+      const payload = await response.json();
+
+      if (!response.ok) {
+        throw new Error(payload?.cause || payload?.message || "Request failed");
+      }
+
+      await refreshProjectFinanceData();
+      setPendingCategoryChange(null);
+      toast({
+        type: "success",
+        description:
+          payload?.savedAs === "rule"
+            ? "Updated the category and saved the recurring rule."
+            : "Updated the category for this transaction.",
+      });
+    } catch (error) {
+      toast({
+        type: "error",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Failed to update the transaction category.",
+      });
+    } finally {
+      setActiveCategorySaveMode(null);
       setActiveTransactionId(null);
     }
   };
@@ -693,7 +950,19 @@ export function ProjectTransactions({
                           </div>
                         </td>
                         <td className="px-4 py-4">{transaction.account}</td>
-                        <td className="px-4 py-4">{transaction.category}</td>
+                        <td className="px-4 py-4">
+                          <SearchableCategoryPicker
+                            categories={data.options.categories}
+                            disabled={isBusy}
+                            onSelectCategory={(value) =>
+                              previewCategoryChange({
+                                nextCategory: value,
+                                transaction,
+                              })
+                            }
+                            value={transaction.category}
+                          />
+                        </td>
                         <td className="px-4 py-4">
                           <div className="flex flex-wrap gap-2">
                             <Badge variant={getStatusVariant(transaction)}>
@@ -837,6 +1106,197 @@ export function ProjectTransactions({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog
+        onOpenChange={(open) => {
+          if (!open && !activeTransactionId) {
+            setPendingCategoryChange(null);
+          }
+        }}
+        open={Boolean(pendingCategoryChange)}
+      >
+        <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Change transaction category?</DialogTitle>
+            <DialogDescription>
+              Save this as a one-off change, or save the suggested recurring
+              rule when the same description pattern looks stable enough.
+            </DialogDescription>
+          </DialogHeader>
+
+          {pendingCategoryChange ? (
+            <div className="space-y-4">
+              <div className="rounded-xl border bg-muted/20 p-4">
+                <div className="font-medium">
+                  {pendingCategoryChange.transaction.description}
+                </div>
+                <div className="mt-1 text-muted-foreground text-sm">
+                  {[
+                    pendingCategoryChange.transaction.transactionDate,
+                    pendingCategoryChange.transaction.account,
+                    pendingCategoryChange.transaction.merchant,
+                  ].join(" - ")}
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                  <div className="rounded-full border bg-background px-3 py-1.5">
+                    Current:{" "}
+                    <span className="font-medium">
+                      {pendingCategoryChange.preview?.currentCategory ??
+                        pendingCategoryChange.transaction.category}
+                    </span>
+                  </div>
+                  <div className="rounded-full border bg-background px-3 py-1.5">
+                    New:{" "}
+                    <span className="font-medium">
+                      {pendingCategoryChange.nextCategory}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {pendingCategoryChange.isPreviewLoading ? (
+                <div className="flex items-center gap-2 rounded-xl border bg-muted/20 p-4 text-muted-foreground text-sm">
+                  <Loader2 className="size-4 animate-spin" />
+                  Looking for a recurring rule based on matching descriptions...
+                </div>
+              ) : pendingCategoryChange.previewError ? (
+                <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-destructive text-sm">
+                  {pendingCategoryChange.previewError}
+                </div>
+              ) : pendingCategoryChange.preview?.suggestedRule ? (
+                <div className="space-y-4 rounded-xl border bg-muted/20 p-4">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Label className="font-medium text-sm">
+                      Suggested recurring rule
+                    </Label>
+                    <Badge variant="secondary">Recommended</Badge>
+                    {pendingCategoryChange.preview.suggestedRule
+                      .replaceRuleId ? (
+                      <Badge variant="outline">Updates existing rule</Badge>
+                    ) : (
+                      <Badge variant="outline">Creates new rule</Badge>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="font-medium">
+                      {describeFinanceRuleAction(
+                        pendingCategoryChange.preview.suggestedRule.action,
+                        pendingCategoryChange.preview.suggestedRule.details
+                      )}
+                    </div>
+                    <div className="text-muted-foreground text-sm">
+                      {pendingCategoryChange.preview.suggestedRule.rationale}
+                    </div>
+                    {pendingCategoryChange.preview.suggestedRule
+                      .replaceRuleSummary ? (
+                      <div className="text-muted-foreground text-sm">
+                        This will update:{" "}
+                        {
+                          pendingCategoryChange.preview.suggestedRule
+                            .replaceRuleSummary
+                        }
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div className="flex flex-wrap gap-2 text-xs">
+                    {pendingCategoryChange.preview.suggestedRule
+                      .matchedTransactions !== null ? (
+                      <Badge variant="secondary">
+                        {
+                          pendingCategoryChange.preview.suggestedRule
+                            .matchedTransactions
+                        }{" "}
+                        matched
+                      </Badge>
+                    ) : null}
+                    {pendingCategoryChange.preview.suggestedRule
+                      .affectedOutflow !== null ? (
+                      <Badge variant="secondary">
+                        {formatCurrency(
+                          pendingCategoryChange.preview.suggestedRule
+                            .affectedOutflow
+                        )}{" "}
+                        affected
+                      </Badge>
+                    ) : null}
+                  </div>
+
+                  <FinanceRulesTransactionTable
+                    emptyLabel="No matching transactions would be affected."
+                    preview={pendingCategoryChange.preview.suggestedRule}
+                  />
+                </div>
+              ) : (
+                <div className="rounded-xl border border-dashed bg-muted/10 p-4 text-muted-foreground text-sm">
+                  No reliable recurring rule was found from the matching
+                  descriptions, so this will be saved as a transaction-only
+                  change.
+                </div>
+              )}
+            </div>
+          ) : null}
+
+          <DialogFooter>
+            <Button
+              disabled={Boolean(activeTransactionId)}
+              onClick={() => setPendingCategoryChange(null)}
+              type="button"
+              variant="ghost"
+            >
+              Cancel
+            </Button>
+            {pendingCategoryChange ? (
+              <Button
+                disabled={Boolean(activeTransactionId)}
+                onClick={() =>
+                  saveCategoryChange({
+                    applySuggestedRule: false,
+                    transaction: pendingCategoryChange,
+                  })
+                }
+                type="button"
+                variant="outline"
+              >
+                {activeTransactionId &&
+                activeCategorySaveMode === "transaction" ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  "Save just this transaction"
+                )}
+              </Button>
+            ) : null}
+            {pendingCategoryChange?.preview?.suggestedRule ? (
+              <Button
+                disabled={Boolean(activeTransactionId)}
+                onClick={() =>
+                  saveCategoryChange({
+                    applySuggestedRule: true,
+                    transaction: pendingCategoryChange,
+                  })
+                }
+                type="button"
+              >
+                {activeTransactionId && activeCategorySaveMode === "rule" ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : pendingCategoryChange.preview.suggestedRule
+                    .replaceRuleId ? (
+                  "Save change + update rule"
+                ) : (
+                  "Save change + recurring rule"
+                )}
+              </Button>
+            ) : null}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

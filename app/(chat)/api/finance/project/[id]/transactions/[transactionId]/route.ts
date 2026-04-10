@@ -4,19 +4,34 @@ import {
   deleteFinanceOverrideById,
   deleteTransactionById,
   saveFinanceOverrides,
+  updateFinanceOverrideById,
 } from "@/lib/db/finance-queries";
 import { getProjectById } from "@/lib/db/queries";
 import { ChatSDKError } from "@/lib/errors";
+import { buildFinanceActionKey } from "@/lib/finance/action-keys";
+import {
+  applyFinanceOverrides,
+  getFinanceActionsFromOverrides,
+} from "@/lib/finance/overrides";
 import { recomputeFinanceSnapshot } from "@/lib/finance/snapshot";
+import { buildTransactionCategoryRuleSuggestion } from "@/lib/finance/transaction-category-suggestions";
 import {
   getTransactionExclusionSource,
   getTransactionScopedOverrideIds,
   loadFinanceTransactionState,
 } from "@/lib/finance/transactions-view";
+import { safeLower } from "@/lib/finance/utils";
 
-const mutationSchema = z.object({
-  operation: z.enum(["exclude", "include"]),
-});
+const mutationSchema = z.discriminatedUnion("operation", [
+  z.object({
+    operation: z.enum(["exclude", "include"]),
+  }),
+  z.object({
+    operation: z.literal("categorize"),
+    category: z.string().trim().min(1),
+    applySuggestedRule: z.boolean().optional(),
+  }),
+]);
 
 async function getAuthorizedProject(projectId: string) {
   const session = await auth();
@@ -89,6 +104,103 @@ export async function PATCH(
 
   const oneOffExcludeRuleId =
     state.oneOffExcludeRuleIdsByTransactionId.get(transactionId) ?? null;
+
+  if (parsed.data.operation === "categorize") {
+    const transactionScopedOverrideIds = getTransactionScopedOverrideIds({
+      overrides: state.overrides,
+      transactionId,
+    });
+    const remainingOverrides = state.overrides.filter(
+      (override) => !transactionScopedOverrideIds.includes(override.id)
+    );
+    const remainingActions = getFinanceActionsFromOverrides(remainingOverrides);
+    const finalTransactionsWithoutScopedOverrides = applyFinanceOverrides(
+      state.baseTransactions,
+      remainingActions
+    );
+    const transactionWithoutScopedOverrides =
+      finalTransactionsWithoutScopedOverrides.find(
+        (transaction) => transaction.id === transactionId
+      ) ?? null;
+    const suggestedRule = buildTransactionCategoryRuleSuggestion({
+      baseTransactions: state.baseTransactions,
+      finalTransactions: finalTransactionsWithoutScopedOverrides,
+      nextCategory: parsed.data.category,
+      overrides: remainingOverrides,
+      transactionId,
+    });
+    let changed = false;
+
+    for (const overrideId of transactionScopedOverrideIds) {
+      await deleteFinanceOverrideById({
+        id: overrideId,
+        projectId: project.id,
+      });
+      changed = true;
+    }
+
+    if (parsed.data.applySuggestedRule && suggestedRule) {
+      if (suggestedRule.replaceRuleId) {
+        await updateFinanceOverrideById({
+          id: suggestedRule.replaceRuleId,
+          projectId: project.id,
+          action: suggestedRule.action,
+        });
+      } else {
+        const existingActionKeys = new Set(
+          remainingActions.map((action) => buildFinanceActionKey(action))
+        );
+
+        if (
+          !existingActionKeys.has(buildFinanceActionKey(suggestedRule.action))
+        ) {
+          await saveFinanceOverrides({
+            projectId: project.id,
+            actions: [suggestedRule.action],
+          });
+        }
+      }
+
+      changed = true;
+    } else {
+      const needsTransactionOverride =
+        !transactionWithoutScopedOverrides ||
+        transactionWithoutScopedOverrides.includeFlag === false ||
+        safeLower(transactionWithoutScopedOverrides.mappedCategory) !==
+          safeLower(parsed.data.category);
+
+      if (needsTransactionOverride) {
+        await saveFinanceOverrides({
+          projectId: project.id,
+          actions: [
+            {
+              type: "categorize_transaction",
+              transactionId,
+              to: parsed.data.category,
+            },
+          ],
+        });
+        changed = true;
+      }
+    }
+
+    if (!changed) {
+      return Response.json({
+        changed: false,
+      });
+    }
+
+    const snapshot = await recomputeFinanceSnapshot({ projectId: project.id });
+
+    return Response.json({
+      changed: true,
+      snapshot,
+      savedAs:
+        parsed.data.applySuggestedRule && suggestedRule
+          ? "rule"
+          : "transaction",
+    });
+  }
 
   if (parsed.data.operation === "exclude") {
     if (!finalTransaction.includeFlag) {

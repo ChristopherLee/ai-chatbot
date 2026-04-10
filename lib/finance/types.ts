@@ -12,6 +12,7 @@ export type PlanMode = "balanced" | "conservative";
 export const transactionMatchSchema = z
   .object({
     rawCategory: z.string().min(1).optional(),
+    category: z.string().min(1).optional(),
     descriptionContains: z.string().min(1).optional(),
     merchant: z.string().min(1).optional(),
     account: z.string().min(1).optional(),
@@ -20,6 +21,7 @@ export const transactionMatchSchema = z
     (value) =>
       Boolean(
         value.rawCategory ||
+          value.category ||
           value.descriptionContains ||
           value.merchant ||
           value.account
@@ -27,7 +29,11 @@ export const transactionMatchSchema = z
     {
       message: "At least one match condition is required.",
     }
-  );
+  )
+  .transform(({ category, rawCategory, ...rest }) => ({
+    ...rest,
+    rawCategory: rawCategory ?? category,
+  }));
 
 export type FinanceTransactionMatch = z.infer<typeof transactionMatchSchema>;
 
@@ -490,6 +496,20 @@ export type FinanceRulePreview = {
   affectedTransactions: FinanceRuleAffectedTransaction[];
   affectedTransactionsTruncated: boolean;
   totalAffectedTransactions: number;
+};
+
+export type FinanceTransactionCategoryRuleSuggestion = FinanceRulePreview & {
+  rationale: string;
+  action: Extract<FinanceAction, { type: "categorize_transactions" }>;
+  replaceRuleId: string | null;
+  replaceRuleSummary: string | null;
+};
+
+export type FinanceTransactionCategoryChangePreview = {
+  transactionId: string;
+  currentCategory: string;
+  nextCategory: string;
+  suggestedRule: FinanceTransactionCategoryRuleSuggestion | null;
 };
 
 export type FinanceSnapshot = {
