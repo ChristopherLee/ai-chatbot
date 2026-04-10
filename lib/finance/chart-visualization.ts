@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { NON_INCOME_RAW_CATEGORIES } from "./config";
 import type {
   CategoryGroup,
   FinanceCategoryCard,
@@ -6,7 +7,6 @@ import type {
   FinanceSnapshot,
   FinanceTransaction,
 } from "./types";
-import { NON_INCOME_RAW_CATEGORIES } from "./config";
 import {
   getFutureMonth,
   getMonthLabel,
@@ -113,6 +113,27 @@ function getMonthlyActual(category: FinanceCategoryCard, month: string) {
   );
 }
 
+function getObservedIncomeByMonth(transactions?: FinanceTransaction[]) {
+  const incomeByMonth = new Map<string, number>();
+
+  for (const transaction of transactions ?? []) {
+    if (
+      transaction.amountSigned <= 0 ||
+      NON_INCOME_RAW_CATEGORIES.has(transaction.rawCategory)
+    ) {
+      continue;
+    }
+
+    const month = toMonthKey(transaction.transactionDate);
+    incomeByMonth.set(
+      month,
+      roundCurrency((incomeByMonth.get(month) ?? 0) + transaction.amountSigned)
+    );
+  }
+
+  return incomeByMonth;
+}
+
 type FlowBucket = {
   amount: number;
   group?: CategoryGroup;
@@ -160,7 +181,10 @@ function resolveIncomeSourceLabel(transaction: FinanceTransaction) {
   const merchant = transaction.normalizedMerchant.trim();
   const rawCategory = transaction.rawCategory.trim();
 
-  if (merchant.length > 0 && merchant.toLowerCase() !== rawCategory.toLowerCase()) {
+  if (
+    merchant.length > 0 &&
+    merchant.toLowerCase() !== rawCategory.toLowerCase()
+  ) {
     return merchant;
   }
 
@@ -405,9 +429,13 @@ function buildCumulativeSpendChart(
   };
 }
 
-function buildCashFlowTrendChart(
-  snapshot: FinanceSnapshot
-): FinanceChartToolResult {
+function buildCashFlowTrendChart({
+  snapshot,
+  transactions,
+}: {
+  snapshot: FinanceSnapshot;
+  transactions?: FinanceTransaction[];
+}): FinanceChartToolResult {
   const latestMonth = getObservedMonth(snapshot);
   const latestPoint = latestMonth
     ? snapshot.monthlyChart.find((entry) => entry.month === latestMonth)
@@ -438,13 +466,17 @@ function buildCashFlowTrendChart(
     snapshot.cashFlowSummary.totalMonthlyBudgetTarget ??
       snapshot.cashFlowSummary.historicalAverageMonthlySpend
   );
+  const observedIncomeByMonth = getObservedIncomeByMonth(transactions);
+  const fallbackHistoricalIncome = roundCurrency(
+    snapshot.cashFlowSummary.historicalAverageMonthlyIncome
+  );
 
   let actualCashBalance = 0;
   let projectedCashBalance = 0;
 
   const historicalData = snapshot.monthlyChart.map((entry) => {
     const actualIncome = roundCurrency(
-      snapshot.cashFlowSummary.historicalAverageMonthlyIncome
+      observedIncomeByMonth.get(entry.month) ?? fallbackHistoricalIncome
     );
     const actualExpenses = entry.actual;
     const actualNet = roundCurrency(actualIncome - actualExpenses);
@@ -864,7 +896,10 @@ export function buildFinanceChart({
     case "cumulative-spend":
       return buildCumulativeSpendChart(snapshot);
     case "cash-flow-trend":
-      return buildCashFlowTrendChart(snapshot);
+      return buildCashFlowTrendChart({
+        snapshot,
+        transactions,
+      });
     case "month-over-month":
       return buildMonthOverMonthChart({
         snapshot,

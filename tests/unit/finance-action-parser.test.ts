@@ -99,6 +99,26 @@ test("heuristic raw-category requests map to categorize_transactions with match.
   ]);
 });
 
+test("heuristic merchant requests map to categorize_transactions with match.merchant", () => {
+  const snapshot = createSnapshot();
+
+  const actions = buildHeuristicActions({
+    latestUserMessage:
+      "Categorize smartwings transactions as dining going forward.",
+    snapshot,
+  });
+
+  assert.deepEqual(actions, [
+    {
+      type: "categorize_transactions",
+      match: {
+        merchant: "smartwings",
+      },
+      to: "Dining",
+    },
+  ]);
+});
+
 test("heuristics do not emit removed rename or merge action types", () => {
   const snapshot = createSnapshot();
 

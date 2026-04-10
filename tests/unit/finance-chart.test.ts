@@ -390,6 +390,7 @@ test("cash-flow-trend chart builds a month-by-month projection using saved targe
       categoryLimit: 6,
       sourceLimit: 4,
     },
+    transactions: sankeyTransactions,
   });
 
   assert.equal(result.status, "available");
@@ -403,8 +404,16 @@ test("cash-flow-trend chart builds a month-by-month projection using saved targe
   assert.equal(result.chart.projectionMonths, 6);
   assert.equal(result.chart.assumptions.projectedIncomeBasis, "income-target");
   assert.equal(result.chart.assumptions.projectedExpenseBasis, "budget-target");
+  assert.equal(result.chart.summary.actualNet, 2000);
   assert.equal(result.chart.summary.projectedNet, 2100);
-  assert.equal(result.chart.data.length, sankeySnapshot.monthlyChart.length + 6);
+  assert.equal(
+    result.chart.data.length,
+    sankeySnapshot.monthlyChart.length + 6
+  );
+  assert.equal(result.chart.data[0]?.actualIncome, 0);
+  assert.equal(result.chart.data[1]?.actualIncome, 0);
+  assert.equal(result.chart.data[2]?.actualIncome, 5000);
+  assert.equal(result.chart.data[2]?.actualExpenses, 3000);
   assert.equal(result.chart.data.at(-1)?.month, "2026-09");
   assert.equal(result.chart.data.at(-1)?.isProjected, true);
   assert.equal(result.chart.monthlyBreakdown.length, result.chart.data.length);

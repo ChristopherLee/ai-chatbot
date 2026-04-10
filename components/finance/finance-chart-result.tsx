@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import {
   Bar,
   BarChart,
@@ -15,7 +16,6 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { FinanceChartToolResult } from "@/lib/finance/types";
@@ -43,6 +43,8 @@ const FLOW_GROUP_COLORS: Record<string, string> = {
   annual: "#b45309",
   excluded: "#64748b",
 };
+
+const NO_DATA_LABEL = "-";
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("en-US", {
@@ -125,7 +127,9 @@ function SankeyTooltipContent({
   return (
     <div className="rounded-xl border border-white/10 bg-slate-950/95 px-3 py-2 text-slate-50 shadow-2xl">
       <div className="font-medium text-sm">{title}</div>
-      <div className="mt-1 text-slate-300 text-xs">{formatCurrency(amount)}</div>
+      <div className="mt-1 text-slate-300 text-xs">
+        {formatCurrency(amount)}
+      </div>
     </div>
   );
 }
@@ -430,7 +434,10 @@ function CashFlowTrendTable({
         const projectedIncome = Number(value.projectedIncome);
         const projectedExpenses = Number(value.projectedExpenses);
 
-        if (!Number.isFinite(projectedIncome) || !Number.isFinite(projectedExpenses)) {
+        if (
+          !Number.isFinite(projectedIncome) ||
+          !Number.isFinite(projectedExpenses)
+        ) {
           return [];
         }
 
@@ -460,7 +467,8 @@ function CashFlowTrendTable({
 
     return data.map((row) => {
       const monthOverride = overrides[row.month];
-      const projectedIncome = monthOverride?.projectedIncome ?? row.projectedIncome;
+      const projectedIncome =
+        monthOverride?.projectedIncome ?? row.projectedIncome;
       const projectedExpenses =
         monthOverride?.projectedExpenses ?? row.projectedExpenses;
       const projectedNet = projectedIncome - projectedExpenses;
@@ -481,105 +489,133 @@ function CashFlowTrendTable({
       <table className="min-w-full divide-y divide-border text-sm">
         <thead className="bg-muted/40">
           <tr>
-            <th className="px-3 py-2 text-left font-medium">Month</th>
-            <th className="px-3 py-2 text-right font-medium">Actual net</th>
-            <th className="px-3 py-2 text-right font-medium">Actual balance</th>
-            <th className="px-3 py-2 text-right font-medium">Projected income</th>
-            <th className="px-3 py-2 text-right font-medium">
-              Projected expenses
+            <th className="px-3 py-2 text-left font-medium" rowSpan={2}>
+              Month
             </th>
-            <th className="px-3 py-2 text-right font-medium">Projected net</th>
-            <th className="px-3 py-2 text-right font-medium">
-              Projected balance
+            <th className="px-3 py-2 text-center font-medium" colSpan={4}>
+              Actual
             </th>
-            <th className="px-3 py-2 text-left font-medium">Details</th>
+            <th className="px-3 py-2 text-center font-medium" colSpan={4}>
+              Plan
+            </th>
+            <th className="px-3 py-2 text-left font-medium" rowSpan={2}>
+              Details
+            </th>
+          </tr>
+          <tr>
+            <th className="px-3 py-2 text-right font-medium">Income</th>
+            <th className="px-3 py-2 text-right font-medium">Expenses</th>
+            <th className="px-3 py-2 text-right font-medium">Cash flow</th>
+            <th className="px-3 py-2 text-right font-medium">Cash balance</th>
+            <th className="px-3 py-2 text-right font-medium">Income</th>
+            <th className="px-3 py-2 text-right font-medium">Expenses</th>
+            <th className="px-3 py-2 text-right font-medium">Cash flow</th>
+            <th className="px-3 py-2 text-right font-medium">Cash balance</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-border/70">
-          {rows.map((row) => (
-            <tr className="bg-background/40" key={row.month}>
-              <td className="px-3 py-2 font-medium">{row.label}</td>
-              <td className="px-3 py-2 text-right">
-                {row.actualIncome > 0 || row.actualExpenses > 0
-                  ? formatDelta(row.actualNet)
-                  : "—"}
-              </td>
-              <td className="px-3 py-2 text-right">
-                {row.actualIncome > 0 || row.actualExpenses > 0
-                  ? formatCurrency(row.actualCashBalance)
-                  : "—"}
-              </td>
-              <td className="px-3 py-2 text-right">
-                <input
-                  className="w-28 rounded border bg-background px-2 py-1 text-right"
-                  inputMode="decimal"
-                  onChange={(event) => {
-                    const nextValue = Number(event.target.value || 0);
-                    setOverrides((current) => ({
-                      ...current,
-                      [row.month]: {
-                        projectedIncome: Number.isFinite(nextValue) ? nextValue : 0,
-                        projectedExpenses:
-                          current[row.month]?.projectedExpenses ??
-                          row.projectedExpenses,
-                      },
-                    }));
-                  }}
-                  value={Math.round(row.projectedIncome)}
-                />
-              </td>
-              <td className="px-3 py-2 text-right">
-                <input
-                  className="w-28 rounded border bg-background px-2 py-1 text-right"
-                  inputMode="decimal"
-                  onChange={(event) => {
-                    const nextValue = Number(event.target.value || 0);
-                    setOverrides((current) => ({
-                      ...current,
-                      [row.month]: {
-                        projectedIncome:
-                          current[row.month]?.projectedIncome ??
-                          row.projectedIncome,
-                        projectedExpenses:
-                          Number.isFinite(nextValue) ? nextValue : 0,
-                      },
-                    }));
-                  }}
-                  value={Math.round(row.projectedExpenses)}
-                />
-              </td>
-              <td className="px-3 py-2 text-right">
-                {formatDelta(row.projectedNet)}
-              </td>
-              <td className="px-3 py-2 text-right">
-                {formatCurrency(row.projectedCashBalance)}
-              </td>
-              <td className="px-3 py-2">
-                <details>
-                  <summary className="cursor-pointer text-muted-foreground text-xs">
-                    Category breakdown
-                  </summary>
-                  <div className="mt-2 space-y-1">
-                    {(breakdownByMonth.get(row.month)?.categories ?? [])
-                      .slice(0, 8)
-                      .map((category) => (
-                        <div
-                          className="flex items-center justify-between gap-2 text-xs"
-                          key={`${row.month}-${category.category}`}
-                        >
-                          <span className="truncate">{category.category}</span>
-                          <span className="text-muted-foreground">
-                            {row.isProjected
-                              ? formatCurrency(category.projected)
-                              : `${formatCurrency(category.actual)} / ${formatCurrency(category.projected)}`}
-                          </span>
-                        </div>
-                      ))}
-                  </div>
-                </details>
-              </td>
-            </tr>
-          ))}
+          {rows.map((row) => {
+            const hasActualData =
+              row.actualIncome > 0 || row.actualExpenses > 0;
+
+            return (
+              <tr className="bg-background/40" key={row.month}>
+                <td className="px-3 py-2 font-medium">{row.label}</td>
+                <td className="px-3 py-2 text-right">
+                  {hasActualData
+                    ? formatCurrency(row.actualIncome)
+                    : NO_DATA_LABEL}
+                </td>
+                <td className="px-3 py-2 text-right">
+                  {hasActualData
+                    ? formatCurrency(row.actualExpenses)
+                    : NO_DATA_LABEL}
+                </td>
+                <td className="px-3 py-2 text-right">
+                  {hasActualData ? formatDelta(row.actualNet) : NO_DATA_LABEL}
+                </td>
+                <td className="px-3 py-2 text-right">
+                  {hasActualData
+                    ? formatCurrency(row.actualCashBalance)
+                    : NO_DATA_LABEL}
+                </td>
+                <td className="px-3 py-2 text-right">
+                  <input
+                    className="w-28 rounded border bg-background px-2 py-1 text-right"
+                    inputMode="decimal"
+                    onChange={(event) => {
+                      const nextValue = Number(event.target.value || 0);
+                      setOverrides((current) => ({
+                        ...current,
+                        [row.month]: {
+                          projectedIncome: Number.isFinite(nextValue)
+                            ? nextValue
+                            : 0,
+                          projectedExpenses:
+                            current[row.month]?.projectedExpenses ??
+                            row.projectedExpenses,
+                        },
+                      }));
+                    }}
+                    value={Math.round(row.projectedIncome)}
+                  />
+                </td>
+                <td className="px-3 py-2 text-right">
+                  <input
+                    className="w-28 rounded border bg-background px-2 py-1 text-right"
+                    inputMode="decimal"
+                    onChange={(event) => {
+                      const nextValue = Number(event.target.value || 0);
+                      setOverrides((current) => ({
+                        ...current,
+                        [row.month]: {
+                          projectedIncome:
+                            current[row.month]?.projectedIncome ??
+                            row.projectedIncome,
+                          projectedExpenses: Number.isFinite(nextValue)
+                            ? nextValue
+                            : 0,
+                        },
+                      }));
+                    }}
+                    value={Math.round(row.projectedExpenses)}
+                  />
+                </td>
+                <td className="px-3 py-2 text-right">
+                  {formatDelta(row.projectedNet)}
+                </td>
+                <td className="px-3 py-2 text-right">
+                  {formatCurrency(row.projectedCashBalance)}
+                </td>
+                <td className="px-3 py-2">
+                  <details>
+                    <summary className="cursor-pointer text-muted-foreground text-xs">
+                      Category breakdown
+                    </summary>
+                    <div className="mt-2 space-y-1">
+                      {(breakdownByMonth.get(row.month)?.categories ?? [])
+                        .slice(0, 8)
+                        .map((category) => (
+                          <div
+                            className="flex items-center justify-between gap-2 text-xs"
+                            key={`${row.month}-${category.category}`}
+                          >
+                            <span className="truncate">
+                              {category.category}
+                            </span>
+                            <span className="text-muted-foreground">
+                              {row.isProjected
+                                ? formatCurrency(category.projected)
+                                : `${formatCurrency(category.actual)} / ${formatCurrency(category.projected)}`}
+                            </span>
+                          </div>
+                        ))}
+                    </div>
+                  </details>
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
@@ -684,7 +720,8 @@ export function FinanceChartResult({
               and{" "}
               {chart.assumptions.projectedExpenseBasis === "budget-target"
                 ? "saved budget target"
-                : "historical average spend"}.
+                : "historical average spend"}
+              .
             </div>
           </CardHeader>
           <CardContent>

@@ -26,7 +26,6 @@ import {
   isReasoningModelId,
 } from "@/lib/ai/providers";
 import {
-  CHAT_STREAM_TIMEOUT_SECONDS,
   createStreamTimeout,
 } from "@/lib/ai/stream-timeout";
 import { applyFinanceActions } from "@/lib/ai/tools/apply-finance-actions";
@@ -67,7 +66,8 @@ import { convertToUIMessages, generateUUID } from "@/lib/utils";
 import { generateTitleFromUserMessage } from "../../actions";
 import { type PostRequestBody, postRequestBodySchema } from "./schema";
 
-export const maxDuration = CHAT_STREAM_TIMEOUT_SECONDS;
+// Next.js segment config exports must be statically analyzable in this file.
+export const maxDuration = 120;
 
 function buildFinancePromptContext(snapshot: FinanceSnapshot) {
   return {

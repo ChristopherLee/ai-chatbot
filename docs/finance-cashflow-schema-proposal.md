@@ -9,6 +9,7 @@ Support durable storage for the new planning capabilities:
 - month+category overrides for one-off category changes
 - optional row-level notes for partner-style planning context
 - reproducible chart payload inputs from persisted data
+- a spreadsheet-style monthly income / expenses / cash-flow table derived from the same scenario state as every chart
 
 ## Design principles
 
@@ -17,6 +18,7 @@ Support durable storage for the new planning capabilities:
 3. **Append-only where useful**: include timestamps for auditability.
 4. **Unified override ledger**: all budget visuals should read the same persisted monthly override source.
 5. **Normalized monthly overrides**: avoid large JSON blobs for queryability.
+6. **One monthly truth table**: charts and spreadsheet-style tables should be derived from the same month-level income / expense / cash-flow read model.
 
 ## Proposed tables
 
@@ -148,6 +150,25 @@ For each month in chart horizon:
 6. Reconcile category total vs top-line projected expense:
    - either scale uncapped categories proportionally, or
    - show a "difference" bucket for explicit user control.
+
+## Derived monthly table (read model)
+
+To support the spreadsheet-style experience in the screenshot, the app should derive a
+single month-level table per scenario with rows/fields like:
+
+- `month`
+- `actualIncome`
+- `projectedIncome`
+- `actualExpenses`
+- `projectedExpenses`
+- `actualCashFlow`
+- `projectedCashFlow`
+- `runningCashBalance`
+
+This is a **read model**, not a second source of truth. It should be computed from the
+same scenario baseline plus `FinanceScenarioIncomeOverride` and
+`FinanceScenarioBudgetOverride` rows that power the charts, so the monthly table,
+cash-flow chart, and budget visuals always agree.
 
 ## Migration/rollout approach
 

@@ -21,3 +21,37 @@ test("finance action schema accepts category as a match alias", () => {
     },
   ]);
 });
+
+test("finance action schema preserves merchant-only and description-only matches", () => {
+  const actions = financeActionsSchema.parse([
+    {
+      type: "categorize_transactions",
+      match: {
+        merchant: "Sp Smartwings",
+      },
+      to: "Furniture",
+    },
+    {
+      type: "exclude_transactions",
+      match: {
+        descriptionContains: "balance transfer",
+      },
+    },
+  ]);
+
+  assert.deepEqual(actions, [
+    {
+      type: "categorize_transactions",
+      match: {
+        merchant: "Sp Smartwings",
+      },
+      to: "Furniture",
+    },
+    {
+      type: "exclude_transactions",
+      match: {
+        descriptionContains: "balance transfer",
+      },
+    },
+  ]);
+});

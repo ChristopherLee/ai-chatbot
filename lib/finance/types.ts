@@ -32,7 +32,9 @@ export const transactionMatchSchema = z
   )
   .transform(({ category, rawCategory, ...rest }) => ({
     ...rest,
-    rawCategory: rawCategory ?? category,
+    ...(rawCategory ?? category
+      ? { rawCategory: rawCategory ?? category }
+      : {}),
   }));
 
 export type FinanceTransactionMatch = z.infer<typeof transactionMatchSchema>;
