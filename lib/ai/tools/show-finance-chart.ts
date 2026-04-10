@@ -21,6 +21,7 @@ Use this when the user asks to visualize spend over time, compare the current mo
 Available chart types:
 - monthly-spend: monthly actual spend vs target
 - cumulative-spend: cumulative actual spend vs target pace
+- cash-flow-trend: historical and projected net cash + running cash balance
 - month-over-month: current month vs previous month by category
 - spending-breakdown: current month spending mix by category
 - income-to-expenses: Sankey view of income sources flowing into expense categories`,
