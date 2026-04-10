@@ -151,6 +151,7 @@ export type FinanceCumulativeChartPoint = {
 export type FinanceChartType =
   | "monthly-spend"
   | "cumulative-spend"
+  | "cash-flow-trend"
   | "month-over-month"
   | "spending-breakdown"
   | "income-to-expenses";
@@ -217,6 +218,50 @@ export type FinanceCumulativeSpendChartResult = {
   data: FinanceCumulativeChartPoint[];
 };
 
+export type FinanceCashFlowTrendChartPoint = {
+  month: string;
+  label: string;
+  isProjected: boolean;
+  actualIncome: number;
+  actualExpenses: number;
+  actualNet: number;
+  projectedIncome: number;
+  projectedExpenses: number;
+  projectedNet: number;
+  actualCashBalance: number;
+  projectedCashBalance: number;
+};
+
+export type FinanceCashFlowTrendChartResult = {
+  chartType: "cash-flow-trend";
+  title: string;
+  description: string;
+  latestMonth: string;
+  latestMonthLabel: string;
+  projectionMonths: number;
+  assumptions: {
+    projectedIncomeBasis: "income-target" | "historical-average";
+    projectedExpenseBasis: "budget-target" | "historical-average";
+  };
+  summary: {
+    actualNet: number;
+    projectedNet: number;
+    actualCashBalance: number;
+    projectedCashBalance: number;
+  };
+  monthlyBreakdown: Array<{
+    month: string;
+    label: string;
+    categories: Array<{
+      category: string;
+      group: CategoryGroup;
+      actual: number;
+      projected: number;
+    }>;
+  }>;
+  data: FinanceCashFlowTrendChartPoint[];
+};
+
 export type FinanceMonthOverMonthChartResult = {
   chartType: "month-over-month";
   title: string;
@@ -277,6 +322,7 @@ export type FinanceIncomeToExpensesChartResult = {
 export type FinanceChartResult =
   | FinanceMonthlySpendChartResult
   | FinanceCumulativeSpendChartResult
+  | FinanceCashFlowTrendChartResult
   | FinanceMonthOverMonthChartResult
   | FinanceSpendingBreakdownChartResult
   | FinanceIncomeToExpensesChartResult;

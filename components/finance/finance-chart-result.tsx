@@ -5,6 +5,8 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
+  Line,
+  LineChart,
   Pie,
   PieChart,
   ResponsiveContainer,
@@ -13,6 +15,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { FinanceChartToolResult } from "@/lib/finance/types";
@@ -334,6 +337,255 @@ function SpendingBreakdownChart({
   );
 }
 
+function CashFlowTrendChart({
+  data,
+}: {
+  data: Array<{
+    label: string;
+    actualCashBalance: number;
+    projectedCashBalance: number;
+  }>;
+}) {
+  return (
+    <div className="h-72 w-full">
+      <ResponsiveContainer height="100%" width="100%">
+        <LineChart data={data}>
+          <CartesianGrid strokeDasharray="3 3" vertical={false} />
+          <XAxis dataKey="label" minTickGap={20} />
+          <YAxis tickFormatter={(value) => `$${value}`} width={86} />
+          <Tooltip
+            formatter={(value) => formatCurrency(Number(value ?? 0))}
+            labelFormatter={(label) => String(label)}
+          />
+          <Line
+            dataKey="actualCashBalance"
+            dot={false}
+            isAnimationActive={false}
+            name="Actual cash balance"
+            stroke="#1d4ed8"
+            strokeWidth={2.5}
+            type="monotone"
+          />
+          <Line
+            dataKey="projectedCashBalance"
+            dot={false}
+            isAnimationActive={false}
+            name="Projected cash balance"
+            stroke="#0f766e"
+            strokeDasharray="6 4"
+            strokeWidth={2.5}
+            type="monotone"
+          />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+function CashFlowTrendTable({
+  data,
+  monthlyBreakdown,
+  storageKey,
+}: {
+  data: Array<{
+    label: string;
+    month: string;
+    actualIncome: number;
+    actualExpenses: number;
+    actualNet: number;
+    actualCashBalance: number;
+    projectedIncome: number;
+    projectedExpenses: number;
+    projectedNet: number;
+    projectedCashBalance: number;
+    isProjected: boolean;
+  }>;
+  monthlyBreakdown: Array<{
+    month: string;
+    categories: Array<{
+      category: string;
+      group: string;
+      actual: number;
+      projected: number;
+    }>;
+  }>;
+  storageKey: string;
+}) {
+  const [overrides, setOverrides] = useState<
+    Record<string, { projectedIncome: number; projectedExpenses: number }>
+  >({});
+
+  useEffect(() => {
+    try {
+      const storedValue = window.localStorage.getItem(storageKey);
+      if (!storedValue) {
+        return;
+      }
+
+      const parsed = JSON.parse(storedValue) as Record<
+        string,
+        { projectedIncome?: unknown; projectedExpenses?: unknown }
+      >;
+      const safeEntries = Object.entries(parsed).flatMap(([month, value]) => {
+        const projectedIncome = Number(value.projectedIncome);
+        const projectedExpenses = Number(value.projectedExpenses);
+
+        if (!Number.isFinite(projectedIncome) || !Number.isFinite(projectedExpenses)) {
+          return [];
+        }
+
+        return [[month, { projectedIncome, projectedExpenses }] as const];
+      });
+
+      setOverrides(Object.fromEntries(safeEntries));
+    } catch {
+      setOverrides({});
+    }
+  }, [storageKey]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(storageKey, JSON.stringify(overrides));
+    } catch {
+      // Ignore localStorage write errors (private mode / quota).
+    }
+  }, [overrides, storageKey]);
+  const breakdownByMonth = useMemo(
+    () => new Map(monthlyBreakdown.map((entry) => [entry.month, entry])),
+    [monthlyBreakdown]
+  );
+
+  const rows = useMemo(() => {
+    let projectedCashBalance = 0;
+
+    return data.map((row) => {
+      const monthOverride = overrides[row.month];
+      const projectedIncome = monthOverride?.projectedIncome ?? row.projectedIncome;
+      const projectedExpenses =
+        monthOverride?.projectedExpenses ?? row.projectedExpenses;
+      const projectedNet = projectedIncome - projectedExpenses;
+      projectedCashBalance += projectedNet;
+
+      return {
+        ...row,
+        projectedIncome,
+        projectedExpenses,
+        projectedNet,
+        projectedCashBalance,
+      };
+    });
+  }, [data, overrides]);
+
+  return (
+    <div className="overflow-x-auto rounded-xl border">
+      <table className="min-w-full divide-y divide-border text-sm">
+        <thead className="bg-muted/40">
+          <tr>
+            <th className="px-3 py-2 text-left font-medium">Month</th>
+            <th className="px-3 py-2 text-right font-medium">Actual net</th>
+            <th className="px-3 py-2 text-right font-medium">Actual balance</th>
+            <th className="px-3 py-2 text-right font-medium">Projected income</th>
+            <th className="px-3 py-2 text-right font-medium">
+              Projected expenses
+            </th>
+            <th className="px-3 py-2 text-right font-medium">Projected net</th>
+            <th className="px-3 py-2 text-right font-medium">
+              Projected balance
+            </th>
+            <th className="px-3 py-2 text-left font-medium">Details</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-border/70">
+          {rows.map((row) => (
+            <tr className="bg-background/40" key={row.month}>
+              <td className="px-3 py-2 font-medium">{row.label}</td>
+              <td className="px-3 py-2 text-right">
+                {row.actualIncome > 0 || row.actualExpenses > 0
+                  ? formatDelta(row.actualNet)
+                  : "—"}
+              </td>
+              <td className="px-3 py-2 text-right">
+                {row.actualIncome > 0 || row.actualExpenses > 0
+                  ? formatCurrency(row.actualCashBalance)
+                  : "—"}
+              </td>
+              <td className="px-3 py-2 text-right">
+                <input
+                  className="w-28 rounded border bg-background px-2 py-1 text-right"
+                  inputMode="decimal"
+                  onChange={(event) => {
+                    const nextValue = Number(event.target.value || 0);
+                    setOverrides((current) => ({
+                      ...current,
+                      [row.month]: {
+                        projectedIncome: Number.isFinite(nextValue) ? nextValue : 0,
+                        projectedExpenses:
+                          current[row.month]?.projectedExpenses ??
+                          row.projectedExpenses,
+                      },
+                    }));
+                  }}
+                  value={Math.round(row.projectedIncome)}
+                />
+              </td>
+              <td className="px-3 py-2 text-right">
+                <input
+                  className="w-28 rounded border bg-background px-2 py-1 text-right"
+                  inputMode="decimal"
+                  onChange={(event) => {
+                    const nextValue = Number(event.target.value || 0);
+                    setOverrides((current) => ({
+                      ...current,
+                      [row.month]: {
+                        projectedIncome:
+                          current[row.month]?.projectedIncome ??
+                          row.projectedIncome,
+                        projectedExpenses:
+                          Number.isFinite(nextValue) ? nextValue : 0,
+                      },
+                    }));
+                  }}
+                  value={Math.round(row.projectedExpenses)}
+                />
+              </td>
+              <td className="px-3 py-2 text-right">
+                {formatDelta(row.projectedNet)}
+              </td>
+              <td className="px-3 py-2 text-right">
+                {formatCurrency(row.projectedCashBalance)}
+              </td>
+              <td className="px-3 py-2">
+                <details>
+                  <summary className="cursor-pointer text-muted-foreground text-xs">
+                    Category breakdown
+                  </summary>
+                  <div className="mt-2 space-y-1">
+                    {(breakdownByMonth.get(row.month)?.categories ?? [])
+                      .slice(0, 8)
+                      .map((category) => (
+                        <div
+                          className="flex items-center justify-between gap-2 text-xs"
+                          key={`${row.month}-${category.category}`}
+                        >
+                          <span className="truncate">{category.category}</span>
+                          <span className="text-muted-foreground">
+                            {row.isProjected
+                              ? formatCurrency(category.projected)
+                              : `${formatCurrency(category.actual)} / ${formatCurrency(category.projected)}`}
+                          </span>
+                        </div>
+                      ))}
+                  </div>
+                </details>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export function FinanceChartResult({
   result,
 }: {
@@ -395,6 +647,57 @@ export function FinanceChartResult({
           </div>
         </div>
         <CumulativePaceChart data={chart.data} />
+      </div>
+    );
+  }
+
+  if (chart.chartType === "cash-flow-trend") {
+    return (
+      <div className="space-y-4 p-4 text-sm">
+        <Card>
+          <CardHeader className="space-y-2">
+            <CardTitle>{chart.title}</CardTitle>
+            <div className="text-muted-foreground text-sm">
+              {chart.description}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Badge variant="secondary">{chart.latestMonthLabel}</Badge>
+              <Badge variant="secondary">
+                Actual net {formatDelta(chart.summary.actualNet)}
+              </Badge>
+              <Badge variant="secondary">
+                Projected net {formatDelta(chart.summary.projectedNet)}
+              </Badge>
+              <Badge variant="outline">
+                Actual balance {formatCurrency(chart.summary.actualCashBalance)}
+              </Badge>
+              <Badge variant="outline">
+                Projected {chart.projectionMonths}mo{" "}
+                {formatCurrency(chart.summary.projectedCashBalance)}
+              </Badge>
+            </div>
+            <div className="text-muted-foreground text-xs">
+              Projection uses{" "}
+              {chart.assumptions.projectedIncomeBasis === "income-target"
+                ? "saved income target"
+                : "historical average income"}{" "}
+              and{" "}
+              {chart.assumptions.projectedExpenseBasis === "budget-target"
+                ? "saved budget target"
+                : "historical average spend"}.
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <CashFlowTrendChart data={chart.data} />
+              <CashFlowTrendTable
+                data={chart.data}
+                monthlyBreakdown={chart.monthlyBreakdown}
+                storageKey={`finance-cashflow-overrides:${chart.latestMonth}`}
+              />
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -546,4 +849,3 @@ export function FinanceChartResult({
     </div>
   );
 }
-
